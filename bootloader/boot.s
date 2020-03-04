@@ -42,6 +42,11 @@ protected_mode:
   lea esi, msg_set_up
   call print_string_32
 
+  lidt [idt_pointer]
+
+  mov ax, 0
+  div dx
+
 halt:
   cli
   hlt
