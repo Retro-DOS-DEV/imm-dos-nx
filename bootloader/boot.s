@@ -17,6 +17,46 @@ start:
   or al, 2
   out 0x92, al
 
+  # read the directory entries from disk
+  # we assume we still have the MBR at 0x7c00
+  call init_fat
+  mov bx, 0x7e00
+  mov ax, [sector_of_root_dir]
+  call copy_sector_at_lba
+
+  # find the kernel
+  cld
+directory_entry_search:
+  # check if the directory entry is empty
+  mov ah, [bx]
+  cmp ah, 0
+  je kernel_not_found
+  # compare all letters of the filename
+  mov cx, 11
+  lea si, filename_kernel
+  push bx
+check_filename_character:
+  lodsb
+  mov ah, [bx]
+  cmp al, ah
+  jnz check_next_entry
+  inc bx
+  loop check_filename_character
+  jmp kernel_found
+check_next_entry:
+  pop bx
+  add bx, 32
+  jmp directory_entry_search
+kernel_not_found:
+  lea si, msg_kernel_not_found
+  call print_string_16
+  jmp halt
+
+kernel_found:
+  pop bx
+  lea si, msg_kernel_found
+  call print_string_16
+
   # set up GDT and null IDT
   cli
   lgdt [gdt_pointer]
@@ -51,10 +91,14 @@ halt:
   cli
   hlt
 
+.include "disk.s"
 .include "gdt.s"
 .include "idt.s"
 .include "print16.s"
 .include "print32.s"
 
+filename_kernel: .ascii "KERNEL  BIN"
 msg_start: .asciz "Booting...\r\n"
+msg_kernel_found: .asciz "Kernel found, loading into memory.\r\n"
+msg_kernel_not_found: .asciz "Kernel not found!"
 msg_set_up: .asciz "System is in 32 bit protected mode! "
