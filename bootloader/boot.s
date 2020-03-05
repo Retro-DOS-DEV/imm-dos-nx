@@ -155,9 +155,37 @@ protected_mode:
 
   lidt [idt_pointer]
 
+  # read the ELF sections to find the end of the kernel in memory
+  xor ecx, ecx
+  mov cx, [0x100000 + 0x30]
+  mov eax, [0x100000 + 0x20]
+  xor edx, edx
+read_section_header:
+  mov ebx, [0x100000 + eax + 0x0c]
+  add ebx, [0x100000 + eax + 0x14]
+  cmp ebx, edx
+  jb next_section_header
+  mov edx, ebx
+
+next_section_header:
+  xor ebx, ebx
+  mov bx, [0x100000 + 0x2e]
+  add eax, ebx
+  loop read_section_header
+
+  # edx should be the furthest extent of any program section
+  # move the stack pointer to the last four bytes of this section
+  mov esp, edx
+  sub esp, 4
+  
   # read entrypoint from ELF header
   mov eax, [0x100000 + 0x18]
   jmp eax
+
+symtab_not_found:
+  call print_newline
+  lea esi, msg_symtab_not_found
+  call print_string_32
 
 halt:
   cli
@@ -175,3 +203,4 @@ msg_start: .asciz "Booting...\r\n"
 msg_kernel_found: .asciz "Kernel found, loading into memory.\r\n"
 msg_kernel_not_found: .asciz "Kernel not found!"
 msg_set_up: .asciz "System is in 32 bit protected mode! "
+msg_symtab_not_found: .asciz "Kernel symbol table not found!"

@@ -20,6 +20,12 @@ disable_cursor:
   pop eax
   ret
 
+# scroll to the next line and move the cursor to position 0
+print_newline:
+  call scroll_window
+  movb [print_cursor_col], 0
+  ret
+
 # print a zero-terminated string, located at esi
 print_string_32:
   cld
