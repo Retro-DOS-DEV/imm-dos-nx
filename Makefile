@@ -46,7 +46,7 @@ $(bootloader_obj): $(bootloader_src) bootloader/*.s
 $(kernel): $(libkernel)
 	@ld -o $(kernel) --gc-sections -m elf_i386 -T $(kernel_linker) $(libkernel)
 
-$(libkernel): kernel/src/*
+$(libkernel): kernel/src/* kernel/src/*/* kernel/src/*/*/*
 	@cd kernel && \
 	cargo xbuild --lib --target i386-kernel.json --release
 	@cp kernel/target/i386-kernel/release/libkernel.a $(libkernel)
