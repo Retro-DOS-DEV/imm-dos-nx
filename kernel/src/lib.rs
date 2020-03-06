@@ -2,6 +2,9 @@
 
 #![no_std]
 
+pub mod debug;
+pub mod devices;
+pub mod hardware;
 pub mod panic;
 
 extern {
@@ -23,6 +26,9 @@ pub extern "C" fn _start() -> ! {
     // just write something so we know we hit the kernel
     asm!("mov eax, 0x99" : : : "eax" : "intel", "volatile");
   }
+
+  kprintln!("\nEntering the Kernel...");
+
   loop {
     unsafe {
       asm!("hlt" : : : : "volatile");

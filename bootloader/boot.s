@@ -128,6 +128,9 @@ copy_to_highmem_loop:
   jmp copy_kernel_sector
 
 kernel_copied:
+  # map memory
+  call map_memory
+
   # set up GDT and null IDT
   cli
   lgdt [gdt_pointer]
@@ -173,6 +176,7 @@ next_section_header:
   add eax, ebx
   loop read_section_header
 
+enter_kernel:
   # edx should be the furthest extent of any program section
   # move the stack pointer to the last four bytes of this section
   mov esp, edx
@@ -194,6 +198,7 @@ halt:
 .include "disk.s"
 .include "gdt.s"
 .include "idt.s"
+.include "memory.s"
 .include "print16.s"
 .include "print32.s"
 .include "unreal.s"
