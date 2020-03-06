@@ -5,6 +5,7 @@
 pub mod debug;
 pub mod devices;
 pub mod hardware;
+pub mod memory;
 pub mod panic;
 
 extern {
@@ -23,11 +24,16 @@ extern {
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
   unsafe {
-    // just write something so we know we hit the kernel
-    asm!("mov eax, 0x99" : : : "eax" : "intel", "volatile");
-  }
+    kprintln!("\nEntering the Kernel...");
 
-  kprintln!("\nEntering the Kernel...");
+    // In the bootloader, we placed the memory map at 0x1000
+    let mem_map = memory::map::load_entries_at_address(0x1000);
+    kprintln!("Memory Map:");
+    for entry in mem_map {
+      kprintln!("{:?}", entry);
+    }
+    
+  }
 
   loop {
     unsafe {
