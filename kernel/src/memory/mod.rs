@@ -28,3 +28,9 @@ pub fn count_free_frames() -> usize {
     FRAME_ALLOCATOR.count_free_frames()
   }
 }
+
+pub fn allocate_physical_frame() -> frame_allocator::FrameAllocatorResult {
+  unsafe {
+    FRAME_ALLOCATOR.allocate()
+  }
+}

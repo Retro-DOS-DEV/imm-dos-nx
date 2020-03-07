@@ -129,7 +129,7 @@ impl BitmapFrameAllocator {
         let start = i << 3;
         for j in 0..8 {
           if *bitmap & (1 << j) == 0 {
-            return Ok(Frame::new(start + j));
+            return Ok(Frame::new((start + j) * 4096));
           }
         }
       }

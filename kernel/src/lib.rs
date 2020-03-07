@@ -40,6 +40,7 @@ pub extern "C" fn _start() -> ! {
     kprintln!("Kernel goes from {:?} to {:?}", kernel_start, kernel_end);
 
     memory::init(kernel_start, kernel_end);
+
     kprint!("Frame Table: ----------------------------------");
     for i in 0..memory::FRAME_ALLOCATOR.length {
       if i & 15 == 0 {
