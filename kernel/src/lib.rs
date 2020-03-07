@@ -1,12 +1,17 @@
 #![feature(asm)]
+#![feature(core_intrinsics)]
+#![feature(naked_functions)]
 
 #![no_std]
 
 pub mod debug;
 pub mod devices;
 pub mod hardware;
+pub mod idt;
+pub mod interrupts;
 pub mod memory;
 pub mod panic;
+pub mod x86;
 
 use memory::address::PhysicalAddress;
 
@@ -50,6 +55,18 @@ pub extern "C" fn _start() -> ! {
       kprint!("{:02x} ", *(ptr.offset(i as isize)));
     }
     kprintln!("\nTotal Frames: {}\nFree Frames: {}", memory::count_frames(), memory::count_free_frames());
+
+    // Initialize paging
+
+    // Initialize interrupts
+    idt::init();
+
+    // Update GDT
+
+    // Initialize kernel heap
+
+    // Test interrupts
+    asm!("mov ax, 0; div dx" : : : : "intel", "volatile");
   }
 
   loop {
