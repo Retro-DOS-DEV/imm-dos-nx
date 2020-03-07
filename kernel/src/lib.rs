@@ -40,7 +40,7 @@ pub extern "C" fn _start() -> ! {
     kprintln!("Kernel goes from {:?} to {:?}", kernel_start, kernel_end);
 
     memory::init(kernel_start, kernel_end);
-    kprint!("Frame Table:");
+    kprint!("Frame Table: ----------------------------------");
     for i in 0..memory::FRAME_ALLOCATOR.length {
       if i & 15 == 0 {
         kprintln!();
@@ -48,6 +48,7 @@ pub extern "C" fn _start() -> ! {
       let ptr = memory::FRAME_ALLOCATOR.start as *const u8;
       kprint!("{:02x} ", *(ptr.offset(i as isize)));
     }
+    kprintln!("\nTotal Frames: {}\nFree Frames: {}", memory::count_frames(), memory::count_free_frames());
   }
 
   loop {

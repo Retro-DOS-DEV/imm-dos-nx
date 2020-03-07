@@ -95,7 +95,7 @@ impl BitmapFrameAllocator {
   unsafe fn reset_table(&mut self) {
     let mut index = 0;
     let mut ptr_32 = self.start as *mut u32;
-    while index < self.length - 4 {
+    while index <= self.length - 4 {
       *ptr_32 = 0xffffffff;
       ptr_32 = ptr_32.offset(1);
       index += 4;
@@ -174,6 +174,28 @@ impl FrameAllocator for BitmapFrameAllocator {
   }
 
   fn count_free_frames(&self) -> usize {
-    0
+    let mut index = 0;
+    let mut count = 0;
+    unsafe {
+      let mut ptr_8 = self.get_starting_ptr();
+      while index < self.length {
+        let mut bitmap = *ptr_8;
+        if bitmap != 0xff {
+          if bitmap == 0 {
+            count += 8;
+          } else {
+            // can't use POPCOUNT without SSE
+            count += 8;
+            while bitmap != 0 {
+              count -= (bitmap & 1) as usize;
+              bitmap = bitmap >> 1;
+            }
+          }
+        }
+        index += 1;
+        ptr_8 = ptr_8.offset(1);
+      }
+    }
+    count
   }
 }
