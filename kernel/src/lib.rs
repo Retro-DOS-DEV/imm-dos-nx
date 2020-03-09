@@ -57,6 +57,8 @@ pub extern "C" fn _start() -> ! {
     kprintln!("\nTotal Frames: {}\nFree Frames: {}", memory::count_frames(), memory::count_free_frames());
 
     // Initialize paging
+    memory::init_paging();
+    kprintln!("Paging Enabled");
 
     // Initialize interrupts
     idt::init();
@@ -65,8 +67,9 @@ pub extern "C" fn _start() -> ! {
 
     // Initialize kernel heap
 
-    // Test interrupts
-    asm!("mov ax, 0; div dx" : : : : "intel", "volatile");
+    // Test page faults
+    let addr = 0xdeadbeef as *mut u8;
+    *addr = 2;
   }
 
   loop {

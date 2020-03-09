@@ -1,6 +1,6 @@
 use core::mem;
 
-use crate::interrupt;
+use crate::{interrupt, interrupt_with_error};
 use crate::interrupts;
 use crate::x86::segments::SegmentSelector;
 
@@ -73,7 +73,8 @@ pub unsafe fn init() {
 
   IDT[8].set_handler(interrupt!(interrupts::exceptions::double_fault));
 
-  IDT[13].set_handler(interrupt!(interrupts::exceptions::gpf));
+  IDT[13].set_handler(interrupt_with_error!(interrupts::exceptions::gpf));
+  IDT[14].set_handler(interrupt_with_error!(interrupts::exceptions::page_fault));
 
   lidt(&IDTR);
 }
