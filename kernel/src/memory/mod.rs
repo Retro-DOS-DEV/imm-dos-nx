@@ -54,6 +54,26 @@ pub fn init_paging() {
   x86::registers::enable_paging();
 }
 
+/**
+ * Move the kernel stack frame from the last page of bss to the last page of
+ * available virtual memory, at 0xffbff000
+ */
+pub fn move_kernel_stack(stack_frame: frame::Frame) {
+  let page_address = address::VirtualAddress::new(0xffbff000);
+  paging::map_address_to_frame(page_address, stack_frame);
+  let stack_frame_addr = stack_frame.get_address().as_u32();
+  // move esp to the higher page, maintaining its relative location in the frame
+  unsafe {
+    asm!("mov eax, esp
+          sub eax, $0
+          add eax, 0xffbff000
+          mov esp, eax" : :
+          "r"(stack_frame_addr) : :
+          "intel", "volatile"
+    );
+  }
+}
+
 pub fn count_frames() -> usize {
   unsafe {
     FRAME_ALLOCATOR.count_frames()

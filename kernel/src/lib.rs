@@ -26,6 +26,8 @@ extern {
   static label_rw_physical_start: u8;
   #[link_name = "__rw_physical_end"]
   static label_rw_physical_end: u8;
+  #[link_name = "__stack_start"]
+  static label_stack_start: u8;
 }
 
 #[no_mangle]
@@ -58,7 +60,9 @@ pub extern "C" fn _start() -> ! {
 
     // Initialize paging
     memory::init_paging();
-    kprintln!("Paging Enabled");
+    let stack_start = PhysicalAddress::new(&label_stack_start as *const u8 as usize);
+    memory::move_kernel_stack(memory::frame::Frame::containing_address(stack_start));
+    kprintln!("Paging enabled, Stack moved to top of memory");
 
     // Initialize interrupts
     idt::init();
