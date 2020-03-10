@@ -180,10 +180,11 @@ enter_kernel:
   # edx should be the furthest extent of any program section
   # move the stack pointer to the last four bytes of this section
   mov esp, edx
-  sub esp, 4
+  sub esp, 0xc0000004
   
   # read entrypoint from ELF header
   mov eax, [0x100000 + 0x18]
+  sub eax, 0xc0000000
   jmp eax
 
 symtab_not_found:

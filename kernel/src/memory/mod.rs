@@ -37,6 +37,8 @@ pub fn init_paging() {
     virtual_location: address::VirtualAddress::new(table_0_frame.get_address().as_usize()),
   };
   dir.set_table_at_entry(table_0_frame.get_address(), 0);
+  // also map it to 0xc0000000
+  dir.set_table_at_entry(table_0_frame.get_address(), 0xc0000000 >> 22);
   for i in 0..1024 {
     let frame_inspect = frame::Frame::new(i * 0x1000);
     let is_occupied = unsafe {

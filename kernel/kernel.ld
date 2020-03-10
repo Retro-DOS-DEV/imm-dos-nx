@@ -1,8 +1,8 @@
 ENTRY(_start)
 OUTPUT_FORMAT(elf32-i386)
 
-KERNEL_VADDR_OFFSET = 0;
-KERNEL_OFFSET = 0x100000;
+KERNEL_VADDR_OFFSET = 0xC0000000;
+KERNEL_OFFSET = 0xC0100000;
 
 SECTIONS
 {
@@ -44,9 +44,9 @@ SECTIONS
 
     . = ALIGN(0x1000);
 
-    __stack_start = .;
+    __stack_start = . - KERNEL_VADDR_OFFSET;
     . += 4096;
-    __stack_end = .;
+    __stack_end = . - KERNEL_VADDR_OFFSET;
 
     __rw_physical_end = . - KERNEL_VADDR_OFFSET;
   }
