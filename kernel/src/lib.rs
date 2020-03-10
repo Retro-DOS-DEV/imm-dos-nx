@@ -1,3 +1,4 @@
+#![feature(alloc_error_handler)]
 #![feature(asm)]
 #![feature(core_intrinsics)]
 #![feature(naked_functions)]
@@ -14,6 +15,8 @@ pub mod panic;
 pub mod x86;
 
 use memory::address::PhysicalAddress;
+
+extern crate alloc;
 
 extern {
   // Segment labels from the linker script
@@ -70,7 +73,34 @@ pub extern "C" fn _start() -> ! {
     // Update GDT
 
     // Initialize kernel heap
+    {
+      let heap_start = memory::address::VirtualAddress::new(0xc0400000);
+      let heap_size_frames = 2;
+      for i in 0..heap_size_frames {
+        let heap_frame = memory::allocate_physical_frame().unwrap();
+        let heap_page = memory::address::VirtualAddress::new(0xc0400000 + i * 4096);
+        memory::paging::map_address_to_frame(heap_page, heap_frame);
+      }
+      let heap_size = heap_size_frames * 4096;
+      kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));
+      memory::heap::init_allocator(heap_start, heap_size);
+    }
 
+    // Test allocation
+    let x = alloc::alloc::alloc(alloc::alloc::Layout::new::<u32>()) as *mut u32;
+    *x = 0xfa;
+    kprintln!("Allocated something: {:?}", x);
+    {
+      let y = alloc::boxed::Box::new(0xafu8);
+      kprintln!("Allocated something: {:?}", y.as_ref() as *const u8);
+      let z = alloc::boxed::Box::new(0x0fu8);
+      kprintln!("Allocated something: {:?}", z.as_ref() as *const u8);
+      
+    }
+    let y = alloc::alloc::alloc(alloc::alloc::Layout::new::<u64>()) as *mut u64;
+    *y = 0x22;
+    kprintln!("Allocated something: {:?}", y);
+    alloc::alloc::dealloc(y as *mut u8, alloc::alloc::Layout::new::<u64>());
   }
 
   loop {

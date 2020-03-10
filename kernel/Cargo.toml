@@ -6,3 +6,6 @@ edition = "2018"
 [lib]
 name = "kernel"
 crate-type = ["staticlib"]
+
+[dependencies]
+spin = "0.5.2"

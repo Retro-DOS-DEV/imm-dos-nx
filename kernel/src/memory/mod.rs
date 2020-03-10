@@ -2,6 +2,7 @@ pub mod address;
 pub mod bitmap_frame_allocator;
 pub mod frame_allocator;
 pub mod frame;
+pub mod heap;
 pub mod map;
 pub mod paging;
 
