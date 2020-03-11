@@ -87,6 +87,9 @@ pub extern "C" fn _start() -> ! {
       kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));
       memory::heap::init_allocator(heap_start, heap_size);
     }
+
+    asm!("int 0x2b" : : : : "intel", "volatile");
+    kprintln!("returned from syscall");
   }
 
   loop {

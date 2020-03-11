@@ -1,5 +1,7 @@
 pub mod exceptions;
 pub mod stack;
+pub mod syscall;
+pub mod syscall_legacy;
 
 pub fn cli() {
   unsafe {

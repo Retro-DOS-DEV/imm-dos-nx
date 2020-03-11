@@ -73,8 +73,12 @@ pub unsafe fn init() {
 
   IDT[8].set_handler(interrupt!(interrupts::exceptions::double_fault));
 
-  IDT[13].set_handler(interrupt_with_error!(interrupts::exceptions::gpf));
-  IDT[14].set_handler(interrupt_with_error!(interrupts::exceptions::page_fault));
+  IDT[0xd].set_handler(interrupt_with_error!(interrupts::exceptions::gpf));
+  IDT[0xe].set_handler(interrupt_with_error!(interrupts::exceptions::page_fault));
+
+  IDT[0x21].set_handler(interrupt!(interrupts::syscall_legacy::dos_api));
+  
+  IDT[0x2b].set_handler(interrupt!(interrupts::syscall::syscall_handler));
 
   lidt(&IDTR);
 }
