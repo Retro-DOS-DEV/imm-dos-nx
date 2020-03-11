@@ -7,6 +7,7 @@
 
 pub mod debug;
 pub mod devices;
+pub mod gdt;
 pub mod hardware;
 pub mod idt;
 pub mod interrupts;
@@ -71,11 +72,12 @@ pub extern "C" fn _start() -> ! {
     kprintln!("\nTotal Frames: {}\nFree Frames: {}", memory::count_frames(), memory::count_free_frames());
 
     // Update GDT
+    gdt::init();
 
     // Initialize kernel heap
     {
       let heap_start = memory::address::VirtualAddress::new(0xc0400000);
-      let heap_size_frames = 2;
+      let heap_size_frames = 256;
       for i in 0..heap_size_frames {
         let heap_frame = memory::allocate_physical_frame().unwrap();
         let heap_page = memory::address::VirtualAddress::new(0xc0400000 + i * 4096);
@@ -85,22 +87,6 @@ pub extern "C" fn _start() -> ! {
       kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));
       memory::heap::init_allocator(heap_start, heap_size);
     }
-
-    // Test allocation
-    let x = alloc::alloc::alloc(alloc::alloc::Layout::new::<u32>()) as *mut u32;
-    *x = 0xfa;
-    kprintln!("Allocated something: {:?}", x);
-    {
-      let y = alloc::boxed::Box::new(0xafu8);
-      kprintln!("Allocated something: {:?}", y.as_ref() as *const u8);
-      let z = alloc::boxed::Box::new(0x0fu8);
-      kprintln!("Allocated something: {:?}", z.as_ref() as *const u8);
-      
-    }
-    let y = alloc::alloc::alloc(alloc::alloc::Layout::new::<u64>()) as *mut u64;
-    *y = 0x22;
-    kprintln!("Allocated something: {:?}", y);
-    alloc::alloc::dealloc(y as *mut u8, alloc::alloc::Layout::new::<u64>());
   }
 
   loop {

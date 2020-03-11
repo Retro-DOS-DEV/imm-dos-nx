@@ -52,7 +52,7 @@ pub struct IDTDescriptor {
 
 #[inline]
 pub unsafe fn lidt(desc: &IDTDescriptor) {
-  asm!("lidt [$0]" : : "r"(desc) : : "intel", "volatile");
+  asm!("lidt [$0]" : : "r"(desc as *const IDTDescriptor as usize) : : "intel", "volatile");
 }
 
 // Global Tables:
