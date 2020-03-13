@@ -40,7 +40,11 @@ SECTIONS
 
   .bss : AT(ADDR(.bss) - KERNEL_OFFSET)
   {
+    __bss_start = . - KERNEL_VADDR_OFFSET;
+
     *(.bss*)
+
+    __bss_end = . - KERNEL_VADDR_OFFSET;
 
     . = ALIGN(0x1000);
 

@@ -13,6 +13,7 @@ pub mod idt;
 pub mod interrupts;
 pub mod memory;
 pub mod panic;
+pub mod time;
 pub mod x86;
 
 use memory::address::PhysicalAddress;
@@ -30,6 +31,10 @@ extern {
   static label_rw_physical_start: u8;
   #[link_name = "__rw_physical_end"]
   static label_rw_physical_end: u8;
+  #[link_name = "__bss_start"]
+  static label_bss_start: u8;
+  #[link_name = "__bss_end"]
+  static label_bss_end: u8;
   #[link_name = "__stack_start"]
   static label_stack_start: u8;
 }
@@ -37,6 +42,15 @@ extern {
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
   unsafe {
+    // clear .bss section
+    let mut bss_iter = &label_bss_start as *const u8 as usize;
+    let bss_end = &label_bss_end as *const u8 as usize;
+    while bss_iter < bss_end {
+      let bss_ptr = bss_iter as *mut u8;
+      *bss_ptr = 0;
+      bss_iter += 1;
+    }
+
     // In the bootloader, we placed the memory map at 0x1000
     let mem_map = memory::map::load_entries_at_address(0x1000);
 
@@ -86,7 +100,13 @@ pub extern "C" fn _start() -> ! {
       let heap_size = heap_size_frames * 4096;
       kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));
       memory::heap::init_allocator(heap_start, heap_size);
+      kprintln!("Kernel initialized");
     }
+
+    // Initialize hardware
+    devices::init();
+
+    asm!("sti");
 
     asm!("int 0x2b" : : : : "intel", "volatile");
     kprintln!("returned from syscall");

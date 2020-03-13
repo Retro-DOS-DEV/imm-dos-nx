@@ -80,5 +80,7 @@ pub unsafe fn init() {
   
   IDT[0x2b].set_handler(interrupt!(interrupts::syscall::syscall_handler));
 
+  IDT[0x30].set_handler(interrupt!(interrupts::pic::pit));
+
   lidt(&IDTR);
 }
