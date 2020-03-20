@@ -109,8 +109,8 @@ pub extern "C" fn _start() -> ! {
 
     asm!("sti");
 
-    asm!("mov eax, 0x15; mov ebx, 0x16; mov ecx, 0x17; mov edx, 0x18; mov edi, 0xfa; int 0x2b" : : : "eax", "ebx", "ecx", "edx", "edi" : "intel", "volatile");
-    kprintln!("returned from syscall");
+    let result = syscall::debug();
+    kprintln!("returned from syscall, got {}", result);
 
     asm!("mov eax, 0x15; mov ebx, 0x16; mov ecx, 0x17; mov edx, 0x18" : : : "eax", "ebx", "ecx", "edx" : "intel", "volatile");
   }

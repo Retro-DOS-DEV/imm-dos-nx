@@ -3,6 +3,11 @@ use core::mem;
 use crate::interrupts;
 use crate::x86::segments::SegmentSelector;
 
+#[link(name="libsyscall", kind="static")]
+extern "x86-interrupt" {
+  fn syscall_handler(frame: &interrupts::stack::StackFrame) -> ();
+}
+
 pub const IDT_PRESENT: u8 = 1 << 7;
 pub const IDT_DESCRIPTOR_RING_0: u8 = 0;
 pub const IDT_DESCRIPTOR_RING_1: u8 = 1 << 5;
@@ -93,7 +98,7 @@ pub unsafe fn init() {
 
   //IDT[0x21].set_handler(interrupts::syscall_legacy::dos_api);
   
-  IDT[0x2b].set_handler(interrupts::syscall::syscall_handler);
+  IDT[0x2b].set_handler(syscall_handler);
 
   IDT[0x30].set_handler(interrupts::pic::pit);
 
