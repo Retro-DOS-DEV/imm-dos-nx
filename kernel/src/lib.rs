@@ -1,3 +1,4 @@
+#![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(asm)]
 #![feature(core_intrinsics)]
@@ -83,7 +84,7 @@ pub extern "C" fn _start() -> ! {
       let ptr = memory::FRAME_ALLOCATOR.start as *const u8;
       kprint!("{:02x} ", *(ptr.offset(i as isize)));
     }
-    kprintln!("\nTotal Frames: {}\nFree Frames: {}", memory::count_frames(), memory::count_free_frames());
+    kprintln!("\nTotal Memory: {} KiB\nFree Memory: {} KiB", memory::count_frames() * 4, memory::count_free_frames() * 4);
 
     // Update GDT
     gdt::init();
@@ -108,8 +109,10 @@ pub extern "C" fn _start() -> ! {
 
     asm!("sti");
 
-    asm!("int 0x2b" : : : : "intel", "volatile");
+    asm!("mov eax, 0x15; mov ebx, 0x16; mov ecx, 0x17; mov edx, 0x18; mov edi, 0xfa; int 0x2b" : : : "eax", "ebx", "ecx", "edx", "edi" : "intel", "volatile");
     kprintln!("returned from syscall");
+
+    asm!("mov eax, 0x15; mov ebx, 0x16; mov ecx, 0x17; mov edx, 0x18" : : : "eax", "ebx", "ecx", "edx" : "intel", "volatile");
   }
 
   loop {

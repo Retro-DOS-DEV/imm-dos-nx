@@ -1,6 +1,5 @@
 use core::mem;
 
-use crate::{interrupt, interrupt_with_error};
 use crate::interrupts;
 use crate::x86::segments::SegmentSelector;
 
@@ -36,8 +35,24 @@ impl IDTEntry {
     }
   }
 
-  pub fn set_handler(&mut self, func: unsafe extern fn() -> !) {
+  /**
+   * Previously, this was able to implement handlers as naked cdecl ABI methods.
+   * Since LLVM changed to no longer mark function pointers as constants in
+   * inline assembly, the only way to guarantee the registers touched in a
+   * handler are properly restored at the end is to use the x86-interrupt ABI,
+   * which is a bit black-box-y, but gets the job done.
+   */
+  pub fn set_handler(&mut self, func: unsafe extern "x86-interrupt" fn(&interrupts::stack::StackFrame)) {
     let offset = func as *const () as usize;
+    self.set_handler_at_offset(offset);
+  }
+
+  pub fn set_handler_with_error(&mut self, func: unsafe extern "x86-interrupt" fn(&interrupts::stack::StackFrame, u32)) {
+    let offset = func as *const () as usize;
+    self.set_handler_at_offset(offset);
+  }
+
+  fn set_handler_at_offset(&mut self, offset: usize) {
     self.offset_low = offset as u16;
     self.offset_high = (offset >> 16) as u16;
     self.type_and_attributes = IDT_PRESENT | IDT_DESCRIPTOR_RING_0 | IDT_GATE_TYPE_INT_32;
@@ -69,18 +84,18 @@ pub unsafe fn init() {
   IDTR.offset = IDT.as_ptr() as *const IDTEntry as u32;
 
   // Set exception handlers
-  IDT[0].set_handler(interrupt!(interrupts::exceptions::divide_by_zero));
+  IDT[0].set_handler(interrupts::exceptions::divide_by_zero);
 
-  IDT[8].set_handler(interrupt!(interrupts::exceptions::double_fault));
+  IDT[8].set_handler(interrupts::exceptions::double_fault);
 
-  IDT[0xd].set_handler(interrupt_with_error!(interrupts::exceptions::gpf));
-  IDT[0xe].set_handler(interrupt_with_error!(interrupts::exceptions::page_fault));
+  IDT[0xd].set_handler_with_error(interrupts::exceptions::gpf);
+  IDT[0xe].set_handler_with_error(interrupts::exceptions::page_fault);
 
-  IDT[0x21].set_handler(interrupt!(interrupts::syscall_legacy::dos_api));
+  //IDT[0x21].set_handler(interrupts::syscall_legacy::dos_api);
   
-  IDT[0x2b].set_handler(interrupt!(interrupts::syscall::syscall_handler));
+  IDT[0x2b].set_handler(interrupts::syscall::syscall_handler);
 
-  IDT[0x30].set_handler(interrupt!(interrupts::pic::pit));
+  IDT[0x30].set_handler(interrupts::pic::pit);
 
   lidt(&IDTR);
 }
