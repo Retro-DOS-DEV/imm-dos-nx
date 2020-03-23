@@ -1,4 +1,5 @@
 use crate::kprintln;
+use crate::syscalls::{exec, file, fs};
 use super::stack;
 
 #[repr(C, packed)]
@@ -14,10 +15,8 @@ pub struct SavedRegisters {
 
 #[no_mangle]
 #[inline(never)]
-pub extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &mut SavedRegisters) {
+pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &mut SavedRegisters) {
   let eax = registers.eax;
-  kprintln!("{:x} {:x} {:x} {:x} {:x}", registers.eax, registers.ebx, registers.ecx, registers.edx, registers.edi);
-  kprintln!("{:x} {:x} {:x}", frame.eip, frame.cs, frame.eflags);
   match eax {
     // execution
     0x0 => { // terminate
@@ -44,13 +43,22 @@ pub extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &mut Save
 
     // files
     0x10 => { // open
-
+      let path_str_ptr = &*(registers.ebx as *const syscall::StringPtr);
+      let path_str = path_str_ptr.as_str();
+      let handle = file::open_path(path_str);
+      registers.eax = handle;
     },
     0x11 => { // close
-
+      let handle = registers.eax;
+      file::close(handle);
+      registers.eax = 0;
     },
     0x12 => { // read
-
+      let handle = registers.ebx;
+      let dest_addr = registers.ecx as *mut u8;
+      let length = registers.edx as usize;
+      let bytes_read = file::read(handle, dest_addr, length);
+      registers.eax = bytes_read as u32;
     },
     0x13 => { // write
 
@@ -73,7 +81,13 @@ pub extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &mut Save
     0x19 => { // rmdir
 
     },
-    0x1a => { // chdir
+    0x1a => { // readdir
+
+    },
+    0x1b => { // chdir
+
+    },
+    0x1c => { // getcwd
 
     },
 
@@ -85,6 +99,7 @@ pub extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &mut Save
 
     },
 
+    // misc
     0xffff => { // debug
       kprintln!("SYSCALL!");
       registers.eax = 0;

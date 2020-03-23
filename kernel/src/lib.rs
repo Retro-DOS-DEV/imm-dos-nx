@@ -14,6 +14,7 @@ pub mod idt;
 pub mod interrupts;
 pub mod memory;
 pub mod panic;
+pub mod syscalls;
 pub mod time;
 pub mod x86;
 
@@ -112,7 +113,13 @@ pub extern "C" fn _start() -> ! {
     let result = syscall::debug();
     kprintln!("returned from syscall, got {}", result);
 
-    asm!("mov eax, 0x15; mov ebx, 0x16; mov ecx, 0x17; mov edx, 0x18" : : : "eax", "ebx", "ecx", "edx" : "intel", "volatile");
+    // pretend to read a file
+    let handle = syscall::open("DEV:\\NULL");
+    assert_eq!(handle, 1);
+
+    let mut buffer: [u8; 1] = [0xff];
+    syscall::read(handle, buffer.as_mut_ptr(), 1);
+    assert_eq!(buffer[0], 0);
   }
 
   loop {
