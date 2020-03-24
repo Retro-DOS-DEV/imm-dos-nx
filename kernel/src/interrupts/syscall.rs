@@ -61,7 +61,11 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
       registers.eax = bytes_read as u32;
     },
     0x13 => { // write
-
+      let handle = registers.ebx;
+      let src_addr = registers.ecx as *const u8;
+      let length = registers.edx as usize;
+      let bytes_written = file::write(handle, src_addr, length);
+      registers.eax = bytes_written as u32;
     },
     0x14 => { // unlink
 

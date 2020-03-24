@@ -1,6 +1,7 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(asm)]
+#![feature(const_fn)]
 #![feature(core_intrinsics)]
 #![feature(naked_functions)]
 
@@ -8,6 +9,7 @@
 
 pub mod debug;
 pub mod devices;
+pub mod drivers;
 pub mod gdt;
 pub mod hardware;
 pub mod idt;
@@ -114,12 +116,25 @@ pub extern "C" fn _start() -> ! {
     kprintln!("returned from syscall, got {}", result);
 
     // pretend to read a file
-    let handle = syscall::open("DEV:\\NULL");
+    let handle = syscall::open("DEV:\\ZERO");
     assert_eq!(handle, 1);
 
     let mut buffer: [u8; 1] = [0xff];
     syscall::read(handle, buffer.as_mut_ptr(), 1);
     assert_eq!(buffer[0], 0);
+  }
+
+  let com1 = syscall::open("DEV:\\COM1");
+  let msg = "HI SERIAL PORT";
+  syscall::write(com1, msg.as_ptr(), msg.len());
+  let mut buffer: [u8; 1] = [0];
+  loop {
+    let read = syscall::read(com1, buffer.as_mut_ptr(), 1);
+    if read > 0 {
+      kprint!("{}",
+        unsafe { core::str::from_utf8_unchecked(&buffer) }
+      );
+    }
   }
 
   loop {

@@ -31,3 +31,7 @@ pub fn open(path: &'static str) -> u32 {
 pub fn read(handle: u32, buffer: *mut u8, length: usize) -> usize {
   syscall_inner(0x12, handle, buffer as u32, length as u32) as usize
 }
+
+pub fn write(handle: u32, buffer: *const u8, length: usize) -> usize {
+  syscall_inner(0x13, handle, buffer as u32, length as u32) as usize
+}
