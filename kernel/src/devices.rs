@@ -16,8 +16,13 @@ pub unsafe fn init() {
 
   {
     let mut drivers = DEV.write();
-    drivers.register_driver(Box::new(drivers::zero::ZeroDevice::new()));
-    drivers.register_driver(Box::new(drivers::null::NullDevice::new()));
-    drivers.register_driver(Box::new(drivers::com::ComDevice::new(0x3f8)));
+    drivers.register_driver("ZERO", Box::new(drivers::zero::ZeroDevice::new()));
+    drivers.register_driver("NULL", Box::new(drivers::null::NullDevice::new()));
+    drivers.register_driver("COM1", Box::new(drivers::com::ComDevice::new(0x3f8)));
   }
+}
+
+pub fn get_device_number_by_name(filename: &[u8; 8]) -> Option<usize> {
+  let drivers = DEV.read();
+  drivers.get_device_number_by_name(filename)
 }

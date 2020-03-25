@@ -1,17 +1,7 @@
-pub struct LocalHandle(u32);
-
-impl LocalHandle {
-  pub fn new(handle: u32) -> LocalHandle {
-    LocalHandle(handle)
-  }
-
-  pub fn as_u32(&self) -> u32 {
-    self.0
-  }
-}
+use crate::files::handle::LocalHandle;
 
 pub trait DeviceDriver {
-  fn open(&self) -> Result<LocalHandle, ()> {
+  fn open(&self, handle: LocalHandle) -> Result<(), ()> {
     Err(())
   }
 

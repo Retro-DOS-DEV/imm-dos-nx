@@ -1,16 +1,32 @@
-use alloc::sync::Arc;
 use crate::devices;
-use crate::drivers::driver::{DeviceDriver, LocalHandle};
+use crate::files::filename::Path;
+use crate::files::handle::{Handle, LocalHandle};
 
 pub fn open_path(path_str: &'static str) -> u32 {
-  if path_str == "DEV:\\ZERO" {
-    1
-  } else if path_str == "DEV:\\NULL" {
-    2
-  } else if path_str == "DEV:\\COM1" {
-    3
-  } else {
-    0
+  let path = Path::from_str(path_str);
+  match path {
+    Ok(p) => {
+      if p.drive == "DEV     ".as_bytes() {
+        match devices::get_device_number_by_name(&p.filename) {
+          Some(n) => n as u32,
+          None => 0,
+        }
+        /*
+        if p.filename == "ZERO    ".as_bytes() {
+          1
+        } else if p.filename == "NULL    ".as_bytes() {
+          2
+        } else if p.filename == "COM1    ".as_bytes() {
+          3
+        } else {
+          0
+        }
+        */
+      } else {
+        0
+      }
+    },
+    Err(_) => 0,
   }
 }
 

@@ -1,6 +1,6 @@
-use core::sync::atomic::{AtomicU32, Ordering};
+use crate::files::handle::LocalHandle;
 use crate::x86::io::Port;
-use super::driver::{DeviceDriver, LocalHandle};
+use super::driver::{DeviceDriver};
 
 const STATUS_ERROR_IMPENDING: u8 = 1 << 7;
 const STATUS_TRANSMIT_IDLE: u8 = 1 << 6;
@@ -68,22 +68,21 @@ impl SerialPort {
 
 pub struct ComDevice {
   serial: SerialPort,
-  next_handle: AtomicU32,
+  // need to track currently reading / writing handles with some sort of
+  // BlockingCharDevice implementation
 }
 
 impl ComDevice {
   pub const fn new(port: u16) -> ComDevice {
     ComDevice {
       serial: SerialPort::new(port),
-      next_handle: AtomicU32::new(1),
     }
   }
 }
 
 impl DeviceDriver for ComDevice {
-  fn open(&self) -> Result<LocalHandle, ()> {
-    let handle = self.next_handle.fetch_add(1, Ordering::SeqCst);
-    Ok(LocalHandle::new(handle))
+  fn open(&self, _handle: LocalHandle) -> Result<(), ()> {
+    Ok(())
   }
 
   fn close(&self, _handle: LocalHandle) -> Result<(), ()> {

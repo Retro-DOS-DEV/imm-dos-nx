@@ -1,22 +1,21 @@
-use core::sync::atomic::{AtomicU32, Ordering};
-use super::driver::{DeviceDriver, LocalHandle};
+use crate::files::handle::LocalHandle;
+use super::driver::{DeviceDriver};
 
 pub struct NullDevice {
-  next_handle: AtomicU32,
+
 }
 
 impl NullDevice {
   pub const fn new() -> NullDevice {
     NullDevice {
-      next_handle: AtomicU32::new(1),
+
     }
   }
 }
 
 impl DeviceDriver for NullDevice {
-  fn open(&self) -> Result<LocalHandle, ()> {
-    let handle = self.next_handle.fetch_add(1, Ordering::SeqCst);
-    Ok(LocalHandle::new(handle))
+  fn open(&self, _handle: LocalHandle) -> Result<(), ()> {
+    Ok(())
   }
 
   fn close(&self, _handle: LocalHandle) -> Result<(), ()> {
