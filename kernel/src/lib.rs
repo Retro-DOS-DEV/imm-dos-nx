@@ -11,7 +11,7 @@ pub mod debug;
 pub mod devices;
 pub mod drivers;
 pub mod files;
-//pub mod filesystems;
+pub mod filesystems;
 pub mod gdt;
 pub mod hardware;
 pub mod idt;
@@ -127,7 +127,6 @@ pub extern "C" fn _start() -> ! {
   }
 
   let com1 = syscall::open("DEV:\\COM1");
-  assert_eq!(com1, 3);
   let msg = "HI SERIAL PORT";
   syscall::write(com1, msg.as_ptr(), msg.len());
   let mut buffer: [u8; 1] = [0];

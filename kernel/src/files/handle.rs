@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU32, Ordering};
 
 pub trait Handle {
@@ -5,6 +6,7 @@ pub trait Handle {
   fn as_u32(&self) -> u32;
 }
 
+#[derive(Copy, Clone)]
 pub struct LocalHandle(u32);
 
 impl Handle for LocalHandle {
@@ -17,6 +19,7 @@ impl Handle for LocalHandle {
   }
 }
 
+#[derive(Copy, Clone)]
 pub struct FileHandle(u32);
 
 impl Handle for FileHandle {
@@ -35,7 +38,7 @@ pub struct HandleAllocator<T: Handle> {
 }
 
 impl<T: Handle> HandleAllocator<T> {
-  pub fn new() -> HandleAllocator<T> {
+  pub const fn new() -> HandleAllocator<T> {
     HandleAllocator {
       next_id: AtomicU32::new(1),
       _phantom: core::marker::PhantomData,
@@ -48,10 +51,12 @@ impl<T: Handle> HandleAllocator<T> {
   }
 }
 
+struct DeviceHandlePair(pub usize, pub LocalHandle);
+
 /**
  * Map a process's file handles to the filesystem and fs-specific handle behind
  * each one.
  */
 pub struct FileHandleMap {
-
+  map: Vec<Option<DeviceHandlePair>>,
 }

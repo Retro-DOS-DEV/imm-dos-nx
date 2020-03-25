@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::sync::Arc;
 use crate::drivers;
 use crate::hardware::{pic, pit};
 use crate::hardware::vga::text_mode;
@@ -25,4 +26,12 @@ pub unsafe fn init() {
 pub fn get_device_number_by_name(filename: &[u8; 8]) -> Option<usize> {
   let drivers = DEV.read();
   drivers.get_device_number_by_name(filename)
+}
+
+pub fn get_driver_for_device(number: usize) -> Option<Arc<Box<drivers::DriverType>>> {
+  let drivers = DEV.read();
+  match drivers.get_device(number) {
+    Some(driver) => Some(driver.clone()),
+    None => None,
+  }
 }
