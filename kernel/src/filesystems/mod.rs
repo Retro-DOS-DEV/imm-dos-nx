@@ -1,21 +1,60 @@
 use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
+use spin::RwLock;
 
 pub mod dev;
 pub mod filesystem;
 
-pub type DriveName = [u8; 8];
-
 pub type FileSystemType = dyn filesystem::FileSystem + Send + Sync;
 
+pub struct NamedFileSystem(pub Box<str>, pub Arc<Box<FileSystemType>>);
+
+impl NamedFileSystem {
+  pub fn matches_name(&self, name: &str) -> bool {
+    self.0.as_ref() == name
+  }
+
+  pub fn get_fs(&self) -> Arc<Box<FileSystemType>> {
+    self.1.clone()
+  }
+}
+
 pub struct FileSystemMap {
-  map: BTreeMap<DriveName, Arc<Box<FileSystemType>>>,
+  map: RwLock<Vec<NamedFileSystem>>,
 }
 
 impl FileSystemMap {
+  pub const fn new() -> FileSystemMap {
+    FileSystemMap {
+      map: RwLock::new(Vec::new()),
+    }
+  }
 
+  pub fn register_fs(&self, name: &str, fs: Box<FileSystemType>) -> Result<(), ()> {
+    let mut map = self.map.write();
+    map.push(NamedFileSystem(Box::from(name), Arc::new(fs)));
+    Ok(())
+  }
+
+  pub fn get_fs(&self, name: &str) -> Option<Arc<Box<FileSystemType>>> {
+    let map = self.map.read();
+    for entry in map.iter() {
+      if entry.matches_name(name) {
+        return Some(entry.get_fs());
+      }
+    }
+    None
+  }
 }
 
-// Temporary
-pub static DEV: dev::DevFileSystem = dev::DevFileSystem::new();
+pub static VFS: FileSystemMap = FileSystemMap::new();
+
+pub fn init_fs() {
+  let dev_fs = dev::DevFileSystem::new();
+  VFS.register_fs("DEV", Box::new(dev_fs)).expect("Failed to register DEV FS");
+}
+
+pub fn get_fs(name: &str) -> Option<Arc<Box<FileSystemType>>> {
+  VFS.get_fs(name)
+}

@@ -2,8 +2,14 @@ pub type DriveName = [u8; 8];
 pub type FileName = [u8; 8];
 pub type FileExtension = [u8; 3];
 
+pub struct FullFileName {
+  name: FileName,
+  extension: FileExtension,
+}
+
 pub struct Path<'orig> {
   original: &'orig str,
+  pub path_start: usize,
   pub drive: DriveName,
   pub filename: FileName,
   pub extension: FileExtension,
@@ -45,6 +51,7 @@ impl<'orig> Path<'orig> {
   pub fn from_str(s: &'orig str) -> Result<Path<'orig>, PathError> {
     let mut path = Path {
       original: s,
+      path_start: 0,
       drive: [0x20; 8],
       filename: [0x20; 8],
       extension: [0x20; 3],
@@ -72,6 +79,7 @@ impl<'orig> Path<'orig> {
         },
         ParseState::PathStart => {
           if cur == b'\\' || cur == b'/' {
+            path.path_start = index;
             state = ParseState::DirectoryName;
           } else {
             return Err(PathError::InvalidPath);
@@ -111,5 +119,31 @@ impl<'orig> Path<'orig> {
       index += 1;
     }
     Ok(path)
+  }
+}
+
+// New filename handling
+
+/**
+ * Split a path into its drive and local path components
+ */
+pub fn string_to_drive_and_path(raw: &str) -> (&str, &str) {
+  let mut drive_split = raw.splitn(2, ':');
+  let drive = match drive_split.next() {
+    Some(d) => d,
+    None => {
+      return (&raw[0..0], &raw[0..0]);
+    },
+  };
+  let path = drive_split.next();
+  match path {
+    None => {
+      // There was no colon present in the path
+      // Treat this situation as having no drive
+      (&raw[0..0], drive)
+    },
+    Some(p) => {
+      (drive, p)
+    },
   }
 }

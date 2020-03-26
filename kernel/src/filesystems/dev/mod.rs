@@ -29,11 +29,28 @@ impl DevFileSystem {
 }
 
 impl FileSystem for DevFileSystem {
-  fn open(&self, path: &Path) -> Result<LocalHandle, ()> {
-    let handle = self.handle_allocator.get_next();
+  fn open(&self, path: &str) -> Result<LocalHandle, ()> {
+    let local_path = if path.starts_with('\\') {
+      &path[1..]
+    } else {
+      path
+    };
+
+    // temporary, switch device registration to use strings too
+    let mut name: [u8; 8] = [0x20; 8];
+    {
+      let mut i = 0;
+      let bytes = local_path.as_bytes();
+      while i < 8 && i < bytes.len() {
+        name[i] = bytes[i];
+        i += 1;
+      }
+    }
+  
     // needs to account for directories
-    match devices::get_device_number_by_name(&path.filename) {
+    match devices::get_device_number_by_name(&name) {
       Some(number) => {
+        let handle = self.handle_allocator.get_next();
         let mut handle_to_device = self.handle_to_device.write();
         while handle_to_device.len() < handle.as_u32() as usize {
           handle_to_device.push(None);

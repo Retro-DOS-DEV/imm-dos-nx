@@ -112,6 +112,8 @@ pub extern "C" fn _start() -> ! {
     // Initialize hardware
     devices::init();
 
+    filesystems::init_fs();
+
     asm!("sti");
 
     let result = syscall::debug();
