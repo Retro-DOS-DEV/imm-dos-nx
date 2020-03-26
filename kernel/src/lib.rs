@@ -121,7 +121,7 @@ pub extern "C" fn _start() -> ! {
 
     // pretend to read a file
     let handle = syscall::open("DEV:\\ZERO");
-    assert_eq!(handle, 1);
+    assert_eq!(handle, 0);
 
     let mut buffer: [u8; 1] = [0xff];
     syscall::read(handle, buffer.as_mut_ptr(), 1);

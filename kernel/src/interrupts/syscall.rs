@@ -45,8 +45,10 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     0x10 => { // open
       let path_str_ptr = &*(registers.ebx as *const syscall::StringPtr);
       let path_str = path_str_ptr.as_str();
-      let handle = file::open_path(path_str);
-      registers.eax = handle;
+      match file::open_path(path_str) {
+        Ok(handle) => registers.eax = handle,
+        Err(_) => (),
+      }
     },
     0x11 => { // close
       let handle = registers.eax;
@@ -57,15 +59,19 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
       let handle = registers.ebx;
       let dest_addr = registers.ecx as *mut u8;
       let length = registers.edx as usize;
-      let bytes_read = file::read(handle, dest_addr, length);
-      registers.eax = bytes_read as u32;
+      match file::read(handle, dest_addr, length) {
+        Ok(bytes_read) => registers.eax = bytes_read as u32,
+        Err(_) => (),
+      }
     },
     0x13 => { // write
       let handle = registers.ebx;
       let src_addr = registers.ecx as *const u8;
       let length = registers.edx as usize;
-      let bytes_written = file::write(handle, src_addr, length);
-      registers.eax = bytes_written as u32;
+      match file::write(handle, src_addr, length) {
+        Ok(bytes_written) => registers.eax = bytes_written as u32,
+        Err(_) => (),
+      }
     },
     0x14 => { // unlink
 
