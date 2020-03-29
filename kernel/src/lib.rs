@@ -18,6 +18,7 @@ pub mod idt;
 pub mod interrupts;
 pub mod memory;
 pub mod panic;
+pub mod process;
 pub mod syscalls;
 pub mod time;
 pub mod x86;
@@ -113,6 +114,10 @@ pub extern "C" fn _start() -> ! {
     devices::init();
 
     filesystems::init_fs();
+
+    process::init();
+    let init_process = process::all_processes_mut().spawn_process();
+    process::make_current(init_process);
 
     asm!("sti");
 

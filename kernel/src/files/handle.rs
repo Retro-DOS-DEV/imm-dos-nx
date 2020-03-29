@@ -85,6 +85,16 @@ impl FileHandleMap {
     FileHandle::new(index as u32)
   }
 
+  pub fn close_handle(&mut self, handle: FileHandle) {
+    let entry = self.map.get_mut(handle.as_usize());
+    match entry {
+      Some(e) => {
+        *e = None;
+      },
+      None => (),
+    }
+  }
+
   pub fn get_drive_and_handle(&self, handle: FileHandle) -> Option<DeviceHandlePair> {
     let index = handle.as_usize();
     match self.map.get(index) {

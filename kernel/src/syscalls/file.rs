@@ -1,19 +1,11 @@
+use alloc::sync::Arc;
 use crate::files::filename;
-use crate::files::handle::{FileHandle, FileHandleMap, Handle, LocalHandle};
+use crate::files::handle::{FileHandle, Handle};
 use crate::filesystems;
-use spin::RwLock;
+use crate::process;
 
-// temporary until we implement processes
-static HANDLES: RwLock<FileHandleMap> = RwLock::new(FileHandleMap::new());
-
-fn open_file_handle(drive: usize, local: LocalHandle) -> FileHandle {
-  let mut handles = HANDLES.write();
-  let handle = handles.open_handle(drive, local);
-  handle
-}
-
-fn close_file_handle(handle: FileHandle) {
-
+fn current_process() -> Arc<process::process_state::ProcessState> {
+  process::current_process().expect("Running a syscall for an unknown process")
 }
 
 pub enum FileError {
@@ -30,18 +22,17 @@ pub fn open_path(path_str: &'static str) -> Result<u32, FileError> {
   let number = filesystems::get_fs_number(drive).ok_or(FileError::DriveDoesNotExist)?;
   let fs = filesystems::get_fs(number).ok_or(FileError::UnknownFileSystem)?;
   let local_handle = fs.open(path).map_err(|_| FileError::FileDoesNotExist)?;
-  Ok(open_file_handle(number, local_handle).as_u32())
+  Ok(current_process().open_file(number, local_handle).as_u32())
 }
 
 pub fn close(handle: u32) {
-  close_file_handle(FileHandle::new(handle))
+  current_process().close_file(FileHandle::new(handle))
 }
 
 pub unsafe fn read(handle: u32, dest: *mut u8, length: usize) -> Result<usize, FileError> {
-  let drive_and_handle = {
-    let handles = HANDLES.read();
-    handles.get_drive_and_handle(FileHandle::new(handle))
-  }.ok_or(FileError::HandleNotOpen)?;
+  let drive_and_handle = current_process()
+    .get_open_file_info(FileHandle::new(handle))
+    .ok_or(FileError::HandleNotOpen)?;
 
   let fs = filesystems::get_fs(drive_and_handle.0).ok_or(FileError::UnknownFileSystem)?;
   let buffer = core::slice::from_raw_parts_mut(dest, length);
@@ -49,10 +40,9 @@ pub unsafe fn read(handle: u32, dest: *mut u8, length: usize) -> Result<usize, F
 }
 
 pub unsafe fn write(handle: u32, src: *const u8, length: usize) -> Result<usize, FileError> {
-  let drive_and_handle = {
-    let handles = HANDLES.read();
-    handles.get_drive_and_handle(FileHandle::new(handle))
-  }.ok_or(FileError::HandleNotOpen)?;
+  let drive_and_handle = current_process()
+    .get_open_file_info(FileHandle::new(handle))
+    .ok_or(FileError::HandleNotOpen)?;
 
   let fs = filesystems::get_fs(drive_and_handle.0).ok_or(FileError::UnknownFileSystem)?;
   let buffer = core::slice::from_raw_parts(src, length);
