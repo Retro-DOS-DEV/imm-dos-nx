@@ -7,6 +7,10 @@ edition = "2018"
 name = "kernel"
 crate-type = ["staticlib"]
 
+[features]
+default = []
+testing = []
+
 [dependencies]
 spin = "0.5.2"
 syscall = {path = "../syscall"}

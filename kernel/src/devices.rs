@@ -9,6 +9,8 @@ pub static mut PIC: pic::PIC = pic::PIC::new();
 pub static mut PIT: pit::PIT = pit::PIT::new();
 pub static mut VGA_TEXT: text_mode::TextMode = text_mode::TextMode::new(0xb8000);
 
+static mut COM1_DIRECT: drivers::com::SerialPort = drivers::com::SerialPort::new(0x3f8);
+
 pub static DEV: RwLock<drivers::DeviceDrivers> = RwLock::new(drivers::DeviceDrivers::new());
 
 pub unsafe fn init() {
@@ -26,6 +28,10 @@ pub unsafe fn init() {
 pub fn get_device_number_by_name(filename: &[u8; 8]) -> Option<usize> {
   let drivers = DEV.read();
   drivers.get_device_number_by_name(filename)
+}
+
+pub unsafe fn get_raw_serial() -> &'static mut drivers::com::SerialPort {
+  &mut COM1_DIRECT
 }
 
 pub fn get_driver_for_device(number: usize) -> Option<Arc<Box<drivers::DriverType>>> {

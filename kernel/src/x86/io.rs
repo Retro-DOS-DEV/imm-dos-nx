@@ -37,35 +37,35 @@ impl Port {
 #[inline]
 pub unsafe fn inb(port: u16) -> u8 {
   let value: u8;
-  asm!("in al, dx" : "={al}"(value) : "{dx}"(port) : "ax", "dx" : "intel", "volatile");
+  llvm_asm!("in al, dx" : "={al}"(value) : "{dx}"(port) : "ax", "dx" : "intel", "volatile");
   value
 }
 
 #[inline]
 pub unsafe fn outb(port: u16, value: u8) {
-  asm!("out dx, al" :: "{al}"(value), "{dx}"(port) : "ax", "dx" : "intel", "volatile");
+  llvm_asm!("out dx, al" :: "{al}"(value), "{dx}"(port) : "ax", "dx" : "intel", "volatile");
 }
 
 #[inline]
 pub unsafe fn inw(port: u16) -> u16 {
   let value: u16;
-  asm!("in ax, dx" : "={ax}"(value) : "{dx}"(port) : "ax", "dx" : "intel", "volatile");
+  llvm_asm!("in ax, dx" : "={ax}"(value) : "{dx}"(port) : "ax", "dx" : "intel", "volatile");
   value
 }
 
 #[inline]
 pub unsafe fn outw(port: u16, value: u16) {
-  asm!("out dx, ax" :: "{ax}"(value), "{dx}"(port) : "ax", "dx" : "intel", "volatile");
+  llvm_asm!("out dx, ax" :: "{ax}"(value), "{dx}"(port) : "ax", "dx" : "intel", "volatile");
 }
 
 #[inline]
 pub unsafe fn inl(port: u16) -> u32 {
   let value: u32;
-  asm!("in eax, dx" : "={eax}"(value) : "{dx}"(port) : "eax", "dx" : "intel", "volatile");
+  llvm_asm!("in eax, dx" : "={eax}"(value) : "{dx}"(port) : "eax", "dx" : "intel", "volatile");
   value
 }
 
 #[inline]
 pub unsafe fn outl(port: u16, value: u32) {
-  asm!("out dx, eax" :: "{eax}"(value), "{dx}"(port) : "eax", "dx" : "intel", "volatile");
+  llvm_asm!("out dx, eax" :: "{eax}"(value), "{dx}"(port) : "eax", "dx" : "intel", "volatile");
 }

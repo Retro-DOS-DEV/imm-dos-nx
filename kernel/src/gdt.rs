@@ -59,12 +59,12 @@ pub struct GDTDescriptor {
 }
 
 pub unsafe fn lgdt(desc: &GDTDescriptor) {
-  asm!("lgdt [$0]" : : "r"(desc) : : "intel", "volatile");
+  llvm_asm!("lgdt [$0]" : : "r"(desc) : : "intel", "volatile");
 }
 
 pub unsafe fn ltr(index: u16) {
   let selector = index | 3;
-  asm!("ltr $0" : : "r"(selector) : : "intel", "volatile");
+  llvm_asm!("ltr $0" : : "r"(selector) : : "intel", "volatile");
 }
 
 // Global tables:

@@ -8,24 +8,41 @@ bootloader_src := bootloader/boot.s
 bootloader_obj := build/boot/boot.o
 
 kernel := build/kernel.bin
+kernel_testing := build/kernel_testing.bin
 libkernel := build/libkernel.a
+libkernel_testing := build/libkernel_testing.a
 kernel_linker := kernel/kernel.ld
+kernel_deps := kernel/src/* kernel/src/*/* kernel/src/*/*/*
 
-.PHONY: all, clean
+.PHONY: all, clean, test
 
 all: bootdisk
 
 clean:
 	@rm -r build
 
+test: bootdisk_testing
+	@qemu-system-i386 -m 8M -fda $(diskimage) -display none -serial stdio -device isa-debug-exit,iobase=0xf4,iosize=0x04; \
+	EXIT_CODE=$$?; \
+	if [ $$EXIT_CODE = "7" ]; then exit 1; fi
+
 bootdisk: $(diskimage) $(bootsector) $(bootloader) $(kernel)
 	@dd if=$(bootsector) of=$(diskimage) bs=450 count=1 seek=62 oflag=seek_bytes conv=notrunc
 	@mcopy -D o -i $(diskimage) $(bootloader) ::BOOT.BIN
 	@mcopy -D o -i $(diskimage) $(kernel) ::KERNEL.BIN
 
+bootdisk_testing: $(diskimage) $(bootsector) $(bootloader) $(kernel_testing)
+	@dd if=$(bootsector) of=$(diskimage) bs=450 count=1 seek=62 oflag=seek_bytes conv=notrunc
+	@mcopy -D o -i $(diskimage) $(bootloader) ::BOOT.BIN
+	@mcopy -D o -i $(diskimage) $(kernel_testing) ::KERNEL.BIN
+
 $(diskimage):
 	@mkdir -p $(shell dirname $@)
 	@mkfs.msdos -C $(diskimage) 1440
+
+$(diskimage_testing):
+	@mkdir -p $(shell dirname $@)
+	@mkfs.msdos -C $(diskimage_testing) 1440
 
 $(bootsector): $(bootsector_obj)
 	@mkdir -p $(shell dirname $(bootsector))
@@ -46,7 +63,15 @@ $(bootloader_obj): $(bootloader_src) bootloader/*.s
 $(kernel): $(libkernel)
 	@ld -o $(kernel) --gc-sections -m elf_i386 -T $(kernel_linker) $(libkernel)
 
-$(libkernel): kernel/src/* kernel/src/*/* kernel/src/*/*/*
+$(libkernel): $(kernel_deps)
 	@cd kernel && \
 	cargo xbuild --lib --target i386-kernel.json --release
 	@cp kernel/target/i386-kernel/release/libkernel.a $(libkernel)
+
+$(kernel_testing): $(libkernel_testing)
+	@ld -o $(kernel_testing) --gc-sections -m elf_i386 -T $(kernel_linker) $(libkernel_testing)
+
+$(libkernel_testing): $(kernel_deps)
+	@cd kernel && \
+	cargo xbuild --lib --target i386-kernel.json --release --features "testing"
+	@cp kernel/target/i386-kernel/release/libkernel.a $(libkernel_testing)

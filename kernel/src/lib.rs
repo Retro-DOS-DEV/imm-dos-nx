@@ -1,6 +1,6 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
-#![feature(asm)]
+#![feature(llvm_asm)]
 #![feature(const_fn)]
 #![feature(core_intrinsics)]
 #![feature(naked_functions)]
@@ -15,6 +15,7 @@ pub mod filesystems;
 pub mod gdt;
 pub mod hardware;
 pub mod idt;
+pub mod init;
 pub mod interrupts;
 pub mod memory;
 pub mod panic;
@@ -46,41 +47,56 @@ extern {
   static label_stack_start: u8;
 }
 
+/**
+ * Clear the .bss section. Since we copied bytes from disk to memory, there's a
+ * chance it contains the symbol table.
+ */
+unsafe fn zero_bss() {
+  let mut bss_iter = &label_bss_start as *const u8 as usize;
+  let bss_end = &label_bss_end as *const u8 as usize;
+  while bss_iter < bss_end {
+    let bss_ptr = bss_iter as *mut u8;
+    *bss_ptr = 0;
+    bss_iter += 1;
+  }
+}
+
+unsafe fn init_memory() {
+  let kernel_start = PhysicalAddress::new(&label_ro_physical_start as *const u8 as usize);
+  let kernel_end = PhysicalAddress::new(&label_rw_physical_end as *const u8 as usize);
+  memory::init(kernel_start, kernel_end);
+
+  memory::init_paging();
+  let stack_start = PhysicalAddress::new(&label_stack_start as *const u8 as usize);
+  memory::move_kernel_stack(memory::frame::Frame::containing_address(stack_start));
+}
+
+unsafe fn init_tables() {
+  idt::init();
+  gdt::init();
+}
+
+/**
+ * Entry point of the kernel
+ */
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
   unsafe {
-    // clear .bss section
-    let mut bss_iter = &label_bss_start as *const u8 as usize;
-    let bss_end = &label_bss_end as *const u8 as usize;
-    while bss_iter < bss_end {
-      let bss_ptr = bss_iter as *mut u8;
-      *bss_ptr = 0;
-      bss_iter += 1;
-    }
+    zero_bss();
+    init_memory();
+    init_tables();
+  }
 
-    // In the bootloader, we placed the memory map at 0x1000
-    let mem_map = memory::map::load_entries_at_address(0x1000);
+  //assert_eq!(1, 2);
 
-    let kernel_start = PhysicalAddress::new(&label_ro_physical_start as *const u8 as usize);
-    let kernel_end = PhysicalAddress::new(&label_rw_physical_end as *const u8 as usize);
-    memory::init(kernel_start, kernel_end);
-
-    // Initialize paging
-    memory::init_paging();
-    let stack_start = PhysicalAddress::new(&label_stack_start as *const u8 as usize);
-    memory::move_kernel_stack(memory::frame::Frame::containing_address(stack_start));
-
+  unsafe {
     kprintln!("\nEntering the Kernel...");
 
-    // Initialize interrupts
-    idt::init();
-
+    let mem_map = memory::map::load_entries_at_address(0x1000);
     kprintln!("Memory Map:");
     for entry in mem_map {
       kprintln!("{:?}", entry);
     }
-
-    kprintln!("Kernel goes from {:?} to {:?}", kernel_start, kernel_end);
 
     kprint!("Frame Table: ----------------------------------");
     for i in 0..memory::FRAME_ALLOCATOR.length {
@@ -91,9 +107,6 @@ pub extern "C" fn _start() -> ! {
       kprint!("{:02x} ", *(ptr.offset(i as isize)));
     }
     kprintln!("\nTotal Memory: {} KiB\nFree Memory: {} KiB", memory::count_frames() * 4, memory::count_free_frames() * 4);
-
-    // Update GDT
-    gdt::init();
 
     // Initialize kernel heap
     {
@@ -119,7 +132,7 @@ pub extern "C" fn _start() -> ! {
     let init_process = process::all_processes_mut().spawn_process();
     process::make_current(init_process);
 
-    asm!("sti");
+    llvm_asm!("sti");
 
     let result = syscall::debug();
     kprintln!("returned from syscall, got {}", result);
@@ -148,7 +161,7 @@ pub extern "C" fn _start() -> ! {
 
   loop {
     unsafe {
-      asm!("hlt" : : : : "volatile");
+      llvm_asm!("hlt" : : : : "volatile");
     }
   }
 }

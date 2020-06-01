@@ -1,7 +1,7 @@
 use core::fmt::{self, Write};
-
 use crate::{devices, interrupts};
 
+#[cfg(not(feature = "testing"))]
 pub fn _kprint(args: fmt::Arguments) {
   let int_reenable = interrupts::is_interrupt_enabled();
   interrupts::cli();
@@ -10,6 +10,14 @@ pub fn _kprint(args: fmt::Arguments) {
   }
   if int_reenable {
     interrupts::sti();
+  }
+}
+
+#[cfg(feature = "testing")]
+pub fn _kprint(args: fmt::Arguments) {
+  unsafe {
+    let serial = devices::get_raw_serial();
+    serial.write_fmt(args).unwrap();
   }
 }
 

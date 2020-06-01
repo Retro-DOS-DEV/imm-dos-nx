@@ -1,3 +1,4 @@
+use core::fmt;
 use crate::files::handle::LocalHandle;
 use crate::x86::io::Port;
 use super::driver::{DeviceDriver};
@@ -63,6 +64,17 @@ impl SerialPort {
     } else {
       None
     }
+  }
+}
+
+impl fmt::Write for SerialPort {
+  fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
+    unsafe {
+      for byte in s.bytes() {
+        self.send_byte(byte);
+      }
+    }
+    Ok(())
   }
 }
 

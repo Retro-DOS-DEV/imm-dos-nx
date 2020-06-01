@@ -67,7 +67,7 @@ pub fn move_kernel_stack(stack_frame: frame::Frame) {
   let stack_frame_addr = stack_frame.get_address().as_u32();
   // move esp to the higher page, maintaining its relative location in the frame
   unsafe {
-    asm!("mov eax, esp
+    llvm_asm!("mov eax, esp
           sub eax, $0
           add eax, 0xffbff000
           mov esp, eax" : :

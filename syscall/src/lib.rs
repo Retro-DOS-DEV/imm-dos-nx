@@ -1,4 +1,4 @@
-#![feature(asm)]
+#![feature(llvm_asm)]
 
 #![no_std]
 
@@ -9,7 +9,7 @@ pub use data::*;
 pub fn syscall_inner(method: u32, arg0: u32, arg1: u32, arg2: u32) -> u32 {
   let result: u32;
   unsafe {
-    asm!("int 0x2b" :
+    llvm_asm!("int 0x2b" :
           "={eax}"(result) :
           "{eax}"(method), "{ebx}"(arg0), "{ecx}"(arg1), "{edx}"(arg2) :
           "eax", "ebx", "ecx", "edx" :

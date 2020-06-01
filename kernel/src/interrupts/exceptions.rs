@@ -23,7 +23,7 @@ pub extern "x86-interrupt" fn gpf(_stack_frame: &StackFrame, error: u32) {
 pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
   let address: usize;
   unsafe {
-    asm!("mov $0, cr2" : "=r"(address) : : : "intel", "volatile");
+    llvm_asm!("mov $0, cr2" : "=r"(address) : : : "intel", "volatile");
   }
   kprintln!("\nPage Fault at {:#010x} {:x}:", address, error);
   if error & 1 == 0 {
