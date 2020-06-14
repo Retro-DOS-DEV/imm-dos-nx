@@ -1,4 +1,4 @@
-use super::address::PhysicalAddress;
+use super::super::address::PhysicalAddress;
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
@@ -29,5 +29,16 @@ impl Frame {
       *ptr = 0;
       ptr = ptr.offset(1);
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::Frame;
+
+  #[test]
+  fn frame_alignment() {
+    let f = Frame::new(0xf030);
+    assert_eq!(f.get_address().as_usize(), 0xf000);
   }
 }

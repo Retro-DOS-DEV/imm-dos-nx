@@ -43,6 +43,7 @@ pub fn init_allocator(location: VirtualAddress, size: usize) {
   ALLOCATOR.update_implementation(location, size);
 }
 
+#[cfg(not(test))]
 #[alloc_error_handler]
 fn alloc_error_handler(layout: Layout) -> ! {
   panic!("Alloc error: {:?}", layout)

@@ -2,7 +2,7 @@ use core::panic::PanicInfo;
 use crate::hardware::qemu;
 use crate::kprintln;
 
-#[cfg(not(feature = "testing"))]
+#[cfg(all(not(feature = "testing"), not(test)))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
   kprintln!("PANIC: {}", info);

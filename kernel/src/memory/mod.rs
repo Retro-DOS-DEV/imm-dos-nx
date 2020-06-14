@@ -2,11 +2,15 @@ pub mod address;
 pub mod bitmap_frame_allocator;
 pub mod frame_allocator;
 pub mod frame;
-pub mod heap;
 pub mod map;
+pub mod physical;
+
+// not test-safe
+#[cfg(not(test))]
+pub mod heap;
+#[cfg(not(test))]
 pub mod paging;
 
-use crate::x86;
 use frame_allocator::FrameAllocator;
 use bitmap_frame_allocator::BitmapFrameAllocator;
 
@@ -20,6 +24,7 @@ pub fn init(kernel_start: address::PhysicalAddress, kernel_end: address::Physica
   }
 }
 
+#[cfg(not(test))]
 pub fn init_paging() {
   let dir_frame = allocate_physical_frame().unwrap();
   unsafe {
@@ -54,13 +59,14 @@ pub fn init_paging() {
   }
 
   dir.make_active();
-  x86::registers::enable_paging();
+  crate::x86::registers::enable_paging();
 }
 
 /**
  * Move the kernel stack frame from the last page of bss to the last page of
  * available virtual memory, at 0xffbff000
  */
+#[cfg(not(test))]
 pub fn move_kernel_stack(stack_frame: frame::Frame) {
   let page_address = address::VirtualAddress::new(0xffbff000);
   paging::map_address_to_frame(page_address, stack_frame);

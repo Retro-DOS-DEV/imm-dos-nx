@@ -7,27 +7,45 @@
 
 #![no_std]
 
-pub mod debug;
-pub mod devices;
-pub mod drivers;
-pub mod files;
-pub mod filesystems;
-pub mod gdt;
-pub mod hardware;
-pub mod idt;
-pub mod init;
-pub mod interrupts;
+// Test-safe modules
 pub mod memory;
+
+#[cfg(not(test))]
+pub mod debug;
+#[cfg(not(test))]
+pub mod devices;
+#[cfg(not(test))]
+pub mod drivers;
+#[cfg(not(test))]
+pub mod files;
+#[cfg(not(test))]
+pub mod filesystems;
+#[cfg(not(test))]
+pub mod gdt;
+#[cfg(not(test))]
+pub mod hardware;
+#[cfg(not(test))]
+pub mod idt;
+#[cfg(not(test))]
+pub mod init;
+#[cfg(not(test))]
+pub mod interrupts;
+#[cfg(not(test))]
 pub mod panic;
+#[cfg(not(test))]
 pub mod process;
+#[cfg(not(test))]
 pub mod syscalls;
+#[cfg(not(test))]
 pub mod time;
+#[cfg(not(test))]
 pub mod x86;
 
 use memory::address::PhysicalAddress;
 
 extern crate alloc;
 
+#[cfg(not(test))]
 extern {
   // Segment labels from the linker script
   // Makes it easy to mark pages as readable / writable
@@ -51,6 +69,7 @@ extern {
  * Clear the .bss section. Since we copied bytes from disk to memory, there's a
  * chance it contains the symbol table.
  */
+#[cfg(not(test))]
 unsafe fn zero_bss() {
   let mut bss_iter = &label_bss_start as *const u8 as usize;
   let bss_end = &label_bss_end as *const u8 as usize;
@@ -61,6 +80,7 @@ unsafe fn zero_bss() {
   }
 }
 
+#[cfg(not(test))]
 unsafe fn init_memory() {
   let kernel_start = PhysicalAddress::new(&label_ro_physical_start as *const u8 as usize);
   let kernel_end = PhysicalAddress::new(&label_rw_physical_end as *const u8 as usize);
@@ -71,6 +91,7 @@ unsafe fn init_memory() {
   memory::move_kernel_stack(memory::frame::Frame::containing_address(stack_start));
 }
 
+#[cfg(not(test))]
 unsafe fn init_tables() {
   idt::init();
   gdt::init();
@@ -79,6 +100,7 @@ unsafe fn init_tables() {
 /**
  * Entry point of the kernel
  */
+#[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
   unsafe {
