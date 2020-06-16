@@ -3,18 +3,18 @@ use super::super::address::PhysicalAddress;
 #[derive(Copy, Clone, Eq)]
 pub struct FrameRange {
   start: usize, // First byte in the frame range
-  end: usize, // First byte after the range ends
+  length: usize, // Size of the range, in bytes
 }
 
 impl FrameRange {
   /**
-   * If start and end are not page-aligned (address & 0xfff == 0), bad things
-   * will happen...
+   * If start is not page-aligned (address & 0xfff == 0),
+   * bad things will happen...
    */
-  pub const fn new(start: usize, end: usize) -> FrameRange {
+  pub const fn new(start: usize, length: usize) -> FrameRange {
     FrameRange {
       start,
-      end,
+      length,
     }
   }
 
@@ -23,7 +23,7 @@ impl FrameRange {
   }
 
   pub fn get_last_frame_index(&self) -> usize {
-    (self.end - 1) >> 12
+    (self.start + self.length - 1) >> 12
   }
 
   pub fn get_starting_address(&self) -> PhysicalAddress {
@@ -31,20 +31,20 @@ impl FrameRange {
   }
 
   pub fn get_ending_address(&self) -> PhysicalAddress {
-    PhysicalAddress::new(self.end)
+    PhysicalAddress::new(self.start + self.length - 1)
   }
 
   pub fn contains_address(&self, addr: PhysicalAddress) -> bool {
     let addr_usize = addr.as_usize();
-    self.start <= addr_usize && self.end > addr_usize
+    self.start <= addr_usize && (self.start + self.length) > addr_usize
   }
 
   pub fn size_in_frames(&self) -> usize {
-    (self.end - self.start) >> 12
+    self.length >> 12
   }
 
   pub fn size_in_bytes(&self) -> usize {
-    self.end - self.start
+    self.length
   }
 
   pub unsafe fn zero_memory(&self) {
@@ -61,7 +61,7 @@ impl FrameRange {
 impl PartialEq for FrameRange {
   fn eq(&self, other: &Self) -> bool {
     self.get_starting_address() == other.get_starting_address() &&
-    self.get_ending_address() == other.get_ending_address()
+    self.size_in_bytes() == other.size_in_bytes()
   }
 }
 
@@ -80,11 +80,11 @@ mod tests {
 
   #[test]
   fn bounds() {
-    let f = FrameRange::new(0x4000, 0x8000);
+    let f = FrameRange::new(0x4000, 0x4000);
     assert_eq!(f.get_first_frame_index(), 4);
     assert_eq!(f.get_last_frame_index(), 7);
     assert_eq!(f.get_starting_address().as_usize(), 0x4000);
-    assert_eq!(f.get_ending_address().as_usize(), 0x8000);
+    assert_eq!(f.get_ending_address().as_usize(), 0x7fff);
     assert!(f.contains_address(PhysicalAddress::new(0x4000)));
     assert!(f.contains_address(PhysicalAddress::new(0x5055)));
     assert!(f.contains_address(PhysicalAddress::new(0x7fff)));
