@@ -85,6 +85,8 @@ unsafe fn init_memory() {
   let kernel_start = PhysicalAddress::new(&label_ro_physical_start as *const u8 as usize);
   let kernel_end = PhysicalAddress::new(&label_rw_physical_end as *const u8 as usize);
   memory::init(kernel_start, kernel_end);
+  // Test our fancy new frame allocator
+  memory::physical::init_allocator(0x700000, 0x1000);
 
   memory::init_paging();
   let stack_start = PhysicalAddress::new(&label_stack_start as *const u8 as usize);

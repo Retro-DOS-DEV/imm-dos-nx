@@ -44,9 +44,8 @@ impl FrameBitmap {
    * and de-allocate all known free ranges. If the process succeeds, the bitmap
    * will accurately reflect all memory areas available for allocation.
    */
-  pub fn initialize_from_memory_map(&mut self, map_addr: usize) -> Result<(), ()> {
+  pub fn initialize_from_memory_map(&mut self, map: &[bios::MapEntry]) -> Result<(), ()> {
     self.reset();
-    let map = unsafe { bios::load_entries_at_address(map_addr) };
     for entry in map.iter() {
       if entry.region_type == bios::REGION_TYPE_FREE {
         let range = FrameRange::new(
