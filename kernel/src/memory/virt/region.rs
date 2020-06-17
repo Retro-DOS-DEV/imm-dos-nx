@@ -30,6 +30,10 @@ impl VirtualMemoryRegion {
   pub fn backing_type(&self) -> MemoryRegionType {
     self.backed_by
   }
+
+  pub fn is_writable(&self) -> bool {
+    self.writable
+  }
 }
 
 impl PartialOrd for VirtualMemoryRegion {

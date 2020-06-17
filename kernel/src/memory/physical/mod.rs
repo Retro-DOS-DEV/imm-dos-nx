@@ -3,7 +3,7 @@ pub mod frame_bitmap;
 pub mod frame_range;
 pub mod frame;
 
-use frame_bitmap::FrameBitmap;
+use frame_bitmap::{BitmapError, FrameBitmap};
 use frame_range::FrameRange;
 use spin::Mutex;
 
@@ -45,13 +45,13 @@ pub fn with_allocator<F, T>(f: F) -> T where
   }
 }
 
-pub fn allocate_frames(count: usize) -> Result<FrameRange, ()> {
+pub fn allocate_frames(count: usize) -> Result<FrameRange, BitmapError> {
   with_allocator(|alloc| {
     alloc.allocate_frames(count)
   })
 }
 
-pub fn free_range(range: FrameRange) -> Result<(), ()> {
+pub fn free_range(range: FrameRange) -> Result<(), BitmapError> {
   with_allocator(|alloc| {
     alloc.free_range(range)
   })

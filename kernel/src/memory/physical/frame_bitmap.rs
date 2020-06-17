@@ -40,11 +40,11 @@ impl FrameBitmap {
   }
 
   /**
-   * Given the address of a BIOS-generated memory map, iterate through that map
-   * and de-allocate all known free ranges. If the process succeeds, the bitmap
-   * will accurately reflect all memory areas available for allocation.
+   * Given a BIOS-generated memory map, iterate through that map and de-allocate
+   * all known free ranges. If the process succeeds, the bitmap will accurately
+   * reflect all memory areas available for allocation.
    */
-  pub fn initialize_from_memory_map(&mut self, map: &[bios::MapEntry]) -> Result<(), ()> {
+  pub fn initialize_from_memory_map(&mut self, map: &[bios::MapEntry]) -> Result<(), BitmapError> {
     self.reset();
     for entry in map.iter() {
       if entry.region_type == bios::REGION_TYPE_FREE {
@@ -53,7 +53,7 @@ impl FrameBitmap {
           (entry.length & 0xffffffff) as usize,
         );
         match self.free_range(range) {
-          Err(_) => return Err(()),
+          Err(e) => return Err(e),
           _ => (),
         }
       }
@@ -128,9 +128,9 @@ impl FrameBitmap {
    * Allocate a specific range -- useful when you need access to a known memory
    * address for memmapped IO, DMA, etc.
    */
-  pub fn allocate_range(&mut self, range: FrameRange) -> Result<(), ()> {
+  pub fn allocate_range(&mut self, range: FrameRange) -> Result<(), BitmapError> {
     if !self.contains_range(range) {
-      return Err(());
+      return Err(BitmapError::OutOfBounds);
     }
     let first = range.get_first_frame_index();
     let last = range.get_last_frame_index();
@@ -147,14 +147,14 @@ impl FrameBitmap {
    * If you don't need a contiguous block of memory, it may be better to request
    * one frame at a time.
    */
-  pub fn allocate_frames(&mut self, frame_count: usize) -> Result<FrameRange, ()> {
+  pub fn allocate_frames(&mut self, frame_count: usize) -> Result<FrameRange, BitmapError> {
     let range = match self.find_free_range(frame_count) {
       Some(r) => r,
-      None => return Err(()),
+      None => return Err(BitmapError::NoAvailableSpace),
     };
     match self.allocate_range(range) {
       Ok(()) => Ok(range),
-      Err(()) => Err(())
+      Err(e) => Err(e)
     }
   }
 
@@ -162,9 +162,9 @@ impl FrameBitmap {
    * Mark a range as unused. Any subset of it may be used to fulfill a future
    * allocation request.
    */
-  pub fn free_range(&mut self, range: FrameRange) -> Result<(), ()> {
+  pub fn free_range(&mut self, range: FrameRange) -> Result<(), BitmapError> {
     if !self.contains_range(range) {
-      return Err(());
+      return Err(BitmapError::OutOfBounds);
     }
     let first = range.get_first_frame_index();
     let last = range.get_last_frame_index();
@@ -207,9 +207,24 @@ impl FrameBitmap {
   }
 }
 
+#[derive(PartialEq)]
+pub enum BitmapError {
+  NoAvailableSpace,
+  OutOfBounds,
+}
+
+impl core::fmt::Debug for BitmapError {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      BitmapError::NoAvailableSpace => f.write_str("FrameBitmap: No available space"),
+      BitmapError::OutOfBounds => f.write_str("FrameBitmap: Out of bounds"),
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
-  use super::{FrameBitmap, FrameRange};
+  use super::{BitmapError, FrameBitmap, FrameRange};
 
   #[test]
   fn bitmap_creation() {
@@ -232,7 +247,7 @@ mod tests {
     assert_eq!(memory, [3, 0]);
     bitmap.allocate_range(FrameRange::new(0x6000, 0x3000)).unwrap();
     assert_eq!(memory, [0xc3, 1]);
-    assert_eq!(bitmap.allocate_range(FrameRange::new(0x8000, 0x7000)), Err(()));
+    assert_eq!(bitmap.allocate_range(FrameRange::new(0x8000, 0x7000)), Err(BitmapError::OutOfBounds));
     assert_eq!(memory, [0xc3, 1]);
   }
 
