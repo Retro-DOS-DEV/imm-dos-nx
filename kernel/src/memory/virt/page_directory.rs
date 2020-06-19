@@ -4,14 +4,20 @@ use super::super::physical::allocate_frame;
 use super::page_table::PageTable;
 
 pub trait PageDirectory {
-  fn map(frame: Frame, vaddr: VirtualAddress /* needs flags */);
+  fn map(&self, frame: Frame, vaddr: VirtualAddress /* needs flags */);
 }
 
 pub struct CurrentPageDirectory {
 }
 
+impl CurrentPageDirectory {
+  pub fn get() -> CurrentPageDirectory {
+    CurrentPageDirectory {}
+  }
+}
+
 impl PageDirectory for CurrentPageDirectory {
-  fn map(frame: Frame, vaddr: VirtualAddress) {
+  fn map(&self, frame: Frame, vaddr: VirtualAddress) {
     let paddr = frame.get_address();
     let dir_index = vaddr.get_page_directory_index();
     let table_index = vaddr.get_page_table_index();
@@ -55,7 +61,7 @@ pub fn get_current_pagedir() -> PhysicalAddress {
 #[cfg(not(test))]
 pub fn invalidate_page(addr: VirtualAddress) {
   unsafe {
-    llvm_asm!("invlpg $0" : : "r"(addr.as_u32()) : : "intel", "volatile");
+    llvm_asm!("invlpg ($0)" : : "r"(addr.as_u32()) : "memory");
   }
 }
 

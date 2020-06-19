@@ -6,6 +6,8 @@ use alloc::alloc::{GlobalAlloc, Layout};
 use spin::Mutex;
 
 use super::address::VirtualAddress;
+use super::{physical};
+use super::virt::page_directory::{CurrentPageDirectory, PageDirectory};
 
 struct Allocator {
   locked_allocator: Mutex<list_allocator::ListAllocator>,
@@ -41,6 +43,15 @@ static ALLOCATOR: Allocator = Allocator::new();
 
 pub fn init_allocator(location: VirtualAddress, size: usize) {
   ALLOCATOR.update_implementation(location, size);
+}
+
+pub fn map_allocator(location: VirtualAddress, initial_frame_count: usize) {
+  for i in 0..initial_frame_count {
+    let heap_frame = physical::allocate_frame().unwrap();
+    let heap_vaddr = VirtualAddress::new(0xc0400000 + i * 0x1000);
+    let current_mapping = CurrentPageDirectory::get();
+    current_mapping.map(heap_frame, heap_vaddr);
+  }
 }
 
 #[cfg(not(test))]

@@ -148,23 +148,17 @@ pub extern "C" fn _start() -> ! {
       memory::physical::get_free_frame_count() * 4,
     );
 
-    // pause here for now
-    llvm_asm!("hlt");
-
-    // Initialize kernel heap
     {
       let heap_start = memory::address::VirtualAddress::new(0xc0400000);
-      let heap_size_frames = 256;
-      for i in 0..heap_size_frames {
-        let heap_frame = memory::allocate_physical_frame().unwrap();
-        let heap_page = memory::address::VirtualAddress::new(0xc0400000 + i * 4096);
-        memory::paging::map_address_to_frame(heap_page, heap_frame);
-      }
-      let heap_size = heap_size_frames * 4096;
+      let heap_size_frames = 64;
+      memory::heap::map_allocator(heap_start, heap_size_frames);
+      let heap_size = heap_size_frames * 0x1000;
       kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));
       memory::heap::init_allocator(heap_start, heap_size);
-      kprintln!("Kernel initialized");
+
     }
+
+    kprintln!("Kernel Initialized.");
 
     // Initialize hardware
     devices::init();
