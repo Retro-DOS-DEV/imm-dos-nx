@@ -25,6 +25,10 @@ impl PageTableEntry {
     PageTableEntry(0)
   }
 
+  pub fn zero(&mut self) {
+    self.0 = 0;
+  }
+
   pub fn get_address(&self) -> PhysicalAddress {
     PhysicalAddress::new((self.0 & 0xfffff000) as usize)
   }

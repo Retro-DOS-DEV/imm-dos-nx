@@ -51,8 +51,34 @@ pub fn allocate_frames(count: usize) -> Result<FrameRange, BitmapError> {
   })
 }
 
+pub fn allocate_frame() -> Result<frame::Frame, BitmapError> {
+  let frame = allocate_frames(1);
+  match frame {
+    Ok(f) => Ok(f.get_first_frame()),
+    Err(e) => Err(e)
+  }
+}
+
+pub fn allocate_range(range: FrameRange) -> Result<(), BitmapError> {
+  with_allocator(|alloc| {
+    alloc.allocate_range(range)
+  })
+}
+
 pub fn free_range(range: FrameRange) -> Result<(), BitmapError> {
   with_allocator(|alloc| {
     alloc.free_range(range)
+  })
+}
+
+pub fn get_frame_count() -> usize {
+  with_allocator(|alloc| {
+    alloc.get_frame_count()
+  })
+}
+
+pub fn get_free_frame_count() -> usize {
+  with_allocator(|alloc| {
+    alloc.get_free_frame_count()
   })
 }

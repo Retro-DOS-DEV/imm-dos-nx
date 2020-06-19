@@ -59,6 +59,14 @@ impl VirtualAddress {
   pub fn as_u32(&self) -> u32 {
     self.0 as u32
   }
+
+  pub fn get_page_directory_index(&self) -> usize {
+    self.0 >> 22
+  }
+
+  pub fn get_page_table_index(&self) -> usize {
+    (self.0 >> 12) & 0x3ff
+  }
 }
 
 impl PartialEq for VirtualAddress {

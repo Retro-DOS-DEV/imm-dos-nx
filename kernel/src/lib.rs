@@ -85,8 +85,6 @@ unsafe fn init_memory() {
   let kernel_start = PhysicalAddress::new(&label_ro_physical_start as *const u8 as usize);
   let kernel_end = PhysicalAddress::new(&label_rw_physical_end as *const u8 as usize);
   memory::init(kernel_start, kernel_end);
-  // Test our fancy new frame allocator
-  memory::physical::init_allocator(0x700000, 0x1000);
 
   memory::init_paging();
   let stack_start = PhysicalAddress::new(&label_stack_start as *const u8 as usize);
@@ -99,6 +97,36 @@ unsafe fn init_tables() {
   gdt::init();
 }
 
+#[cfg(not(test))]
+unsafe fn init_memory_new() {
+  memory::physical::init_allocator(0x300000, 0x1000);
+
+  let stack_start_address = PhysicalAddress::new(&label_stack_start as *const u8 as usize);
+  let kernel_data_bounds = memory::virt::KernelDataBounds {
+    ro_start: PhysicalAddress::new(&label_ro_physical_start as *const u8 as usize),
+    rw_end: PhysicalAddress::new(&label_rw_physical_end as *const u8 as usize),
+    stack_start: stack_start_address,
+  };
+
+  let initial_pagedir = memory::virt::create_initial_pagedir();
+  memory::virt::map_kernel(initial_pagedir, kernel_data_bounds);
+  initial_pagedir.make_active();
+  memory::virt::enable_paging();
+
+  // move esp to the higher page, maintaining its relative location in the frame
+  unsafe {
+    llvm_asm!(
+      "mov eax, esp
+      sub eax, $0
+      add eax, 0xffbfe000
+      mov esp, eax" : :
+      "r"(stack_start_address.as_u32()) :
+      "eax", "esp" :
+      "intel", "volatile"
+    );
+  }
+}
+
 /**
  * Entry point of the kernel
  */
@@ -107,30 +135,21 @@ unsafe fn init_tables() {
 pub extern "C" fn _start() -> ! {
   unsafe {
     zero_bss();
-    init_memory();
+    init_memory_new();
     init_tables();
   }
-
-  //assert_eq!(1, 2);
 
   unsafe {
     kprintln!("\nEntering the Kernel...");
 
-    let mem_map = memory::map::load_entries_at_address(0x1000);
-    kprintln!("Memory Map:");
-    for entry in mem_map {
-      kprintln!("{:?}", entry);
-    }
+    kprintln!(
+      "\nTotal Memory: {} KiB\nFree Memory: {} KiB",
+      memory::physical::get_frame_count() * 4,
+      memory::physical::get_free_frame_count() * 4,
+    );
 
-    kprint!("Frame Table: ----------------------------------");
-    for i in 0..memory::FRAME_ALLOCATOR.length {
-      if i & 15 == 0 {
-        kprintln!();
-      }
-      let ptr = memory::FRAME_ALLOCATOR.start as *const u8;
-      kprint!("{:02x} ", *(ptr.offset(i as isize)));
-    }
-    kprintln!("\nTotal Memory: {} KiB\nFree Memory: {} KiB", memory::count_frames() * 4, memory::count_free_frames() * 4);
+    // pause here for now
+    llvm_asm!("hlt");
 
     // Initialize kernel heap
     {

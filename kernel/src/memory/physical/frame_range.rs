@@ -1,4 +1,5 @@
 use super::super::address::PhysicalAddress;
+use super::frame::Frame;
 
 #[derive(Copy, Clone, Eq)]
 pub struct FrameRange {
@@ -32,6 +33,10 @@ impl FrameRange {
 
   pub fn get_ending_address(&self) -> PhysicalAddress {
     PhysicalAddress::new(self.start + self.length - 1)
+  }
+
+  pub fn get_first_frame(&self) -> Frame {
+    Frame::new(self.start)
   }
 
   pub fn contains_address(&self, addr: PhysicalAddress) -> bool {
