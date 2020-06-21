@@ -31,6 +31,10 @@ impl VirtualMemoryRegion {
     self.start.as_usize()
   }
 
+  pub fn get_size(&self) -> usize {
+    self.size
+  }
+
   pub fn contains_address(&self, addr: VirtualAddress) -> bool {
     let addr_usize = addr.as_usize();
     let start_usize = self.start.as_usize();

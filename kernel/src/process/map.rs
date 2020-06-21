@@ -24,7 +24,7 @@ impl ProcessMap {
     }
   }
 
-  fn get_next_pid(&self) -> ProcessID {
+  pub fn get_next_pid(&self) -> ProcessID {
     let pid = self.next_pid.fetch_add(1, Ordering::SeqCst);
     ProcessID::new(pid)
   }

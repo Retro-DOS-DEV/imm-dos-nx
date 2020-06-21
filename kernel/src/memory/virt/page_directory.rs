@@ -69,6 +69,10 @@ pub fn get_temporary_page_address() -> VirtualAddress {
   VirtualAddress::new(0xffbff000)
 }
 
+pub fn get_current_page_address() -> VirtualAddress {
+  VirtualAddress::new(0xfffff000)
+}
+
 pub fn map_frame_to_temporary_page(frame: Frame) {
   // The temporary page is located in the last slot of the second-to-last page
   // table. Assuming the current pagedir is mapped to its own last slot, this
