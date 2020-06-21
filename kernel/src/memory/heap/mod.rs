@@ -38,6 +38,8 @@ unsafe impl GlobalAlloc for Allocator {
   }
 }
 
+pub const INITIAL_HEAP_SIZE: usize = 64;
+
 #[global_allocator]
 static ALLOCATOR: Allocator = Allocator::new();
 

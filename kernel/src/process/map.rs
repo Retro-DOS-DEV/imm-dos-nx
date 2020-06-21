@@ -1,7 +1,9 @@
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::sync::atomic::{AtomicU32, Ordering};
-use super::process_state::{ProcessID, ProcessState};
+use crate::memory::address::VirtualAddress;
+use super::id::ProcessID;
+use super::process_state::ProcessState;
 
 /**
  * Mapping of PIDs to process structures.
@@ -27,9 +29,12 @@ impl ProcessMap {
     ProcessID::new(pid)
   }
 
-  pub fn spawn_process(&mut self) -> ProcessID {
+  pub fn spawn_first_process(&mut self, heap_location: VirtualAddress) -> ProcessID {
     let pid = self.get_next_pid();
-    self.processes.insert(pid, Arc::new(ProcessState::new(pid)));
+    self.processes.insert(
+      pid,
+      Arc::new(ProcessState::first(pid, heap_location))
+    );
     pid
   }
 

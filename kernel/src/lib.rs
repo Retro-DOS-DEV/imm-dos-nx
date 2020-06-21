@@ -148,14 +148,13 @@ pub extern "C" fn _start() -> ! {
       memory::physical::get_free_frame_count() * 4,
     );
 
+    let heap_start = memory::address::VirtualAddress::new(0xc0400000);
     {
-      let heap_start = memory::address::VirtualAddress::new(0xc0400000);
       let heap_size_frames = 64;
       memory::heap::map_allocator(heap_start, heap_size_frames);
       let heap_size = heap_size_frames * 0x1000;
       kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));
       memory::heap::init_allocator(heap_start, heap_size);
-
     }
 
     kprintln!("Kernel Initialized.");
@@ -166,8 +165,13 @@ pub extern "C" fn _start() -> ! {
     filesystems::init_fs();
 
     process::init();
-    let init_process = process::all_processes_mut().spawn_process();
+    let init_process = process::all_processes_mut().spawn_first_process(heap_start);
     process::make_current(init_process);
+
+    {
+      let ptr = 0xffbfd400 as *mut u8;
+      *ptr = 0x38;
+    }
 
     llvm_asm!("sti");
 

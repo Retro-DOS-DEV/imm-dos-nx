@@ -1,6 +1,5 @@
 use alloc::vec::Vec;
 use crate::devices;
-use crate::drivers::driver::DeviceDriver;
 use crate::files::handle::{Handle, HandleAllocator, LocalHandle};
 use spin::RwLock;
 use super::filesystem::FileSystem;

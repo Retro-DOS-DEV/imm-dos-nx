@@ -6,9 +6,10 @@ pub enum MemoryRegionType {
   MemMapped(usize, usize), // Backed by a memmapped file
   Direct(FrameRange), // Backed by an explicit physical memory range
   IO(FrameRange), // Similar to Direct, but used for IO devices like PCI
-  Anonymous(FrameRange), // Backed by arbitrarily-allocated physical memory
+  Anonymous, // Backed by arbitrarily-allocated physical memory
 }
 
+#[derive(Copy, Clone)]
 pub struct VirtualMemoryRegion {
   start: VirtualAddress, // Starting byte of the region, should be page-aligned
   size: usize, // Length of the region, in bytes
@@ -17,6 +18,15 @@ pub struct VirtualMemoryRegion {
 }
 
 impl VirtualMemoryRegion {
+  pub fn new(start: VirtualAddress, size: usize, backed_by: MemoryRegionType) -> VirtualMemoryRegion {
+    VirtualMemoryRegion {
+      start,
+      size,
+      backed_by,
+      writable: false,
+    }
+  }
+
   pub fn get_starting_address_as_usize(&self) -> usize {
     self.start.as_usize()
   }
@@ -33,6 +43,16 @@ impl VirtualMemoryRegion {
 
   pub fn is_writable(&self) -> bool {
     self.writable
+  }
+
+  pub fn set_writable(&mut self, flag: bool) {
+    self.writable = flag;
+  }
+
+  pub fn extend_before(&mut self, count: usize) {
+    if self.start.as_usize() >= 0x1000 * count {
+      self.start = VirtualAddress::new(self.start.as_usize() - 0x1000 * count);
+    }
   }
 }
 

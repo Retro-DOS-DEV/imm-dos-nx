@@ -10,6 +10,8 @@ use super::physical::{self, frame::Frame};
 #[cfg(not(test))]
 use crate::x86;
 
+pub const STACK_START: VirtualAddress = VirtualAddress::new(0xffbfd000);
+
 /**
  * Create the initial Page Directory, before paging has been enabled.
  */
@@ -65,10 +67,6 @@ pub fn map_kernel(directory_ref: PageTableReference, bounds: KernelDataBounds) {
   let last_page = PageTable::at_address(VirtualAddress::new(last_page_addr.as_usize()));
   last_page.get_mut(1022).set_address(bounds.stack_start);
   last_page.get_mut(1022).set_present();
-}
-
-fn map_with_paging_disabled(dir: PageTableReference, frame: Frame, vaddr: VirtualAddress) {
-
 }
 
 pub fn enable_paging() {

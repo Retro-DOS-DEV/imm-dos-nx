@@ -1,50 +1,75 @@
-use core::cmp;
 use crate::files::handle::{DeviceHandlePair, FileHandle, FileHandleMap, LocalHandle};
+use crate::memory;
 use crate::memory::address::VirtualAddress;
+use crate::memory::virt::region::{MemoryRegionType, VirtualMemoryRegion};
 use spin::RwLock;
-
-#[derive(Copy, Clone, Eq)]
-#[repr(transparent)]
-pub struct ProcessID(u32);
-
-impl ProcessID {
-  pub fn new(id: u32) -> ProcessID {
-    ProcessID(id)
-  }
-}
-
-impl cmp::Ord for ProcessID {
-  fn cmp(&self, other: &Self) -> cmp::Ordering {
-    self.0.cmp(&other.0)
-  }
-}
-
-impl PartialOrd for ProcessID {
-  fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-    Some(self.cmp(other))
-  }
-}
-
-impl PartialEq for ProcessID {
-  fn eq(&self, other: &Self) -> bool {
-    self.0 == other.0
-  }
-}
+use super::id::ProcessID;
 
 pub struct ProcessState {
   pid: ProcessID,
-  kernel_stack: VirtualAddress,
+  parent: ProcessID,
+  kernel_heap_region: RwLock<VirtualMemoryRegion>,
+  kernel_stack_region: RwLock<VirtualMemoryRegion>,
 
   open_files: RwLock<FileHandleMap>,
 }
 
 impl ProcessState {
-  pub fn new(pid: ProcessID) -> ProcessState {
+  /**
+   * Used to generate the init process, which has no parent
+   */
+  pub fn first(pid: ProcessID, heap_start: VirtualAddress) -> ProcessState {
     ProcessState {
       pid,
-      kernel_stack: VirtualAddress::new(0),
+      parent: pid,
+      kernel_heap_region: RwLock::new(
+        VirtualMemoryRegion::new(
+          heap_start,
+          memory::heap::INITIAL_HEAP_SIZE * 0x1000,
+          MemoryRegionType::Anonymous,
+        ),
+      ),
+      kernel_stack_region: RwLock::new(
+        VirtualMemoryRegion::new(
+          memory::virt::STACK_START,
+          0x1000,
+          MemoryRegionType::Anonymous,
+        ),
+      ),
+
       open_files: RwLock::new(FileHandleMap::new()),
     }
+  }
+
+  /**
+   * It is not possible to create an orphaned process; each process must be
+   * forked from an existing one.
+   */
+  pub fn fork(&self, pid: ProcessID, parent: ProcessID) -> ProcessState {
+    ProcessState {
+      pid,
+      parent,
+      kernel_heap_region: RwLock::new(
+        self.kernel_heap_region.read().clone(),
+      ),
+      kernel_stack_region: RwLock::new(
+        VirtualMemoryRegion::new(
+          memory::virt::STACK_START,
+          0x1000,
+          MemoryRegionType::Anonymous,
+        ),
+      ),
+
+      open_files: RwLock::new(FileHandleMap::new()),
+    }
+  }
+
+  pub fn get_kernel_heap_region(&self) -> &RwLock<VirtualMemoryRegion> {
+    &self.kernel_heap_region
+  }
+
+  pub fn get_kernel_stack_region(&self) -> &RwLock<VirtualMemoryRegion> {
+    &self.kernel_stack_region
   }
 
   pub fn open_file(&self, drive: usize, local: LocalHandle) -> FileHandle {

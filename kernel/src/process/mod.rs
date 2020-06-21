@@ -1,6 +1,7 @@
 use alloc::sync::Arc;
 use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+pub mod id;
 pub mod map;
 pub mod process_state;
 
@@ -42,7 +43,7 @@ pub fn current_process() -> Option<Arc<process_state::ProcessState>> {
   }
 }
 
-pub fn make_current(pid: process_state::ProcessID) {
+pub fn make_current(pid: id::ProcessID) {
   let mut map = all_processes_mut();
   map.make_current(pid);
 }
