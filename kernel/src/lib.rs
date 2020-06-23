@@ -65,6 +65,13 @@ extern {
   static label_stack_start: u8;
 }
 
+// Used to pass data from the bootloader to the kernel
+#[repr(C, packed)]
+pub struct BootStruct {
+  initfs_start: usize,
+  initfs_size: usize,
+}
+
 /**
  * Clear the .bss section. Since we copied bytes from disk to memory, there's a
  * chance it contains the symbol table.
@@ -99,7 +106,8 @@ unsafe fn init_tables() {
 
 #[cfg(not(test))]
 unsafe fn init_memory_new() {
-  memory::physical::init_allocator(0x300000, 0x1000);
+  let allocator_location = &label_rw_physical_end as *const u8 as usize;
+  memory::physical::init_allocator(allocator_location, 0x1000);
 
   let stack_start_address = PhysicalAddress::new(&label_stack_start as *const u8 as usize);
   let kernel_data_bounds = memory::virt::KernelDataBounds {
@@ -109,7 +117,7 @@ unsafe fn init_memory_new() {
   };
 
   let initial_pagedir = memory::virt::create_initial_pagedir();
-  memory::virt::map_kernel(initial_pagedir, kernel_data_bounds);
+  memory::virt::map_kernel(initial_pagedir, &kernel_data_bounds);
   initial_pagedir.make_active();
   memory::virt::enable_paging();
 
@@ -125,6 +133,8 @@ unsafe fn init_memory_new() {
       "intel", "volatile"
     );
   }
+
+  kprintln!("\nKernel range: {:?}-{:?}", kernel_data_bounds.ro_start, kernel_data_bounds.rw_end);
 }
 
 /**
@@ -132,11 +142,14 @@ unsafe fn init_memory_new() {
  */
 #[cfg(not(test))]
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
+pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
   unsafe {
+    let boot_struct = &*boot_struct_ptr;
     zero_bss();
     init_memory_new();
     init_tables();
+
+    kprintln!("InitFS at {:#010X}, {:} bytes long", boot_struct.initfs_start, boot_struct.initfs_size);
   }
 
   unsafe {

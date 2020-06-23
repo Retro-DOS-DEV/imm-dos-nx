@@ -14,6 +14,8 @@ libkernel_testing := build/libkernel_testing.a
 kernel_linker := kernel/kernel.ld
 kernel_deps := kernel/src/* kernel/src/*/* kernel/src/*/*/*
 
+initfs := build/initfs.img
+
 .PHONY: all, clean, test
 
 all: bootdisk
@@ -26,10 +28,11 @@ test: bootdisk_testing
 	EXIT_CODE=$$?; \
 	if [ $$EXIT_CODE = "7" ]; then exit 1; fi
 
-bootdisk: $(diskimage) $(bootsector) $(bootloader) $(kernel)
+bootdisk: $(diskimage) $(bootsector) $(bootloader) $(kernel) $(initfs)
 	@dd if=$(bootsector) of=$(diskimage) bs=450 count=1 seek=62 oflag=seek_bytes conv=notrunc
 	@mcopy -D o -i $(diskimage) $(bootloader) ::BOOT.BIN
 	@mcopy -D o -i $(diskimage) $(kernel) ::KERNEL.BIN
+	@mcopy -D o -i $(diskimage) $(initfs) ::INITFS.IMG
 
 bootdisk_testing: $(diskimage) $(bootsector) $(bootloader) $(kernel_testing)
 	@dd if=$(bootsector) of=$(diskimage) bs=450 count=1 seek=62 oflag=seek_bytes conv=notrunc
@@ -75,3 +78,6 @@ $(libkernel_testing): $(kernel_deps)
 	@cd kernel && \
 	cargo xbuild --lib --target i386-kernel.json --release --features "testing"
 	@cp kernel/target/i386-kernel/release/libkernel.a $(libkernel_testing)
+
+$(initfs):
+	@ls initfs/ | cpio -D initfs -H bin -o > $(initfs)

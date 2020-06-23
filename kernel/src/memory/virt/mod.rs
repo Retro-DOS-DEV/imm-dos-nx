@@ -41,7 +41,7 @@ pub struct KernelDataBounds {
   pub stack_start: PhysicalAddress,
 }
 
-pub fn map_kernel(directory_ref: PageTableReference, bounds: KernelDataBounds) {
+pub fn map_kernel(directory_ref: PageTableReference, bounds: &KernelDataBounds) {
   // Mark the kernel's occupied frames as allocated
   let kernel_range = physical::frame_range::FrameRange::new(
     bounds.ro_start.as_usize(),

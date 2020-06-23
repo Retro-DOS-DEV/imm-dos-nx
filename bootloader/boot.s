@@ -26,14 +26,48 @@ start:
 
   # find the kernel
   cld
+  # argument order: dest, success message, error message, filename
+  push 0x10
+  push 0
+  push offset msg_kernel_found
+  push offset msg_kernel_not_found
+  push offset filename_kernel
+  call directory_entry_search
+  pop dx
+  pop dx
+  pop dx
+
+  pop edx
+  # edx is the number of kernel bytes copied
+  # round up to the next 4KiB barrier
+  add edx, 0x1000
+  and edx, 0xfffff000
+  # set the destination for initfs
+  add edx, 0x100000
+  mov [initfs_start], edx
+  push edx
+  push offset msg_initfs_found
+  push offset msg_initfs_not_found
+  push offset filename_initfs
+  mov bx, 0x7e00
+  call directory_entry_search
+  pop dx
+  pop dx
+  pop dx
+
+  pop edx
+  mov [initfs_size], edx
+
+  jmp files_ready
+
 directory_entry_search:
   # check if the directory entry is empty
   mov ah, [bx]
   cmp ah, 0
-  je kernel_not_found
+  je file_not_found
   # compare all letters of the filename
   mov cx, 11
-  lea si, filename_kernel
+  mov si, [esp + 2]
   push bx
 check_filename_character:
   lodsb
@@ -42,22 +76,22 @@ check_filename_character:
   jnz check_next_entry
   inc bx
   loop check_filename_character
-  jmp kernel_found
+  jmp file_found
 check_next_entry:
   pop bx
   add bx, 32
   jmp directory_entry_search
-kernel_not_found:
-  lea si, msg_kernel_not_found
+file_not_found:
+  mov si, [esp + 4]
   call print_string_16
   jmp halt
 
-kernel_found:
+file_found:
   pop bx
-  lea si, msg_kernel_found
+  mov si, [esp + 6]
   call print_string_16
 
-  # copy the kernel to memory, via a lowmem buffer
+  # copy the file to memory, via a lowmem buffer
   # determine the size, and start loading data at 0x8000
   # this is the same trick from the MBR loader, we convert bytes into sectors
   mov cx, [bx + 0x1d]
@@ -73,14 +107,14 @@ kernel_found:
   mov edx, 0
   push cx   # sectors left to read
   push edx  # bytes copied so far
-copy_kernel_sector:
+copy_file_sector:
   call copy_sector_at_lba
   inc ax
   # if our buffer (0x8000 - 0xffff) is full, copy it to highmem via unreal mode
   cmp bx, 0xfe00
   jge copy_to_highmem
   add bx, 0x200
-  loop copy_kernel_sector
+  loop copy_file_sector
   inc cx
 copy_to_highmem:
   dec cx
@@ -100,7 +134,7 @@ copy_to_highmem:
   shl ecx, 8
   # copy $ecx words from lowmem to highmem
   mov esi, 0x8000
-  mov ebx, 0x100000
+  mov ebx, [esp + 10]
   add ebx, edx
   push ax
   # unlock "unreal" mode to make >1MB addressable in real mode
@@ -122,12 +156,18 @@ copy_to_highmem_loop:
 
   # if cx is zero, there are no sectors left to read
   cmp cx, 0
-  je kernel_copied
+  je file_copied
   # otherwise, start copying to the buffer at 0x8000 again
   mov bx, 0x8000
-  jmp copy_kernel_sector
+  jmp copy_file_sector
 
-kernel_copied:
+file_copied:
+  mov [esp + 14], edx
+  pop edx
+  pop dx
+  ret
+
+files_ready:
   # map memory
   call map_memory
 
@@ -181,6 +221,9 @@ enter_kernel:
   # move the stack pointer to the last four bytes of this section
   mov esp, edx
   sub esp, 0xc0000004
+
+  push offset initfs_start
+  push 0x00000000
   
   # read entrypoint from ELF header
   mov eax, [0x100000 + 0x18]
@@ -204,9 +247,16 @@ halt:
 .include "print32.s"
 .include "unreal.s"
 
+# BootStruct for passing values to the kernel
+initfs_start: .long 0
+initfs_size: .long 0
+
 filename_kernel: .ascii "KERNEL  BIN"
+filename_initfs: .ascii "INITFS  IMG"
 msg_start: .asciz "Booting...\r\n"
 msg_kernel_found: .asciz "Kernel found, loading into memory.\r\n"
 msg_kernel_not_found: .asciz "Kernel not found!"
+msg_initfs_found: .asciz "InitFS found, loading into memory.\r\n"
+msg_initfs_not_found: .asciz "InitFS not found!"
 msg_set_up: .asciz "System is in 32 bit protected mode! "
 msg_symtab_not_found: .asciz "Kernel symbol table not found!"
