@@ -143,6 +143,11 @@ unsafe fn init_memory_new() {
 #[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
+  let initfs_start = unsafe {
+    let boot_struct = &*boot_struct_ptr;
+    boot_struct.initfs_start
+  };
+
   unsafe {
     let boot_struct = &*boot_struct_ptr;
     zero_bss();
@@ -177,6 +182,9 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     filesystems::init_fs();
 
+    let init_fs = filesystems::init::InitFileSystem::new(memory::address::VirtualAddress::new(initfs_start));
+    filesystems::VFS.register_fs("INIT", alloc::boxed::Box::new(init_fs)).expect("Failed to register INIT FS");
+
     process::init();
     let init_process = process::all_processes_mut().spawn_first_process(heap_start);
     process::make_current(init_process);
@@ -199,6 +207,13 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     syscall::read(handle, buffer.as_mut_ptr(), 1);
     assert_eq!(buffer[0], 0);
   }
+
+  let initfs_handle = syscall::open("INIT:\\test.txt");
+  let mut initfs_file: [u8; 40] = [0; 40];
+  syscall::read(initfs_handle, initfs_file.as_mut_ptr(), initfs_file.len());
+  kprintln!("File from InitFS:\n{}",
+    unsafe { core::str::from_utf8_unchecked(&initfs_file) }
+  );
 
   let com1 = syscall::open("DEV:\\COM1");
   let msg = "HI SERIAL PORT";

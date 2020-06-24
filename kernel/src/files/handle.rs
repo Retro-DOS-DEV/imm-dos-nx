@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use core::cmp;
 use core::sync::atomic::{AtomicU32, Ordering};
 
 pub trait Handle {
@@ -23,6 +24,26 @@ impl Handle for LocalHandle {
     self.0 as usize
   }
 }
+
+impl cmp::Ord for LocalHandle {
+  fn cmp(&self, other: &Self) -> cmp::Ordering {
+    self.0.cmp(&other.0)
+  }
+}
+
+impl PartialOrd for LocalHandle {
+  fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl PartialEq for LocalHandle {
+  fn eq(&self, other: &Self) -> bool {
+    self.0 == other.0
+  }
+}
+
+impl Eq for LocalHandle {}
 
 #[derive(Copy, Clone)]
 pub struct FileHandle(u32);

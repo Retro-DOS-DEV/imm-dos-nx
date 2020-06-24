@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use spin::RwLock;
 
 pub mod dev;
+pub mod init;
 pub mod filesystem;
 
 pub type FileSystemType = dyn filesystem::FileSystem + Send + Sync;

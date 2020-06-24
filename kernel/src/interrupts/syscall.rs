@@ -47,7 +47,7 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
       let path_str = path_str_ptr.as_str();
       match file::open_path(path_str) {
         Ok(handle) => registers.eax = handle,
-        Err(_) => (),
+        Err(_) => registers.eax = 0xffffffff,
       }
     },
     0x11 => { // close
