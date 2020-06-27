@@ -215,6 +215,18 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     unsafe { core::str::from_utf8_unchecked(&initfs_file) }
   );
 
+  // Spawn init process
+  kprintln!("Creating init process");
+  let init_proc_id = process::all_processes_mut().fork_current();
+  {
+    let mut processes = process::all_processes_mut();
+    let init_proc = processes.get_process(init_proc_id).unwrap();
+    init_proc.set_initial_entry_point(user_init, 0xbffffffc);
+  }
+  kprintln!("Switching to init");
+  process::all_processes_mut().switch_to(init_proc_id);
+  
+  /*
   let com1 = syscall::open("DEV:\\COM1");
   let msg = "HI SERIAL PORT";
   syscall::write(com1, msg.as_ptr(), msg.len());
@@ -227,10 +239,20 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       );
     }
   }
+  */
 
   loop {
     unsafe {
       llvm_asm!("hlt" : : : : "volatile");
     }
   }
+}
+
+#[inline(never)]
+pub extern fn user_init() {
+  let com1 = syscall::open("DEV:\\COM1");
+  let msg = "HI SERIAL PORT";
+  syscall::write(com1, msg.as_ptr(), msg.len());
+
+  loop {}
 }

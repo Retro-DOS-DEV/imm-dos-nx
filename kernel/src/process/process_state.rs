@@ -1,6 +1,7 @@
 use crate::files::handle::{DeviceHandlePair, FileHandle, FileHandleMap, LocalHandle};
 use crate::memory;
 use crate::memory::address::VirtualAddress;
+use crate::memory::physical::frame::Frame;
 use crate::memory::virt::page_directory;
 use crate::memory::virt::page_table::{PageTable, PageTableReference};
 use crate::memory::virt::region::{MemoryRegionType, VirtualMemoryRegion};
@@ -13,6 +14,8 @@ pub struct ProcessState {
   kernel_heap_region: RwLock<VirtualMemoryRegion>,
   kernel_stack_region: RwLock<VirtualMemoryRegion>,
   page_directory: PageTableReference,
+
+  kernel_esp: RwLock<usize>,
 
   open_files: RwLock<FileHandleMap>,
 }
@@ -41,6 +44,8 @@ impl ProcessState {
       ),
       page_directory: PageTableReference::current(),
 
+      kernel_esp: RwLock::new(0),
+
       open_files: RwLock::new(FileHandleMap::new()),
     }
   }
@@ -64,6 +69,10 @@ impl ProcessState {
         ),
       ),
       page_directory: self.fork_page_directory(),
+
+      kernel_esp: RwLock::new(
+        memory::virt::STACK_START.as_usize() + 0x1000 - 4
+      ),
 
       open_files: RwLock::new(FileHandleMap::new()),
     }
@@ -103,17 +112,60 @@ impl ProcessState {
       }
     }
 
-    // No need to create a stack mapping, since we can now map on demand
-
     // Duplicate the process memory mapping
     // Right now this just copies the kernel data. This needs to come from a
     // process-stored map in the future.
     new_pagedir.get_mut(0).set_address(current_pagedir.get(0).get_address());
     new_pagedir.get_mut(0).set_present();
+    new_pagedir.get_mut(0).set_user_access();
     new_pagedir.get_mut(0x300).set_address(current_pagedir.get(0x300).get_address());
     new_pagedir.get_mut(0x300).set_present();
 
+    // When forking, we need to copy the old stack to the new one, so that we
+    // return to the same place in both processes
+
+
     PageTableReference::new(pagedir_frame.get_address())
+  }
+
+  pub fn make_current_stack_frame_editable(&self) {
+    let esp = self.kernel_esp.read().clone();
+    let directory_entry = esp >> 22;
+    let table_entry = (esp >> 12) & 0x3ff;
+    // Map the page table into temp space
+    page_directory::map_frame_to_temporary_page(Frame::new(self.page_directory.get_address().as_usize()));
+    let temp_page_address = page_directory::get_temporary_page_address();
+    let pagedir = PageTable::at_address(temp_page_address);
+    let stack_table_address = pagedir.get(directory_entry).get_address().as_usize();
+    page_directory::map_frame_to_temporary_page(Frame::new(stack_table_address));
+    if !pagedir.get(table_entry).is_present() {
+      let stack_frame = memory::physical::allocate_frame().unwrap();
+      pagedir.get_mut(table_entry).set_address(stack_frame.get_address());
+      pagedir.get_mut(table_entry).set_present();
+    }
+    let current_stack_frame = pagedir.get(table_entry).get_address().as_usize();
+    page_directory::map_frame_to_temporary_page(Frame::new(current_stack_frame));
+  }
+
+  pub fn set_initial_entry_point(&self, func: extern fn(), esp: usize) {
+    self.make_current_stack_frame_editable();
+    let temp_page_address = page_directory::get_temporary_page_address().as_usize();
+    let kernel_esp = self.kernel_esp.read().clone();
+    let stack_offset = kernel_esp & 0xfff;
+    unsafe {
+      let stack_ptr = (temp_page_address + stack_offset) as *mut usize;
+      // Stack segment
+      *stack_ptr.offset(-1) = 0x23;
+      // Stack pointer
+      *stack_ptr.offset(-2) = esp;
+      // eflags
+      *stack_ptr.offset(-3) = 0;
+      // Code segment
+      *stack_ptr.offset(-4) = 0x1b;
+      // Instruction pointer
+      *stack_ptr.offset(-5) = func as usize; 
+    }
+    *self.kernel_esp.write() = kernel_esp - 4 * 5;
   }
 
   pub fn get_page_directory(&self) -> &PageTableReference {
@@ -141,5 +193,21 @@ impl ProcessState {
   pub fn get_open_file_info(&self, handle: FileHandle) -> Option<DeviceHandlePair> {
     let files = self.open_files.read();
     files.get_drive_and_handle(handle)
+  }
+
+  #[naked]
+  #[inline(never)]
+  pub fn switch_to(&self, next: &ProcessState) {
+    let pagedir = next.get_page_directory().get_address().as_usize();
+    let esp = next.kernel_esp.read().clone();
+    unsafe {
+      llvm_asm!("
+        mov cr3, $0
+        mov esp, $1
+        iretd" : :
+        "r"(pagedir), "r"(esp) : :
+        "intel", "volatile"
+      );
+    }
   }
 }

@@ -38,6 +38,17 @@ impl ProcessMap {
     pid
   }
 
+  pub fn fork_current(&mut self) -> ProcessID {
+    let pid = self.get_next_pid();
+    let cur = self.get_current_process().expect("No current process to fork");
+    let next = cur.fork(pid);
+    self.processes.insert(
+      pid,
+      Arc::new(next),
+    );
+    pid
+  }
+
   pub fn get_process(&self, pid: ProcessID) -> Option<&Arc<ProcessState>> {
     self.processes.get(&pid)
   }
@@ -48,5 +59,11 @@ impl ProcessMap {
 
   pub fn make_current(&mut self, pid: ProcessID) {
     self.current = pid;
+  }
+
+  pub fn switch_to(&self, pid: ProcessID) {
+    let current = self.get_current_process().unwrap();
+    let next = self.processes.get(&pid).unwrap();
+    current.switch_to(&next);
   }
 }

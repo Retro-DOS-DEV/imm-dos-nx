@@ -47,6 +47,49 @@ impl PageDirectory for CurrentPageDirectory {
   }
 }
 
+pub struct AlternatePageDirectory {
+  directory_address: PhysicalAddress,
+}
+
+impl AlternatePageDirectory {
+  pub fn new(addr: PhysicalAddress) -> AlternatePageDirectory {
+    AlternatePageDirectory {
+      directory_address: addr,
+    }
+  }
+}
+
+impl PageDirectory for AlternatePageDirectory {
+  fn map(&self, frame: Frame, vaddr: VirtualAddress) {
+    let pagedir_frame = Frame::new(self.directory_address.as_usize());
+    map_frame_to_temporary_page(pagedir_frame);
+    let dir_index = vaddr.get_page_directory_index();
+    let table_index = vaddr.get_page_table_index();
+    let directory = PageTable::at_address(get_temporary_page_address());
+    if !directory.get(dir_index).is_present() {
+      // Allocate a page table
+      let table_frame = allocate_frame().unwrap();
+      directory.get_mut(dir_index).set_address(table_frame.get_address());
+      directory.get_mut(dir_index).set_present();
+      map_frame_to_temporary_page(table_frame);
+      let table = PageTable::at_address(get_temporary_page_address());
+      table.zero();
+      table.get_mut(table_index).set_address(frame.get_address());
+      table.get_mut(table_index).set_present();
+    } else {
+      let addr = directory.get(dir_index).get_address();
+      map_frame_to_temporary_page(Frame::new(addr.as_usize()));
+      let table = PageTable::at_address(get_temporary_page_address());
+      let needs_invalidation = table.get(table_index).is_present();
+      table.get_mut(table_index).set_address(frame.get_address());
+      table.get_mut(table_index).set_present();
+      if needs_invalidation {
+        invalidate_page(vaddr);
+      }
+    }
+  }
+}
+
 #[cfg(not(test))]
 pub fn set_current_pagedir(addr: PhysicalAddress) {
   crate::x86::registers::set_cr3(addr.as_u32());

@@ -16,8 +16,9 @@ pub extern "x86-interrupt" fn double_fault(stack_frame: &StackFrame) {
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn gpf(_stack_frame: &StackFrame, error: u32) {
+pub extern "x86-interrupt" fn gpf(stack_frame: &StackFrame, error: u32) {
   kprintln!("\nERR: General Protection Fault, code {}", error);
+  kprintln!("{:?}", stack_frame);
   loop {}
 }
 

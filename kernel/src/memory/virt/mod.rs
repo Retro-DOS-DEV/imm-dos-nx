@@ -58,6 +58,7 @@ pub fn map_kernel(directory_ref: PageTableReference, bounds: &KernelDataBounds) 
   for index in 0..1024 {
     table_zero.get_mut(index).set_address(PhysicalAddress::new(0x1000 * index));
     table_zero.get_mut(index).set_present();
+    table_zero.get_mut(index).set_user_access();
   }
   // Also, map it to highmem at 0xc0000000
   dir.get_mut(0x300).set_address(table_zero_frame.get_address());
