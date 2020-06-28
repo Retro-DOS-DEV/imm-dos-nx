@@ -75,6 +75,27 @@ pub fn switch_to(pid: id::ProcessID) {
   }
 }
 
+pub fn enter_usermode(pid: id::ProcessID) {
+  let (pagedir, old_proc_esp, new_proc_esp) = {
+    let mut map = all_processes_mut();
+    let current = map.get_current_process().unwrap();
+    let old_proc_esp = current.get_kernel_stack_container() as *const RwLock<usize>;
+    map.make_current(pid);
+    let next = map.get_process(pid).unwrap();
+    unsafe {
+      gdt::set_tss_stack_pointer(memory::virt::STACK_START.as_u32() + 0x1000 - 4);
+    }
+    let pagedir = next.get_page_directory().get_address().as_usize();
+    let new_proc_esp = next.get_kernel_stack_container() as *const RwLock<usize>;
+    (pagedir, old_proc_esp, new_proc_esp)
+  };
+  unsafe {
+    llvm_asm!("push eax; push ecx; push edx; push ebx; push ebp; push esi; push edi" : : : "esp" : "intel", "volatile");
+    enter_inner(pagedir, old_proc_esp, new_proc_esp);
+    llvm_asm!("pop edi; pop esi; pop ebp; pop ebx; pop edx; pop ecx; pop eax" : : : "esp" : "intel", "volatile");
+  }
+}
+
 #[naked]
 #[inline(never)]
 unsafe fn switch_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_proc_esp: *const RwLock<usize>) {
@@ -84,6 +105,17 @@ unsafe fn switch_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_p
   *(*old_proc_esp).write() = cur_esp;
   let next_esp = (*new_proc_esp).read().clone();
   llvm_asm!("mov esp, $0" : : "r"(next_esp) : : "intel", "volatile");
+}
+
+#[naked]
+#[inline(never)]
+unsafe fn enter_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_proc_esp: *const RwLock<usize>) {
+  llvm_asm!("mov cr3, $0" : : "r"(pagedir) : : "intel", "volatile");
+  let cur_esp;
+  llvm_asm!("mov $0, esp" : "=r"(cur_esp) : : : "intel", "volatile");
+  *(*old_proc_esp).write() = cur_esp;
+  let next_esp = (*new_proc_esp).read().clone();
+  llvm_asm!("mov esp, $0; iretd" : : "r"(next_esp) : : "intel", "volatile");
 }
 
 pub fn yield_coop() {

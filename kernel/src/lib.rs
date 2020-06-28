@@ -225,7 +225,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     init_proc.set_initial_entry_point(user_init, 0xbffffffc);
   }
   kprintln!("Switching to init: {:?}", init_proc_id);
-  process::switch_to(init_proc_id);
+  process::enter_usermode(init_proc_id);
   
   kprintln!("Back to proc1");
   /*
