@@ -5,8 +5,16 @@ use crate::memory::physical::frame::Frame;
 use crate::memory::virt::page_directory;
 use crate::memory::virt::page_table::{PageTable, PageTableReference};
 use crate::memory::virt::region::{ExpansionDirection, MemoryRegionType, Permissions, VirtualMemoryRegion};
+use crate::time;
 use spin::RwLock;
 use super::id::ProcessID;
+
+#[derive(Copy, Clone)]
+pub enum RunState {
+  Running,
+  Sleeping(usize),
+  // Blocked(PromiseResult),
+}
 
 pub struct ProcessState {
   pid: ProcessID,
@@ -21,6 +29,8 @@ pub struct ProcessState {
   kernel_esp: RwLock<usize>,
 
   open_files: RwLock<FileHandleMap>,
+
+  run_state: RwLock<RunState>,
 }
 
 impl ProcessState {
@@ -62,6 +72,8 @@ impl ProcessState {
       kernel_esp: RwLock::new(0),
 
       open_files: RwLock::new(FileHandleMap::new()),
+
+      run_state: RwLock::new(RunState::Running),
     }
   }
 
@@ -94,6 +106,8 @@ impl ProcessState {
       ),
 
       open_files: RwLock::new(FileHandleMap::new()),
+
+      run_state: RwLock::new(RunState::Running),
     }
   }
 
@@ -245,5 +259,33 @@ impl ProcessState {
   pub fn get_open_file_info(&self, handle: FileHandle) -> Option<DeviceHandlePair> {
     let files = self.open_files.read();
     files.get_drive_and_handle(handle)
+  }
+
+  pub fn sleep(&self, ms: usize) {
+    let mut run_state = self.run_state.write();
+    *run_state = RunState::Sleeping(ms);
+  }
+
+  pub fn update_tick(&self) {
+    let run_state = self.run_state.read().clone();
+    match run_state {
+      RunState::Sleeping(duration) => {
+        if duration > time::MS_PER_TICK {
+          let remaining = duration - time::MS_PER_TICK;
+          *self.run_state.write() = RunState::Sleeping(remaining);
+          return;
+        }
+        *self.run_state.write() = RunState::Running;
+      },
+      _ => (),
+    }
+  }
+
+  pub fn is_running(&self) -> bool {
+    let run_state = self.run_state.read().clone();
+    match run_state {
+      RunState::Running => true,
+      _ => false
+    }
   }
 }

@@ -39,3 +39,7 @@ pub fn write(handle: u32, buffer: *const u8, length: usize) -> usize {
 pub fn yield_coop() {
   syscall_inner(0x06, 0, 0, 0);
 }
+
+pub fn sleep(ms: u32) {
+  syscall_inner(0x05, ms, 0, 0);
+}

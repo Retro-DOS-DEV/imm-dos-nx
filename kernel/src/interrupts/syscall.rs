@@ -35,7 +35,8 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
 
     },
     0x5 => { // sleep
-
+      let time = registers.ebx;
+      exec::sleep(time);
     },
     0x6 => { // yield
       exec::yield_coop();

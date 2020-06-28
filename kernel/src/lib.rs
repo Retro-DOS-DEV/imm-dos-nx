@@ -190,13 +190,6 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     kprintln!("Created first process: {:?}", init_process);
     process::make_current(init_process);
 
-    /*{
-      let ptr = 0xffbfd400 as *mut u8;
-      *ptr = 0x38;
-    }*/
-
-    //llvm_asm!("sti");
-
     let result = syscall::debug();
     kprintln!("returned from syscall, got {}", result);
 
@@ -226,26 +219,14 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
   }
   kprintln!("Switching to init: {:?}", init_proc_id);
   process::enter_usermode(init_proc_id);
-  
+
   kprintln!("Back to proc1");
-  /*
-  let com1 = syscall::open("DEV:\\COM1");
-  let msg = "HI SERIAL PORT";
-  syscall::write(com1, msg.as_ptr(), msg.len());
-  let mut buffer: [u8; 1] = [0];
-  loop {
-    let read = syscall::read(com1, buffer.as_mut_ptr(), 1);
-    if read > 0 {
-      kprint!("{}",
-        unsafe { core::str::from_utf8_unchecked(&buffer) }
-      );
-    }
-  }
-  */
 
   loop {
     unsafe {
-      llvm_asm!("hlt" : : : : "volatile");
+      llvm_asm!("cli" : : : : "volatile");
+      process::yield_coop();
+      llvm_asm!("sti; hlt" : : : : "volatile");
     }
   }
 }
@@ -258,7 +239,21 @@ pub extern fn user_init() {
   let msg2 = " FROM USERMODE";
   syscall::write(com1, msg2.as_ptr(), msg2.len());
 
-  syscall::yield_coop();
+  /*
+  let mut buffer: [u8; 1] = [0];
+  loop {
+    let read = syscall::read(com1, buffer.as_mut_ptr(), 1);
+    if read > 0 {
+      kprint!("{}",
+        unsafe { core::str::from_utf8_unchecked(&buffer) }
+      );
+    }
+  }
+  */
 
-  loop {}
+  let tick = " TICK";
+  loop {
+    syscall::sleep(1000);
+    syscall::write(com1, tick.as_ptr(), tick.len());
+  }
 }

@@ -29,17 +29,28 @@ impl ProcessMap {
     ProcessID::new(pid)
   }
 
+  pub fn iter(&self) -> alloc::collections::btree_map::Iter<ProcessID, Arc<ProcessState>> {
+    self.processes.iter()
+  }
+
   pub fn get_next_running_process(&self) -> ProcessID {
     let mut first = None;
-    for (pid, _process) in self.processes.iter() {
-      if first.is_none() {
-        first = Some(pid);
-      }
-      if *pid > self.current {
-        return *pid;
+    for (pid, process) in self.processes.iter() {
+      if process.is_running() {
+        if first.is_none() {
+          first = Some(*pid);
+        }
+        if *pid > self.current {
+          return *pid;
+        }
       }
     }
-    *first.unwrap()
+    // If we hit the end of the list, loop back to the first running process
+    // we found. If there is none, we stay on the current process.
+    match first {
+      Some(pid) => pid,
+      None => self.current,
+    }
   }
   
 
@@ -69,6 +80,10 @@ impl ProcessMap {
 
   pub fn get_current_process(&self) -> Option<&Arc<ProcessState>> {
     self.processes.get(&self.current)
+  }
+
+  pub fn get_current_pid(&self) -> ProcessID {
+    self.current
   }
 
   pub fn make_current(&mut self, pid: ProcessID) {

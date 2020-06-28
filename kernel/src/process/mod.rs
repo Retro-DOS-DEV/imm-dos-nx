@@ -120,5 +120,19 @@ unsafe fn enter_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_pr
 
 pub fn yield_coop() {
   let next = all_processes().get_next_running_process();
-  switch_to(next);
+  let current_pid = all_processes().get_current_pid();
+  if next != current_pid {
+    switch_to(next);
+  }
+}
+
+pub fn sleep(ms: usize) {
+  all_processes().get_current_process().unwrap().sleep(ms);
+  yield_coop();
+}
+
+pub fn send_tick() {
+  for (_id, p) in all_processes().iter() {
+    p.update_tick();
+  }
 }

@@ -7,6 +7,9 @@ use spin::Mutex;
 
 use crate::interrupts;
 
+pub const HUNDRED_NS_PER_TICK: u64 = 100002;
+pub const MS_PER_TICK: usize = (HUNDRED_NS_PER_TICK / 10000) as usize;
+
 // Represents time in number of 100ns increments since midnight on Jan 1, 1980
 #[repr(transparent)]
 #[derive(Copy, Clone)]
