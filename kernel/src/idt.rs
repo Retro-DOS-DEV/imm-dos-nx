@@ -52,6 +52,12 @@ impl IDTEntry {
     self.set_handler_at_offset(offset);
   }
 
+  pub fn set_usermode_handler(&mut self, func: unsafe extern "x86-interrupt" fn(&interrupts::stack::StackFrame)) {
+    let offset = func as *const () as usize;
+    self.set_handler_at_offset(offset);
+    self.make_usermode_accessible();
+  }
+
   pub fn set_handler_with_error(&mut self, func: unsafe extern "x86-interrupt" fn(&interrupts::stack::StackFrame, u32)) {
     let offset = func as *const () as usize;
     self.set_handler_at_offset(offset);
@@ -61,6 +67,10 @@ impl IDTEntry {
     self.offset_low = offset as u16;
     self.offset_high = (offset >> 16) as u16;
     self.type_and_attributes = IDT_PRESENT | IDT_DESCRIPTOR_RING_0 | IDT_GATE_TYPE_INT_32;
+  }
+
+  fn make_usermode_accessible(&mut self) {
+    self.type_and_attributes = self.type_and_attributes | IDT_DESCRIPTOR_RING_3;
   }
 }
 
@@ -98,7 +108,7 @@ pub unsafe fn init() {
 
   //IDT[0x21].set_handler(interrupts::syscall_legacy::dos_api);
   
-  IDT[0x2b].set_handler(syscall_handler);
+  IDT[0x2b].set_usermode_handler(syscall_handler);
 
   IDT[0x30].set_handler(interrupts::pic::pit);
 

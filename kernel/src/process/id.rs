@@ -1,4 +1,5 @@
 use core::cmp;
+use core::fmt;
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
@@ -29,3 +30,9 @@ impl PartialEq for ProcessID {
 }
 
 impl Eq for ProcessID {}
+
+impl fmt::Debug for ProcessID {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "PID({})", self.0)
+  }
+}

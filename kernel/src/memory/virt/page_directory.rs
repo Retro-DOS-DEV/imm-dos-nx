@@ -3,8 +3,26 @@ use super::super::physical::frame::Frame;
 use super::super::physical::allocate_frame;
 use super::page_table::PageTable;
 
+pub struct PermissionFlags(u8);
+impl PermissionFlags {
+  pub const USER_ACCESS: u8 = 1;
+  pub const WRITE_ACCESS: u8 = 2;
+
+  pub fn new(flags: u8) -> PermissionFlags {
+    PermissionFlags(flags)
+  }
+
+  pub fn empty() -> PermissionFlags {
+    PermissionFlags(0)
+  }
+
+  pub fn as_u8(&self) -> u8 {
+    self.0
+  }
+}
+
 pub trait PageDirectory {
-  fn map(&self, frame: Frame, vaddr: VirtualAddress /* needs flags */);
+  fn map(&self, frame: Frame, vaddr: VirtualAddress, flags: PermissionFlags);
 }
 
 pub struct CurrentPageDirectory {
@@ -17,7 +35,7 @@ impl CurrentPageDirectory {
 }
 
 impl PageDirectory for CurrentPageDirectory {
-  fn map(&self, frame: Frame, vaddr: VirtualAddress) {
+  fn map(&self, frame: Frame, vaddr: VirtualAddress, flags: PermissionFlags) {
     let paddr = frame.get_address();
     let dir_index = vaddr.get_page_directory_index();
     let table_index = vaddr.get_page_table_index();
@@ -31,15 +49,31 @@ impl PageDirectory for CurrentPageDirectory {
       let table_frame = allocate_frame().unwrap();
       entry.set_address(table_frame.get_address());
       entry.set_present();
+      if dir_index < 768 {
+        entry.set_user_access();
+        entry.set_write_access();
+      }
       let table = PageTable::at_address(table_address);
       table.zero();
       table.get_mut(table_index).set_address(paddr);
       table.get_mut(table_index).set_present();
+      if flags.as_u8() & PermissionFlags::WRITE_ACCESS != 0 {
+        table.get_mut(table_index).set_write_access();
+      }
+      if flags.as_u8() & PermissionFlags::USER_ACCESS != 0 {
+        table.get_mut(table_index).set_user_access();
+      }
     } else {
       let table = PageTable::at_address(table_address);
       let needs_invalidation = table.get(table_index).is_present();
       table.get_mut(table_index).set_address(paddr);
       table.get_mut(table_index).set_present();
+      if flags.as_u8() & PermissionFlags::WRITE_ACCESS != 0 {
+        table.get_mut(table_index).set_write_access();
+      }
+      if flags.as_u8() & PermissionFlags::USER_ACCESS != 0 {
+        table.get_mut(table_index).set_user_access();
+      }
       if needs_invalidation {
         invalidate_page(vaddr);
       }
@@ -60,7 +94,7 @@ impl AlternatePageDirectory {
 }
 
 impl PageDirectory for AlternatePageDirectory {
-  fn map(&self, frame: Frame, vaddr: VirtualAddress) {
+  fn map(&self, frame: Frame, vaddr: VirtualAddress, flags: PermissionFlags) {
     let pagedir_frame = Frame::new(self.directory_address.as_usize());
     map_frame_to_temporary_page(pagedir_frame);
     let dir_index = vaddr.get_page_directory_index();
@@ -71,11 +105,21 @@ impl PageDirectory for AlternatePageDirectory {
       let table_frame = allocate_frame().unwrap();
       directory.get_mut(dir_index).set_address(table_frame.get_address());
       directory.get_mut(dir_index).set_present();
+      if dir_index < 768 {
+        directory.get_mut(dir_index).set_user_access();
+        directory.get_mut(dir_index).set_write_access();
+      }
       map_frame_to_temporary_page(table_frame);
       let table = PageTable::at_address(get_temporary_page_address());
       table.zero();
       table.get_mut(table_index).set_address(frame.get_address());
       table.get_mut(table_index).set_present();
+      if flags.as_u8() & PermissionFlags::WRITE_ACCESS != 0 {
+        table.get_mut(table_index).set_write_access();
+      }
+      if flags.as_u8() & PermissionFlags::USER_ACCESS != 0 {
+        table.get_mut(table_index).set_user_access();
+      }
     } else {
       let addr = directory.get(dir_index).get_address();
       map_frame_to_temporary_page(Frame::new(addr.as_usize()));
@@ -83,6 +127,12 @@ impl PageDirectory for AlternatePageDirectory {
       let needs_invalidation = table.get(table_index).is_present();
       table.get_mut(table_index).set_address(frame.get_address());
       table.get_mut(table_index).set_present();
+      if flags.as_u8() & PermissionFlags::WRITE_ACCESS != 0 {
+        table.get_mut(table_index).set_write_access();
+      }
+      if flags.as_u8() & PermissionFlags::USER_ACCESS != 0 {
+        table.get_mut(table_index).set_user_access();
+      }
       if needs_invalidation {
         invalidate_page(vaddr);
       }

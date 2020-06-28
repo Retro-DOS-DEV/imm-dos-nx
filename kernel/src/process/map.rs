@@ -60,10 +60,4 @@ impl ProcessMap {
   pub fn make_current(&mut self, pid: ProcessID) {
     self.current = pid;
   }
-
-  pub fn switch_to(&self, pid: ProcessID) {
-    let current = self.get_current_process().unwrap();
-    let next = self.processes.get(&pid).unwrap();
-    current.switch_to(&next);
-  }
 }

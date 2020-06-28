@@ -4,7 +4,7 @@ use crate::memory::address::VirtualAddress;
 use crate::memory::physical::frame::Frame;
 use crate::memory::virt::page_directory;
 use crate::memory::virt::page_table::{PageTable, PageTableReference};
-use crate::memory::virt::region::{MemoryRegionType, VirtualMemoryRegion};
+use crate::memory::virt::region::{ExpansionDirection, MemoryRegionType, Permissions, VirtualMemoryRegion};
 use spin::RwLock;
 use super::id::ProcessID;
 
@@ -13,6 +13,9 @@ pub struct ProcessState {
   parent: ProcessID,
   kernel_heap_region: RwLock<VirtualMemoryRegion>,
   kernel_stack_region: RwLock<VirtualMemoryRegion>,
+  //heap_region: RwLock<VirtualMemoryRegion>,
+  stack_region: RwLock<VirtualMemoryRegion>,
+  //execution_regions: RwLock<Vec<VirtualMemoryRegion>>,
   page_directory: PageTableReference,
 
   kernel_esp: RwLock<usize>,
@@ -32,16 +35,28 @@ impl ProcessState {
         VirtualMemoryRegion::new(
           heap_start,
           memory::heap::INITIAL_HEAP_SIZE * 0x1000,
-          MemoryRegionType::Anonymous,
+          MemoryRegionType::Anonymous(ExpansionDirection::After),
+          Permissions::ReadOnly,
         ),
       ),
       kernel_stack_region: RwLock::new(
         VirtualMemoryRegion::new(
           memory::virt::STACK_START,
           0x1000,
-          MemoryRegionType::Anonymous,
+          MemoryRegionType::Anonymous(ExpansionDirection::Before),
+          Permissions::ReadOnly,
         ),
       ),
+
+      stack_region: RwLock::new(
+        VirtualMemoryRegion::new(
+          VirtualAddress::new(0xc0000000 - 0x2000),
+          0x2000,
+          MemoryRegionType::Anonymous(ExpansionDirection::Before),
+          Permissions::CopyOnWrite,
+        ),
+      ),
+
       page_directory: PageTableReference::current(),
 
       kernel_esp: RwLock::new(0),
@@ -65,8 +80,12 @@ impl ProcessState {
         VirtualMemoryRegion::new(
           memory::virt::STACK_START,
           0x1000,
-          MemoryRegionType::Anonymous,
+          MemoryRegionType::Anonymous(ExpansionDirection::Before),
+          Permissions::ReadOnly,
         ),
+      ),
+      stack_region: RwLock::new(
+        self.stack_region.read().clone(),
       ),
       page_directory: self.fork_page_directory(),
 
@@ -121,9 +140,7 @@ impl ProcessState {
     new_pagedir.get_mut(0x300).set_address(current_pagedir.get(0x300).get_address());
     new_pagedir.get_mut(0x300).set_present();
 
-    // When forking, we need to copy the old stack to the new one, so that we
-    // return to the same place in both processes
-
+    // stack needs to be copy-on-write
 
     PageTableReference::new(pagedir_frame.get_address())
   }
@@ -159,13 +176,40 @@ impl ProcessState {
       // Stack pointer
       *stack_ptr.offset(-2) = esp;
       // eflags
-      *stack_ptr.offset(-3) = 0;
+      *stack_ptr.offset(-3) = 0x200; // interrupt enabled
       // Code segment
       *stack_ptr.offset(-4) = 0x1b;
       // Instruction pointer
       *stack_ptr.offset(-5) = func as usize; 
     }
     *self.kernel_esp.write() = kernel_esp - 4 * 5;
+  }
+
+  pub fn get_range_containing_address(&self, addr: VirtualAddress) -> Option<VirtualMemoryRegion> {
+    {
+      let kernel_heap = self.kernel_heap_region.read();
+      if kernel_heap.contains_address(addr) {
+        return Some(kernel_heap.clone());
+      }
+    }
+    {
+      let kernel_stack = self.kernel_stack_region.read();
+      if kernel_stack.contains_address(addr) {
+        return Some(kernel_stack.clone());
+      }
+    }
+    {
+      let stack = self.stack_region.read();
+      if stack.contains_address(addr) {
+        return Some(stack.clone());
+      }
+    }
+
+    None
+  }
+
+  pub fn get_id(&self) -> ProcessID {
+    self.pid
   }
 
   pub fn get_page_directory(&self) -> &PageTableReference {
@@ -178,6 +222,10 @@ impl ProcessState {
 
   pub fn get_kernel_stack_region(&self) -> &RwLock<VirtualMemoryRegion> {
     &self.kernel_stack_region
+  }
+
+  pub fn get_kernel_stack_pointer(&self) -> usize {
+    self.kernel_esp.read().clone()
   }
 
   pub fn open_file(&self, drive: usize, local: LocalHandle) -> FileHandle {
@@ -193,21 +241,5 @@ impl ProcessState {
   pub fn get_open_file_info(&self, handle: FileHandle) -> Option<DeviceHandlePair> {
     let files = self.open_files.read();
     files.get_drive_and_handle(handle)
-  }
-
-  #[naked]
-  #[inline(never)]
-  pub fn switch_to(&self, next: &ProcessState) {
-    let pagedir = next.get_page_directory().get_address().as_usize();
-    let esp = next.kernel_esp.read().clone();
-    unsafe {
-      llvm_asm!("
-        mov cr3, $0
-        mov esp, $1
-        iretd" : :
-        "r"(pagedir), "r"(esp) : :
-        "intel", "volatile"
-      );
-    }
   }
 }

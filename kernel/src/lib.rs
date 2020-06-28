@@ -189,12 +189,12 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     let init_process = process::all_processes_mut().spawn_first_process(heap_start);
     process::make_current(init_process);
 
-    {
+    /*{
       let ptr = 0xffbfd400 as *mut u8;
       *ptr = 0x38;
-    }
+    }*/
 
-    llvm_asm!("sti");
+    //llvm_asm!("sti");
 
     let result = syscall::debug();
     kprintln!("returned from syscall, got {}", result);
@@ -224,7 +224,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     init_proc.set_initial_entry_point(user_init, 0xbffffffc);
   }
   kprintln!("Switching to init");
-  process::all_processes_mut().switch_to(init_proc_id);
+  process::switch_to(init_proc_id);
   
   /*
   let com1 = syscall::open("DEV:\\COM1");
@@ -251,8 +251,10 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[inline(never)]
 pub extern fn user_init() {
   let com1 = syscall::open("DEV:\\COM1");
-  let msg = "HI SERIAL PORT";
+  let msg = "WRITING TO SERIAL";
   syscall::write(com1, msg.as_ptr(), msg.len());
+  let msg2 = " FROM USERMODE";
+  syscall::write(com1, msg2.as_ptr(), msg2.len());
 
   loop {}
 }

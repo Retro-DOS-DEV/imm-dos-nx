@@ -6,7 +6,29 @@ pub enum MemoryRegionType {
   MemMapped(usize, usize), // Backed by a memmapped file
   Direct(FrameRange), // Backed by an explicit physical memory range
   IO(FrameRange), // Similar to Direct, but used for IO devices like PCI
-  Anonymous, // Backed by arbitrarily-allocated physical memory
+  Anonymous(ExpansionDirection), // Backed by arbitrarily-allocated physical memory
+}
+
+/**
+ * Used for ranges that auto-expand when you access the first/last frame.
+ * Upon mapping that frame due to a pagefault, the range will get extended if
+ * there is space.
+ */
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum ExpansionDirection {
+  Up,
+  Before,
+  After,
+}
+
+/**
+ * 
+ */
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Permissions {
+  ReadOnly,
+  ReadWrite,
+  CopyOnWrite,
 }
 
 #[derive(Copy, Clone)]
@@ -14,16 +36,16 @@ pub struct VirtualMemoryRegion {
   start: VirtualAddress, // Starting byte of the region, should be page-aligned
   size: usize, // Length of the region, in bytes
   backed_by: MemoryRegionType, // In a page fault, where does the data come from?
-  writable: bool, // Should page table entry be writable
+  permissions: Permissions, // Should page table entry be writable
 }
 
 impl VirtualMemoryRegion {
-  pub fn new(start: VirtualAddress, size: usize, backed_by: MemoryRegionType) -> VirtualMemoryRegion {
+  pub fn new(start: VirtualAddress, size: usize, backed_by: MemoryRegionType, permissions: Permissions) -> VirtualMemoryRegion {
     VirtualMemoryRegion {
       start,
       size,
       backed_by,
-      writable: false,
+      permissions,
     }
   }
 
@@ -45,12 +67,15 @@ impl VirtualMemoryRegion {
     self.backed_by
   }
 
-  pub fn is_writable(&self) -> bool {
-    self.writable
+  pub fn get_permissions(&self) -> Permissions {
+    self.permissions
   }
 
-  pub fn set_writable(&mut self, flag: bool) {
-    self.writable = flag;
+  pub fn can_extend_before(&self) -> bool {
+    match self.backed_by {
+      MemoryRegionType::Anonymous(ExpansionDirection::Before) => true,
+      _ => false,
+    }
   }
 
   pub fn extend_before(&mut self, count: usize) {

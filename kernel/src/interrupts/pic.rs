@@ -6,7 +6,7 @@ pub extern "x86-interrupt" fn pit(_frame: &stack::StackFrame) {
   time::increment_offset(100002);
   let updated = time::get_offset_seconds();
   if prev != updated {
-    kprint!("{:x}", _frame.cs);
+    kprint!("T");
   }
 
   unsafe {
