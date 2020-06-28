@@ -38,7 +38,7 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
 
     },
     0x6 => { // yield
-
+      exec::yield_coop();
     },
 
     // files

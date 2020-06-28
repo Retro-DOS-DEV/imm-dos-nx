@@ -29,6 +29,20 @@ impl ProcessMap {
     ProcessID::new(pid)
   }
 
+  pub fn get_next_running_process(&self) -> ProcessID {
+    let mut first = None;
+    for (pid, _process) in self.processes.iter() {
+      if first.is_none() {
+        first = Some(pid);
+      }
+      if *pid > self.current {
+        return *pid;
+      }
+    }
+    *first.unwrap()
+  }
+  
+
   pub fn spawn_first_process(&mut self, heap_location: VirtualAddress) -> ProcessID {
     let pid = self.get_next_pid();
     self.processes.insert(

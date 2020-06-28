@@ -187,6 +187,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     process::init();
     let init_process = process::all_processes_mut().spawn_first_process(heap_start);
+    kprintln!("Created first process: {:?}", init_process);
     process::make_current(init_process);
 
     /*{
@@ -223,9 +224,10 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     let init_proc = processes.get_process(init_proc_id).unwrap();
     init_proc.set_initial_entry_point(user_init, 0xbffffffc);
   }
-  kprintln!("Switching to init");
+  kprintln!("Switching to init: {:?}", init_proc_id);
   process::switch_to(init_proc_id);
   
+  kprintln!("Back to proc1");
   /*
   let com1 = syscall::open("DEV:\\COM1");
   let msg = "HI SERIAL PORT";
@@ -255,6 +257,8 @@ pub extern fn user_init() {
   syscall::write(com1, msg.as_ptr(), msg.len());
   let msg2 = " FROM USERMODE";
   syscall::write(com1, msg2.as_ptr(), msg2.len());
+
+  syscall::yield_coop();
 
   loop {}
 }

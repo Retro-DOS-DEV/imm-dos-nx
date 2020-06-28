@@ -228,6 +228,10 @@ impl ProcessState {
     self.kernel_esp.read().clone()
   }
 
+  pub fn get_kernel_stack_container(&self) -> &RwLock<usize> {
+    &self.kernel_esp
+  }
+
   pub fn open_file(&self, drive: usize, local: LocalHandle) -> FileHandle {
     let mut files = self.open_files.write();
     files.open_handle(drive, local)
