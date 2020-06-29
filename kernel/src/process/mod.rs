@@ -137,3 +137,45 @@ pub fn send_tick() {
     p.update_tick();
   }
 }
+
+pub extern "C" fn fork() -> u32 {
+  unsafe {
+    llvm_asm!("push ebx; push ebp; push esi; push edi" : : : "esp" : "intel", "volatile");
+    let ret;
+    {
+      let next_pid = all_processes_mut().fork_current();
+      llvm_asm!("push $0" : : "r"(next_pid.as_u32()) : "esp" : "intel", "volatile");
+      
+      let stack_container = {
+        let processes = all_processes();
+        let next_proc = processes.get_process(next_pid).unwrap();
+        next_proc.make_current_stack_frame_editable();
+
+        let temp_page_address = crate::memory::virt::page_directory::get_temporary_page_address().as_usize();
+        let kernel_esp: usize;
+        llvm_asm!("mov $0, esp" : "=r"(kernel_esp) : : : "intel", "volatile");
+        let stack_offset = kernel_esp & 0xfff;
+
+        let stack_ptr = (temp_page_address + stack_offset) as *mut usize;
+        // Update the return value for the new thread
+        *stack_ptr = 0;
+        next_proc.get_kernel_stack_container() as *const RwLock<usize>
+      };
+      fork_inner(stack_container);
+    }
+    llvm_asm!("pop $0" : "=r"(ret) : : "esp" : "intel", "volatile");
+    llvm_asm!("pop edi; pop esi; pop ebp; pop ebx" : : : "esp", "edi", "esi", "ebp", "ebx" : "intel", "volatile");
+    ret
+  }
+}
+
+#[naked]
+#[inline(never)]
+unsafe fn fork_inner(new_proc_esp: *const RwLock<usize>) {
+  let cur_esp;
+  llvm_asm!("mov $0, esp" : "=r"(cur_esp) : : : "intel", "volatile");
+  // This is super hacky, but it's what we get for making the stack copied
+  // directly rather than copy-on-write
+  llvm_asm!("mov eax, esp; and eax, 0xfff; add eax, 0xffbff000; mov ecx, [esp]; mov [eax], ecx" : : : "eax", "ecx" : "intel", "volatile");
+  *(*new_proc_esp).write() = cur_esp;
+}

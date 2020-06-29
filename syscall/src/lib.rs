@@ -36,6 +36,10 @@ pub fn write(handle: u32, buffer: *const u8, length: usize) -> usize {
   syscall_inner(0x13, handle, buffer as u32, length as u32) as usize
 }
 
+pub fn fork() -> u32 {
+  syscall_inner(0x01, 0, 0, 0)
+}
+
 pub fn yield_coop() {
   syscall_inner(0x06, 0, 0, 0);
 }

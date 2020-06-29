@@ -62,7 +62,7 @@ impl MemoryRegions {
         VirtualAddress::new(0xc0000000 - 0x2000),
         0x2000,
         MemoryRegionType::Anonymous(ExpansionDirection::Before),
-        Permissions::CopyOnWrite,
+        Permissions::ReadWrite,
       ),
 
       execution_regions,
@@ -77,7 +77,7 @@ impl MemoryRegions {
     let kernel_heap_region = self.kernel_heap_region.clone();
     let kernel_stack_region = self.kernel_stack_region.copy_with_permissions(Permissions::ReadWrite);
     let heap_region = self.heap_region.copy_for_new_process();
-    let stack_region = self.stack_region.copy_for_new_process();
+    let stack_region = self.stack_region.copy_with_permissions(Permissions::ReadWrite);
     let execution_regions = self.execution_regions
       .iter()
       .map(|&range| range.copy_for_new_process())

@@ -23,7 +23,8 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
 
     },
     0x1 => { // fork
-
+      let pid = exec::fork();
+      registers.eax = pid;
     },
     0x2 => { // exec
 

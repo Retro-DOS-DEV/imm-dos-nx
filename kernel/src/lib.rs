@@ -234,27 +234,17 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
 #[inline(never)]
 pub extern fn user_init() {
+  let pid = syscall::fork();
+  let ticktock = if pid == 0 {
+    " TOCK"
+  } else {
+    " TICK"
+  };
+  // Creating the file handle after the fork
+  // We don't duplicate file handles on fork yet...
   let com1 = syscall::open("DEV:\\COM1");
-  let msg = "WRITING TO SERIAL";
-  syscall::write(com1, msg.as_ptr(), msg.len());
-  let msg2 = " FROM USERMODE";
-  syscall::write(com1, msg2.as_ptr(), msg2.len());
-
-  /*
-  let mut buffer: [u8; 1] = [0];
   loop {
-    let read = syscall::read(com1, buffer.as_mut_ptr(), 1);
-    if read > 0 {
-      kprint!("{}",
-        unsafe { core::str::from_utf8_unchecked(&buffer) }
-      );
-    }
-  }
-  */
-
-  let tick = " TICK";
-  loop {
+    syscall::write(com1, ticktock.as_ptr(), ticktock.len());
     syscall::sleep(1000);
-    syscall::write(com1, tick.as_ptr(), tick.len());
   }
 }

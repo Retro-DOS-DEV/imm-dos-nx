@@ -9,6 +9,10 @@ impl ProcessID {
   pub fn new(id: u32) -> ProcessID {
     ProcessID(id)
   }
+
+  pub fn as_u32(&self) -> u32 {
+    self.0
+  }
 }
 
 impl cmp::Ord for ProcessID {
