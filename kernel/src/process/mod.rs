@@ -1,11 +1,12 @@
 use alloc::sync::Arc;
 use crate::gdt;
 use crate::kprintln;
-use crate::memory;
+use crate::memory::virt;
 use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub mod id;
 pub mod map;
+pub mod memory;
 pub mod process_state;
 
 static mut PROCESS_MAP: Option<RwLock<map::ProcessMap>> = None;
@@ -62,7 +63,7 @@ pub fn switch_to(pid: id::ProcessID) {
     let next = map.get_process(pid).unwrap();
     kprintln!(" Next esp is {:x}", next.get_kernel_stack_pointer());
     unsafe {
-      gdt::set_tss_stack_pointer(memory::virt::STACK_START.as_u32() + 0x1000 - 4);
+      gdt::set_tss_stack_pointer(virt::STACK_START.as_u32() + 0x1000 - 4);
     }
     let pagedir = next.get_page_directory().get_address().as_usize();
     let new_proc_esp = next.get_kernel_stack_container() as *const RwLock<usize>;
@@ -83,7 +84,7 @@ pub fn enter_usermode(pid: id::ProcessID) {
     map.make_current(pid);
     let next = map.get_process(pid).unwrap();
     unsafe {
-      gdt::set_tss_stack_pointer(memory::virt::STACK_START.as_u32() + 0x1000 - 4);
+      gdt::set_tss_stack_pointer(virt::STACK_START.as_u32() + 0x1000 - 4);
     }
     let pagedir = next.get_page_directory().get_address().as_usize();
     let new_proc_esp = next.get_kernel_stack_container() as *const RwLock<usize>;

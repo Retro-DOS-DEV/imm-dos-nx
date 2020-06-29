@@ -8,6 +8,7 @@ use crate::memory::virt::region::{ExpansionDirection, MemoryRegionType, Permissi
 use crate::time;
 use spin::RwLock;
 use super::id::ProcessID;
+use super::memory::MemoryRegions;
 
 #[derive(Copy, Clone)]
 pub enum RunState {
@@ -19,11 +20,16 @@ pub enum RunState {
 pub struct ProcessState {
   pid: ProcessID,
   parent: ProcessID,
+
+  memory_regions: RwLock<MemoryRegions>,
+
+  /*
   kernel_heap_region: RwLock<VirtualMemoryRegion>,
   kernel_stack_region: RwLock<VirtualMemoryRegion>,
   //heap_region: RwLock<VirtualMemoryRegion>,
   stack_region: RwLock<VirtualMemoryRegion>,
   //execution_regions: RwLock<Vec<VirtualMemoryRegion>>,
+  */
   page_directory: PageTableReference,
 
   kernel_esp: RwLock<usize>,
@@ -41,6 +47,10 @@ impl ProcessState {
     ProcessState {
       pid,
       parent: pid,
+
+      memory_regions: RwLock::new(MemoryRegions::initial(heap_start)),
+
+      /*
       kernel_heap_region: RwLock::new(
         VirtualMemoryRegion::new(
           heap_start,
@@ -66,6 +76,7 @@ impl ProcessState {
           Permissions::CopyOnWrite,
         ),
       ),
+      */
 
       page_directory: PageTableReference::current(),
 
@@ -82,24 +93,15 @@ impl ProcessState {
    * forked from an existing one.
    */
   pub fn fork(&self, pid: ProcessID) -> ProcessState {
+    let new_regions = RwLock::new(self.memory_regions.read().fork());
+    let new_pagedir = self.fork_page_directory();
     ProcessState {
       pid,
       parent: self.pid,
-      kernel_heap_region: RwLock::new(
-        self.kernel_heap_region.read().clone(),
-      ),
-      kernel_stack_region: RwLock::new(
-        VirtualMemoryRegion::new(
-          memory::virt::STACK_START,
-          0x1000,
-          MemoryRegionType::Anonymous(ExpansionDirection::Before),
-          Permissions::ReadOnly,
-        ),
-      ),
-      stack_region: RwLock::new(
-        self.stack_region.read().clone(),
-      ),
-      page_directory: self.fork_page_directory(),
+
+      memory_regions: new_regions,
+
+      page_directory: new_pagedir,
 
       kernel_esp: RwLock::new(
         memory::virt::STACK_START.as_usize() + 0x1000 - 4
@@ -111,6 +113,7 @@ impl ProcessState {
     }
   }
 
+  /*
   pub fn fork_page_directory(&self) -> PageTableReference {
     let temp_page_address = page_directory::get_temporary_page_address();
     // Create the top page table, which will contain the temp page and
@@ -158,6 +161,7 @@ impl ProcessState {
 
     PageTableReference::new(pagedir_frame.get_address())
   }
+  */
 
   pub fn make_current_stack_frame_editable(&self) {
     let esp = self.kernel_esp.read().clone();
@@ -200,26 +204,7 @@ impl ProcessState {
   }
 
   pub fn get_range_containing_address(&self, addr: VirtualAddress) -> Option<VirtualMemoryRegion> {
-    {
-      let kernel_heap = self.kernel_heap_region.read();
-      if kernel_heap.contains_address(addr) {
-        return Some(kernel_heap.clone());
-      }
-    }
-    {
-      let kernel_stack = self.kernel_stack_region.read();
-      if kernel_stack.contains_address(addr) {
-        return Some(kernel_stack.clone());
-      }
-    }
-    {
-      let stack = self.stack_region.read();
-      if stack.contains_address(addr) {
-        return Some(stack.clone());
-      }
-    }
-
-    None
+    self.memory_regions.read().get_range_containing_address(addr)
   }
 
   pub fn get_id(&self) -> ProcessID {
@@ -230,12 +215,8 @@ impl ProcessState {
     &self.page_directory
   }
 
-  pub fn get_kernel_heap_region(&self) -> &RwLock<VirtualMemoryRegion> {
-    &self.kernel_heap_region
-  }
-
-  pub fn get_kernel_stack_region(&self) -> &RwLock<VirtualMemoryRegion> {
-    &self.kernel_stack_region
+  pub fn get_memory_regions(&self) -> &RwLock<MemoryRegions> {
+    &self.memory_regions
   }
 
   pub fn get_kernel_stack_pointer(&self) -> usize {

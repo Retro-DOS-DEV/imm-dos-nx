@@ -67,6 +67,10 @@ impl VirtualAddress {
   pub fn get_page_table_index(&self) -> usize {
     (self.0 >> 12) & 0x3ff
   }
+
+  pub fn offset(&self, delta: usize) -> VirtualAddress {
+    VirtualAddress::new(self.0 + delta)
+  }
 }
 
 impl PartialEq for VirtualAddress {

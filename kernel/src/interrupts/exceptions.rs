@@ -46,6 +46,8 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
         // Page was not present
         // If it is in the heap or stack regions, map a new physical frame and
         // extend the region
+
+        /*
         let vaddr = VirtualAddress::new(address);
         let current_pagedir = CurrentPageDirectory::get();
         if current_proc.get_kernel_heap_region().read().contains_address(vaddr) {
@@ -79,6 +81,25 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
           }
           return;
         }
+        */
+
+        let vaddr = VirtualAddress::new(address);
+        let current_pagedir = CurrentPageDirectory::get();
+        match current_proc.get_range_containing_address(vaddr) {
+          Some(range) => {
+            let kernel_frame = match memory::physical::allocate_frame() {
+              Ok(frame) => frame,
+              Err(_) => {
+                // Out of memory
+                // At some point we need to implement disk paging
+                panic!("Unable to allocate kernel memory");
+              },
+            };
+            current_pagedir.map(kernel_frame, VirtualAddress::new(address & 0xfffff000), PermissionFlags::empty());
+          },
+          None => (),
+        }
+        return;
       }
     }
   } else {

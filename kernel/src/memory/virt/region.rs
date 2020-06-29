@@ -16,9 +16,9 @@ pub enum MemoryRegionType {
  */
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ExpansionDirection {
-  Up,
   Before,
   After,
+  None,
 }
 
 /**
@@ -46,6 +46,15 @@ impl VirtualMemoryRegion {
       size,
       backed_by,
       permissions,
+    }
+  }
+
+  pub fn empty() -> VirtualMemoryRegion {
+    VirtualMemoryRegion {
+      start: VirtualAddress::new(0),
+      size: 0,
+      backed_by: MemoryRegionType::Anonymous(ExpansionDirection::None),
+      permissions: Permissions::ReadOnly,
     }
   }
 
@@ -81,6 +90,23 @@ impl VirtualMemoryRegion {
   pub fn extend_before(&mut self, count: usize) {
     if self.start.as_usize() >= 0x1000 * count {
       self.start = VirtualAddress::new(self.start.as_usize() - 0x1000 * count);
+    }
+  }
+
+  pub fn copy_for_new_process(&self) -> VirtualMemoryRegion {
+    let permissions = match self.permissions {
+      Permissions::ReadWrite | Permissions::CopyOnWrite => Permissions::CopyOnWrite,
+      Permissions::ReadOnly => Permissions::ReadOnly,
+    };
+    self.copy_with_permissions(permissions)
+  }
+
+  pub fn copy_with_permissions(&self, permissions: Permissions) -> VirtualMemoryRegion {
+    VirtualMemoryRegion {
+      start: self.start,
+      size: self.size,
+      backed_by: self.backed_by,
+      permissions,
     }
   }
 }

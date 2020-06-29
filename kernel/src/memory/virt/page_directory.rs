@@ -2,6 +2,7 @@ use super::super::address::{PhysicalAddress, VirtualAddress};
 use super::super::physical::frame::Frame;
 use super::super::physical::allocate_frame;
 use super::page_table::PageTable;
+use super::region::{MemoryRegionType, Permissions, VirtualMemoryRegion};
 
 pub struct PermissionFlags(u8);
 impl PermissionFlags {
@@ -89,6 +90,143 @@ impl AlternatePageDirectory {
   pub fn new(addr: PhysicalAddress) -> AlternatePageDirectory {
     AlternatePageDirectory {
       directory_address: addr,
+    }
+  }
+
+  pub fn map_region(&self, region: VirtualMemoryRegion) {
+    match region.backing_type() {
+      MemoryRegionType::Direct(_) | MemoryRegionType::IO(_) => {
+        // Copy the mappings directly
+        panic!("Direct/IO mapping not implemented");
+      },
+      MemoryRegionType::MemMapped(_, _) => {
+        match region.get_permissions() {
+          Permissions::ReadOnly => {
+            // Copy the mappings directly
+          },
+          Permissions::ReadWrite => {
+            // Copy data to entirely new frames
+          },
+          Permissions::CopyOnWrite => {
+            // Copy mapping with write permmission disabled
+          },
+        }
+        panic!("MemMapping not implemented");
+      },
+      MemoryRegionType::Anonymous(_) => {
+        match region.get_permissions() {
+          Permissions::ReadOnly => {
+            // Copy the mappings directly
+            self.copy_mapping_directly(region);
+          },
+          Permissions::ReadWrite => {
+            // Copy data to entirely new frames
+            self.copy_frames(region);
+          },
+          Permissions::CopyOnWrite => {
+            // Copy mapping with write permission disabled
+            self.map_with_copy_on_write(region);
+          },
+        }
+      },
+    }
+  }
+
+  fn copy_mapping_directly(&self, region: VirtualMemoryRegion) {
+    let mut page_start = VirtualAddress::new(region.get_starting_address_as_usize());
+    while region.contains_address(page_start) {
+      let directory_index = page_start.get_page_directory_index();
+      let directory = PageTable::at_address(VirtualAddress::new(0xfffff000));
+      if directory.get(directory_index).is_present() {
+        let table_index = page_start.get_page_table_index();
+        let table_address = VirtualAddress::new(0xffc00000 + 0x1000 * directory_index);
+        let table = PageTable::at_address(table_address);
+        if table.get(table_index).is_present() {
+          let frame_paddr = table.get(table_index).get_address();
+          let mut flags = 0;
+          if table.get(table_index).is_user_access_granted() {
+            flags |= PermissionFlags::USER_ACCESS;
+          }
+          if table.get(table_index).is_write_access_granted() {
+            flags |= PermissionFlags::WRITE_ACCESS;
+          }
+
+          self.map(
+            Frame::new(frame_paddr.as_usize()),
+            page_start,
+            PermissionFlags::new(flags),
+          );
+        }
+      }
+      page_start = page_start.offset(0x1000);
+    }
+  }
+
+  fn copy_frames(&self, region: VirtualMemoryRegion) {
+    let mut page_start = VirtualAddress::new(region.get_starting_address_as_usize());
+    while region.contains_address(page_start) {
+      let directory_index = page_start.get_page_directory_index();
+      let directory = PageTable::at_address(VirtualAddress::new(0xfffff000));
+      if directory.get(directory_index).is_present() {
+        let table_index = page_start.get_page_table_index();
+        let table_address = VirtualAddress::new(0xffc00000 + 0x1000 * directory_index);
+        let table = PageTable::at_address(table_address);
+        if table.get(table_index).is_present() {
+          let new_frame = allocate_frame().unwrap();
+          map_frame_to_temporary_page(new_frame);
+
+          unsafe {
+            let mut from_ptr = page_start.as_usize() as *const u32;
+            let mut to_ptr = get_temporary_page_address().as_usize() as *mut u32;
+            for i in 0..1024 {
+              *to_ptr = *from_ptr;
+              from_ptr = from_ptr.offset(1);
+              to_ptr = to_ptr.offset(1);
+            }
+          }
+
+          let mut flags = PermissionFlags::WRITE_ACCESS;
+          if page_start.as_usize() < 0xc0000000 {
+            flags |= PermissionFlags::USER_ACCESS;
+          }
+
+          self.map(
+            new_frame,
+            page_start,
+            PermissionFlags::new(flags),
+          );
+        }
+      }
+      page_start = page_start.offset(0x1000);
+    }
+  }
+
+  fn map_with_copy_on_write(&self, region: VirtualMemoryRegion) {
+    let mut page_start = VirtualAddress::new(region.get_starting_address_as_usize());
+    while region.contains_address(page_start) {
+      let directory_index = page_start.get_page_directory_index();
+      let directory = PageTable::at_address(VirtualAddress::new(0xfffff000));
+      if directory.get(directory_index).is_present() {
+        let table_index = page_start.get_page_table_index();
+        let table_address = VirtualAddress::new(0xffc00000 + 0x1000 * directory_index);
+        let table = PageTable::at_address(table_address);
+        if table.get(table_index).is_present() {
+          let frame_paddr = table.get(table_index).get_address();
+          let flags = if table.get(table_index).is_user_access_granted() {
+            PermissionFlags::USER_ACCESS
+          } else {
+            0
+          };
+          // force no write access
+
+          self.map(
+            Frame::new(frame_paddr.as_usize()),
+            page_start,
+            PermissionFlags::new(flags),
+          );
+        }
+      }
+      page_start = page_start.offset(0x1000);
     }
   }
 }
