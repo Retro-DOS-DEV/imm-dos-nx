@@ -2,7 +2,11 @@ use crate::kprintln;
 use crate::memory::{
   self,
   address::{VirtualAddress},
-  virt::{page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags}},
+  physical,
+  virt::{
+    page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags},
+    region::Permissions,
+  },
 };
 use crate::process;
 use super::stack::StackFrame;
@@ -47,42 +51,6 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
         // If it is in the heap or stack regions, map a new physical frame and
         // extend the region
 
-        /*
-        let vaddr = VirtualAddress::new(address);
-        let current_pagedir = CurrentPageDirectory::get();
-        if current_proc.get_kernel_heap_region().read().contains_address(vaddr) {
-          let heap_frame = match memory::physical::allocate_frame() {
-            Ok(frame) => frame,
-            Err(_) => {
-              // Out of memory
-              // At some point we need to implement disk paging
-              panic!("Unable to allocate kernel heap memory");
-            },
-          };
-          current_pagedir.map(heap_frame, VirtualAddress::new(address & 0xfffff000), PermissionFlags::empty());
-          return;
-        }
-
-        if current_proc.get_kernel_stack_region().read().contains_address(vaddr) {
-          let stack_frame = match memory::physical::allocate_frame() {
-            Ok(frame) => frame,
-            Err(_) => {
-              // Out of memory
-              panic!("Unable to allocate kernel stack memory");
-            },
-          };
-          let stack_page_start = VirtualAddress::new(address & 0xfffff000);
-          current_pagedir.map(stack_frame, stack_page_start, PermissionFlags::empty());
-          let stack_start = current_proc.get_kernel_stack_region().read().get_starting_address_as_usize();
-          if stack_start == stack_page_start.as_usize() {
-            // Extend the stack by a frame
-            kprintln!("Extending stack by one frame");
-            current_proc.get_kernel_stack_region().write().extend_before(1);
-          }
-          return;
-        }
-        */
-
         let vaddr = VirtualAddress::new(address);
         let current_pagedir = CurrentPageDirectory::get();
         match current_proc.get_range_containing_address(vaddr) {
@@ -125,6 +93,9 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
           let page_start = VirtualAddress::new(address & 0xfffff000);
           let flags = PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS);
           current_pagedir.map(new_frame, page_start, flags);
+          if range.get_permissions() == Permissions::CopyOnWrite {
+            physical::reference_frame_at_address(new_frame.get_address());
+          }
           // If the range needs to be extended and has extension enabled, do so
           // ...
           kprintln!("Mapped new page");

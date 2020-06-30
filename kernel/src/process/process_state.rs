@@ -23,13 +23,6 @@ pub struct ProcessState {
 
   memory_regions: RwLock<MemoryRegions>,
 
-  /*
-  kernel_heap_region: RwLock<VirtualMemoryRegion>,
-  kernel_stack_region: RwLock<VirtualMemoryRegion>,
-  //heap_region: RwLock<VirtualMemoryRegion>,
-  stack_region: RwLock<VirtualMemoryRegion>,
-  //execution_regions: RwLock<Vec<VirtualMemoryRegion>>,
-  */
   page_directory: PageTableReference,
 
   kernel_esp: RwLock<usize>,
@@ -49,34 +42,6 @@ impl ProcessState {
       parent: pid,
 
       memory_regions: RwLock::new(MemoryRegions::initial(heap_start)),
-
-      /*
-      kernel_heap_region: RwLock::new(
-        VirtualMemoryRegion::new(
-          heap_start,
-          memory::heap::INITIAL_HEAP_SIZE * 0x1000,
-          MemoryRegionType::Anonymous(ExpansionDirection::After),
-          Permissions::ReadOnly,
-        ),
-      ),
-      kernel_stack_region: RwLock::new(
-        VirtualMemoryRegion::new(
-          memory::virt::STACK_START,
-          0x1000,
-          MemoryRegionType::Anonymous(ExpansionDirection::Before),
-          Permissions::ReadOnly,
-        ),
-      ),
-
-      stack_region: RwLock::new(
-        VirtualMemoryRegion::new(
-          VirtualAddress::new(0xc0000000 - 0x2000),
-          0x2000,
-          MemoryRegionType::Anonymous(ExpansionDirection::Before),
-          Permissions::CopyOnWrite,
-        ),
-      ),
-      */
 
       page_directory: PageTableReference::current(),
 
@@ -112,56 +77,6 @@ impl ProcessState {
       run_state: RwLock::new(RunState::Running),
     }
   }
-
-  /*
-  pub fn fork_page_directory(&self) -> PageTableReference {
-    let temp_page_address = page_directory::get_temporary_page_address();
-    // Create the top page table, which will contain the temp page and
-    // kernel stack
-    let top_page = memory::physical::allocate_frame().unwrap();
-    page_directory::map_frame_to_temporary_page(top_page);
-    PageTable::at_address(temp_page_address).zero();
-    // Create the new page directory
-    let pagedir_frame = memory::physical::allocate_frame().unwrap();
-    page_directory::map_frame_to_temporary_page(pagedir_frame);
-    let new_pagedir = PageTable::at_address(temp_page_address);
-    new_pagedir.zero();
-    // Initialize the page directory with its required mappings
-    new_pagedir.get_mut(1023).set_address(pagedir_frame.get_address());
-    new_pagedir.get_mut(1023).set_present();
-    new_pagedir.get_mut(1022).set_address(top_page.get_address());
-    new_pagedir.get_mut(1022).set_present();
-
-    // Copy the kernel heap mappings
-    let current_page_address = page_directory::get_current_page_address();
-    let current_pagedir = PageTable::at_address(current_page_address);
-    {
-      let heap_region = self.kernel_heap_region.read();
-      let start = heap_region.get_starting_address_as_usize();
-      let size = heap_region.get_size();
-      let mut offset = 0;
-      while offset < size {
-        let index = (start + offset) >> 22;
-        new_pagedir.get_mut(index).set_address(current_pagedir.get(index).get_address());
-        new_pagedir.get_mut(index).set_present();
-        offset += 0x400000;
-      }
-    }
-
-    // Duplicate the process memory mapping
-    // Right now this just copies the kernel data. This needs to come from a
-    // process-stored map in the future.
-    new_pagedir.get_mut(0).set_address(current_pagedir.get(0).get_address());
-    new_pagedir.get_mut(0).set_present();
-    new_pagedir.get_mut(0).set_user_access();
-    new_pagedir.get_mut(0x300).set_address(current_pagedir.get(0x300).get_address());
-    new_pagedir.get_mut(0x300).set_present();
-
-    // stack needs to be copy-on-write
-
-    PageTableReference::new(pagedir_frame.get_address())
-  }
-  */
 
   pub fn make_current_stack_frame_editable(&self) {
     let esp = self.kernel_esp.read().clone();

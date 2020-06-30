@@ -174,6 +174,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));
       memory::heap::init_allocator(heap_start, heap_size);
     }
+    memory::physical::init_refcount();
 
     kprintln!("Kernel Initialized.");
 

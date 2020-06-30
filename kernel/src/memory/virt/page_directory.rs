@@ -1,6 +1,7 @@
 use super::super::address::{PhysicalAddress, VirtualAddress};
 use super::super::physical::frame::Frame;
 use super::super::physical::allocate_frame;
+use super::super::physical::reference_frame_at_address;
 use super::page_table::PageTable;
 use super::region::{MemoryRegionType, Permissions, VirtualMemoryRegion};
 
@@ -212,12 +213,15 @@ impl AlternatePageDirectory {
         let table = PageTable::at_address(table_address);
         if table.get(table_index).is_present() {
           let frame_paddr = table.get(table_index).get_address();
+          reference_frame_at_address(frame_paddr);
           let flags = if table.get(table_index).is_user_access_granted() {
             PermissionFlags::USER_ACCESS
           } else {
             0
           };
-          // force no write access
+          // force no write access and revoke current write permissions,
+          // so that the first write duplicates the frame
+          table.get_mut(table_index).clear_write_access();
 
           self.map(
             Frame::new(frame_paddr.as_usize()),

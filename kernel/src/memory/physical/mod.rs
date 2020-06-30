@@ -1,13 +1,17 @@
 pub mod bios;
 pub mod frame_bitmap;
 pub mod frame_range;
+pub mod frame_refcount;
 pub mod frame;
 
 use frame_bitmap::{BitmapError, FrameBitmap};
 use frame_range::FrameRange;
+use frame_refcount::FrameRefcount;
 use spin::Mutex;
+use super::address::PhysicalAddress;
 
 static mut ALLOCATOR: Option<Mutex<FrameBitmap>> = None;
+static mut REF_COUNT: Option<Mutex<FrameRefcount>> = None;
 
 pub fn init_allocator(location: usize, memory_map_addr: usize) {
   assert!(location & 0xfff == 0, "Allocator must start on a page boundary");
@@ -33,6 +37,15 @@ pub fn init_allocator(location: usize, memory_map_addr: usize) {
   }
 }
 
+pub fn init_refcount() {
+  let frame_count = with_allocator(|alloc| {
+    alloc.get_frame_count()
+  });
+  unsafe {
+    REF_COUNT = Some(Mutex::new(FrameRefcount::new(frame_count)));
+  }
+}
+
 pub fn with_allocator<F, T>(f: F) -> T where
   F: Fn(&mut FrameBitmap) -> T {
   // Safe because the ALLOCATOR will only be set once, synchronously
@@ -42,6 +55,18 @@ pub fn with_allocator<F, T>(f: F) -> T where
       f(&mut alloc)
     },
     None => panic!("Physical frame allocator was not initialized"),
+  }
+}
+
+pub fn with_refcount<F, T>(f: F) -> T where
+  F: Fn(&mut FrameRefcount) -> T {
+  // Safe because the REF_COUNT will only be set once, synchronously
+  match unsafe { &REF_COUNT } {
+    Some(r) => {
+      let mut refcount = r.lock();
+      f(&mut refcount)
+    },
+    None => panic!("Reference counter was not initialized"),
   }
 }
 
@@ -82,3 +107,31 @@ pub fn get_free_frame_count() -> usize {
     alloc.get_free_frame_count()
   })
 }
+
+pub fn get_frame_for_copy_on_write(prev: PhysicalAddress) -> Result<frame::Frame, BitmapError> {
+  with_refcount(|refcount| {
+    let current_count = refcount.current_count_at_address(prev);
+    if current_count > 1 {
+      // The frame is referenced multiple times. In order to write to it, we
+      // need to copy to a new frame.
+      let new_frame = allocate_frame();
+      match new_frame {
+        Ok(f) => {
+          refcount.reference_frame(f);
+          refcount.release_frame_at_address(prev);
+          Ok(f)
+        },
+        Err(e) => Err(e),
+      }
+    } else {
+      Ok(frame::Frame::new(prev.as_usize()))
+    }
+  })
+}
+
+pub fn reference_frame_at_address(addr: PhysicalAddress) -> u8 {
+  with_refcount(|refcount| {
+    refcount.reference_frame_at_address(addr)
+  })
+}
+

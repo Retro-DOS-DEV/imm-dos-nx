@@ -94,11 +94,7 @@ impl VirtualMemoryRegion {
   }
 
   pub fn copy_for_new_process(&self) -> VirtualMemoryRegion {
-    let permissions = match self.permissions {
-      Permissions::ReadWrite | Permissions::CopyOnWrite => Permissions::CopyOnWrite,
-      Permissions::ReadOnly => Permissions::ReadOnly,
-    };
-    self.copy_with_permissions(permissions)
+    self.copy_with_permissions(self.permissions)
   }
 
   pub fn copy_with_permissions(&self, permissions: Permissions) -> VirtualMemoryRegion {
