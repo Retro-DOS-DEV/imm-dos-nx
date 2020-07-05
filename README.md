@@ -15,7 +15,7 @@ All of the system applications and drivers are implemented natively using custom
  - `cpio` archiving tool, for creating the InitFS
  - mtools, for creating a FAT-formatted disk image
 
-At the moment, the OS is only designed to run from a floppy disk image. To build the disk, run `make` from the root directory.
+At the moment, the OS is only designed to run from a floppy disk image. To build the disk, run `make` from the root directory. This creates a disk image at `build/bootdisk.img` which can be run in a VM like `QEMU`.
 
 ## Design
 
