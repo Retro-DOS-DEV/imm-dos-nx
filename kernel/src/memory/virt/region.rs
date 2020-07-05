@@ -1,9 +1,10 @@
+use crate::files::handle::LocalHandle;
 use super::super::address::VirtualAddress;
 use super::super::physical::frame_range::FrameRange;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum MemoryRegionType {
-  MemMapped(usize, usize), // Backed by a memmapped file
+  MemMapped(usize, LocalHandle, usize), // Backed by a memmapped file
   Direct(FrameRange), // Backed by an explicit physical memory range
   IO(FrameRange), // Similar to Direct, but used for IO devices like PCI
   Anonymous(ExpansionDirection), // Backed by arbitrarily-allocated physical memory

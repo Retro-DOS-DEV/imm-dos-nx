@@ -84,6 +84,23 @@ pub fn move_kernel_stack(stack_frame: frame::Frame) {
   }
 }
 
+/**
+ * Move the instruction pointer to the high kernel addresses above 0xC0000000.
+ * If we don't do this, many of the pointers stored in memory will be incorrect
+ * when we later unmap the lower copy of the kernel.
+ */
+#[cfg(not(test))]
+#[naked]
+#[inline(never)]
+pub unsafe fn high_jump() {
+  llvm_asm!("
+    mov eax, [esp]
+    or eax, 0xc0000000
+    mov [esp], eax" : : : :
+    "intel", "volatile"
+  );
+}
+
 pub fn count_frames() -> usize {
   unsafe {
     FRAME_ALLOCATOR.count_frames()

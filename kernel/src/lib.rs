@@ -121,6 +121,8 @@ unsafe fn init_memory_new() {
   initial_pagedir.make_active();
   memory::virt::enable_paging();
 
+  memory::physical::move_allocator_reference_to_highmem();
+
   // move esp to the higher page, maintaining its relative location in the frame
   unsafe {
     llvm_asm!(
@@ -134,6 +136,16 @@ unsafe fn init_memory_new() {
     );
   }
 
+  memory::high_jump();
+  // CLOWNTOWN: ebx points to the PLT, and is initialized based on a relative
+  // position to the starting instruction pointer. Since we start in lowmem and
+  // then jump to highmem, it gets set to a location in user memory space, which
+  // breaks everything the first time a user process unmaps the low copy of the
+  // kernel.
+  // If we had a bootloader that initialized a page table and mapped us into
+  // highmem before entering the kernel, this wouldn't be necessary...
+  llvm_asm!("or ebx, 0xc0000000" : : : : "intel", "volatile");
+
   kprintln!("\nKernel range: {:?}-{:?}", kernel_data_bounds.ro_start, kernel_data_bounds.rw_end);
 }
 
@@ -146,7 +158,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
   let initfs_start = unsafe {
     let boot_struct = &*boot_struct_ptr;
     boot_struct.initfs_start
-  };
+  } | 0xc0000000;
 
   unsafe {
     let boot_struct = &*boot_struct_ptr;
@@ -154,7 +166,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     init_memory_new();
     init_tables();
 
-    kprintln!("InitFS at {:#010X}, {:} bytes long", boot_struct.initfs_start, boot_struct.initfs_size);
+    kprintln!("InitFS at {:#010X}, {:} bytes long", initfs_start, boot_struct.initfs_size);
   }
 
   unsafe {
@@ -184,7 +196,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     filesystems::init_fs();
 
     let init_fs = filesystems::init::InitFileSystem::new(memory::address::VirtualAddress::new(initfs_start));
-    filesystems::VFS.register_fs("INIT", alloc::boxed::Box::new(init_fs)).expect("Failed to register INIT FS");
+    let boxed_fs = alloc::boxed::Box::new(init_fs);
+    filesystems::VFS.register_fs("INIT", boxed_fs).expect("Failed to register INIT FS");
 
     process::init();
     let init_process = process::all_processes_mut().spawn_first_process(heap_start);
@@ -193,14 +206,6 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     let result = syscall::debug();
     kprintln!("returned from syscall, got {}", result);
-
-    // pretend to read a file
-    let handle = syscall::open("DEV:\\ZERO");
-    assert_eq!(handle, 0);
-
-    let mut buffer: [u8; 1] = [0xff];
-    syscall::read(handle, buffer.as_mut_ptr(), 1);
-    assert_eq!(buffer[0], 0);
   }
 
   let initfs_handle = syscall::open("INIT:\\test.txt");
@@ -236,11 +241,10 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[inline(never)]
 pub extern fn user_init() {
   let pid = syscall::fork();
-  let ticktock = if pid == 0 {
-    " TOCK"
-  } else {
-    " TICK"
-  };
+  if pid == 0 {
+    syscall::exec("INIT:\\test.bin");
+  }
+  let ticktock = "TICK ";
   // Creating the file handle after the fork
   // We don't duplicate file handles on fork yet...
   let com1 = syscall::open("DEV:\\COM1");

@@ -1,12 +1,7 @@
-use alloc::sync::Arc;
 use crate::files::filename;
 use crate::files::handle::{FileHandle, Handle};
 use crate::filesystems;
-use crate::process;
-
-fn current_process() -> Arc<process::process_state::ProcessState> {
-  process::current_process().expect("Running a syscall for an unknown process")
-}
+use super::current_process;
 
 pub enum FileError {
   DriveDoesNotExist,

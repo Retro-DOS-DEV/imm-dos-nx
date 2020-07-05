@@ -3,8 +3,6 @@ extern crate alloc;
 use alloc::alloc::Layout;
 use core::ptr::null_mut;
 
-//use crate::kprintln;
-
 use super::super::address::VirtualAddress;
 use super::super::allocate_physical_frame;
 use super::super::paging::map_address_to_frame;
@@ -115,7 +113,7 @@ pub unsafe fn find_node_from_allocated_pointer(ptr: *mut u8) -> *mut AllocNode {
 }
 
 impl ListAllocator {
-  pub const fn empty() -> ListAllocator {
+  pub const fn empty() -> ListAllocator 
     ListAllocator {
       start: 0,
       size: 0,
@@ -139,7 +137,6 @@ impl ListAllocator {
   pub unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
     let mut prev = 0;
     let mut current = self.first_free;
-    //kprintln!("ALLOC: {:?}", layout);
     while current != 0 {
       let node_ptr = current as *mut AllocNode;
       let node = &mut *node_ptr;
@@ -160,7 +157,6 @@ impl ListAllocator {
           let new_node_ptr = trailing_start as *mut AllocNode;
           let new_node = &mut *new_node_ptr;
           let new_size = current + node.get_size() - trailing_start;
-          //kprintln!("SPLIT AT {:#010x} {:#010x} {:#010x}", trailing_start, new_size, next);
           new_node.init(new_size);
           new_node.next = next;
           if prev != 0 {

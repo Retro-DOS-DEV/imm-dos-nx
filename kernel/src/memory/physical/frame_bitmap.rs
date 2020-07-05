@@ -20,6 +20,18 @@ impl FrameBitmap {
     }
   }
 
+  pub fn move_to_highmem(&mut self) {
+    let location = (self.map.as_ptr() as usize) | 0xc0000000;
+    let size = self.map.len();
+    self.map = unsafe {
+      slice::from_raw_parts_mut(location as *mut u8, size)
+    };
+  }
+
+  pub fn get_location(&self) -> usize {
+    self.map.as_ptr() as usize
+  }
+
   /**
    * Reset the table to being entirely allocated; should be used whenever a new
    * bitmap is initialized.

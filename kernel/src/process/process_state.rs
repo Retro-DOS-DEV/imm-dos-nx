@@ -113,7 +113,7 @@ impl ProcessState {
       // Code segment
       *stack_ptr.offset(-4) = 0x1b;
       // Instruction pointer
-      *stack_ptr.offset(-5) = func as usize; 
+      *stack_ptr.offset(-5) = (func as usize) & 0x3fffffff; 
     }
     *self.kernel_esp.write() = kernel_esp - 4 * 5;
   }
@@ -183,5 +183,13 @@ impl ProcessState {
       RunState::Running => true,
       _ => false
     }
+  }
+
+  pub fn prepare_for_exec(&self, drive_number: usize, handle: LocalHandle) -> usize {
+    self.unmap_all();
+    self.map_vga_memory();
+    let length = 0x50;
+    self.mmap(VirtualAddress::new(0), length, drive_number, handle);
+    0 // entry point
   }
 }

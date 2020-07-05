@@ -1,10 +1,11 @@
 use alloc::vec::Vec;
+use crate::files::handle::LocalHandle;
 use crate::memory::{
   address::VirtualAddress,
   heap::INITIAL_HEAP_SIZE,
   physical,
   virt::{
-    page_directory::{AlternatePageDirectory, self},
+    page_directory::{AlternatePageDirectory, CurrentPageDirectory, self},
     page_table::{PageTable, PageTableReference},
     region::{
       ExpansionDirection,
@@ -20,6 +21,7 @@ use super::process_state::ProcessState;
 pub struct MemoryRegions {
   pub kernel_heap_region: VirtualMemoryRegion,
   pub kernel_stack_region: VirtualMemoryRegion,
+  pub kernel_exec_region: VirtualMemoryRegion,
   pub heap_region: VirtualMemoryRegion,
   pub stack_region: VirtualMemoryRegion,
   pub execution_regions: Vec<VirtualMemoryRegion>,
@@ -27,15 +29,9 @@ pub struct MemoryRegions {
 
 impl MemoryRegions {
   pub fn initial(heap_start: VirtualAddress) -> MemoryRegions {
-    let mut execution_regions = Vec::with_capacity(2);
+    let mut execution_regions = Vec::with_capacity(1);
     execution_regions.push(VirtualMemoryRegion::new(
       VirtualAddress::new(0),
-      0x400000,
-      MemoryRegionType::Anonymous(ExpansionDirection::None),
-      Permissions::CopyOnWrite,
-    ));
-    execution_regions.push(VirtualMemoryRegion::new(
-      VirtualAddress::new(0xc0000000),
       0x400000,
       MemoryRegionType::Anonymous(ExpansionDirection::None),
       Permissions::CopyOnWrite,
@@ -54,6 +50,13 @@ impl MemoryRegions {
         0x2000,
         MemoryRegionType::Anonymous(ExpansionDirection::Before),
         Permissions::ReadWrite,
+      ),
+
+      kernel_exec_region: VirtualMemoryRegion::new(
+        VirtualAddress::new(0xc0000000),
+        0x400000,
+        MemoryRegionType::Anonymous(ExpansionDirection::None),
+        Permissions::CopyOnWrite,
       ),
 
       heap_region: VirtualMemoryRegion::empty(),
@@ -76,6 +79,7 @@ impl MemoryRegions {
   pub fn fork(&self) -> MemoryRegions {
     let kernel_heap_region = self.kernel_heap_region.clone();
     let kernel_stack_region = self.kernel_stack_region.copy_with_permissions(Permissions::ReadWrite);
+    let kernel_exec_region = self.kernel_exec_region.copy_for_new_process();
     let heap_region = self.heap_region.copy_for_new_process();
     let stack_region = self.stack_region.copy_for_new_process();
     let execution_regions = self.execution_regions
@@ -86,6 +90,7 @@ impl MemoryRegions {
     MemoryRegions {
       kernel_heap_region,
       kernel_stack_region,
+      kernel_exec_region,
       heap_region,
       stack_region,
       execution_regions,
@@ -101,6 +106,11 @@ impl MemoryRegions {
     let kernel_stack = self.kernel_stack_region;
     if kernel_stack.contains_address(addr) {
       return Some(kernel_stack.clone());
+    }
+
+    let kernel_exec = self.kernel_exec_region;
+    if kernel_exec.contains_address(addr) {
+      return Some(kernel_exec.clone());
     }
 
     let heap = self.heap_region;
@@ -151,6 +161,7 @@ impl ProcessState {
       let regions = self.get_memory_regions().write();
       new_page_dir.map_region(regions.kernel_stack_region);
       new_page_dir.map_region(regions.kernel_heap_region);
+      new_page_dir.map_region(regions.kernel_exec_region);
       new_page_dir.map_region(regions.stack_region);
       new_page_dir.map_region(regions.heap_region);
       
@@ -160,5 +171,42 @@ impl ProcessState {
     }
 
     PageTableReference::new(directory_frame.get_address())
+  }
+
+  pub fn unmap_all(&self) {
+    let mut regions = self.get_memory_regions().write();
+    let current_pagedir = CurrentPageDirectory::get();
+    while regions.execution_regions.len() > 0 {
+      if let Some(region) = regions.execution_regions.pop() {
+        current_pagedir.unmap_region(region);
+      }
+    }
+  }
+
+  /**
+   * Temporary to ensure we get VGA access for debugging
+   */
+  pub fn map_vga_memory(&self) {
+    let region = VirtualMemoryRegion::new(
+      VirtualAddress::new(0xa0000),
+      0x20000,
+      MemoryRegionType::Direct(physical::frame_range::FrameRange::new(0xa0000, 0x20000)),
+      Permissions::ReadWrite,
+    );
+    self.get_memory_regions().write().execution_regions.push(region);
+  }
+
+  pub fn mmap(&self, start: VirtualAddress, length: usize, drive_number: usize, handle: LocalHandle) {
+    let mut region_length = length;
+    if length & 0xfff != 0 {
+      region_length = (length + 0x1000) & 0xfffff000;
+    }
+    let region = VirtualMemoryRegion::new(
+      start,
+      region_length,
+      MemoryRegionType::MemMapped(drive_number, handle, length),
+      Permissions::ReadWrite,
+    );
+    self.get_memory_regions().write().execution_regions.push(region);
   }
 }

@@ -34,6 +34,31 @@ impl CurrentPageDirectory {
   pub fn get() -> CurrentPageDirectory {
     CurrentPageDirectory {}
   }
+
+  pub fn unmap(&self, vaddr: VirtualAddress) {
+    let dir_index = vaddr.get_page_directory_index();
+    let table_index = vaddr.get_page_table_index();
+    let directory = PageTable::at_address(VirtualAddress::new(0xfffff000));
+    if !directory.get(dir_index).is_present() {
+      return;
+    }
+    let table = PageTable::at_address(VirtualAddress::new(
+      0xffc00000 + 0x1000 * dir_index,
+    ));
+    if !table.get(table_index).is_present() {
+      return;
+    }
+    table.get_mut(table_index).clear_present();
+    invalidate_page(vaddr);
+  }
+
+  pub fn unmap_region(&self, region: VirtualMemoryRegion) {
+    let mut page_start = VirtualAddress::new(region.get_starting_address_as_usize());
+    while region.contains_address(page_start) {
+      self.unmap(page_start);
+      page_start = page_start.offset(0x1000);
+    }
+  }
 }
 
 impl PageDirectory for CurrentPageDirectory {
@@ -100,7 +125,7 @@ impl AlternatePageDirectory {
         // Copy the mappings directly
         panic!("Direct/IO mapping not implemented");
       },
-      MemoryRegionType::MemMapped(_, _) => {
+      MemoryRegionType::MemMapped(_, _, _) => {
         match region.get_permissions() {
           Permissions::ReadOnly => {
             // Copy the mappings directly

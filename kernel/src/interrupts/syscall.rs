@@ -19,15 +19,21 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
   let eax = registers.eax;
   match eax {
     // execution
-    0x0 => { // terminate
-
+    0x0 => { // exit
+      let code = registers.ebx;
+      exec::exit(code);
     },
     0x1 => { // fork
       let pid = exec::fork();
       registers.eax = pid;
     },
     0x2 => { // exec
-
+      let path_str_ptr = &*(registers.ebx as *const syscall::StringPtr);
+      let path_str = path_str_ptr.as_str();
+      match exec::exec_path(path_str) {
+        Ok(_) => (),
+        Err(_) => registers.eax = 0xffffffff,
+      }
     },
     0x3 => { // getpid
 

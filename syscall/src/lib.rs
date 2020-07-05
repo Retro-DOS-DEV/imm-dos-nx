@@ -1,3 +1,4 @@
+#![feature(core_intrinsics)]
 #![feature(llvm_asm)]
 
 #![no_std]
@@ -40,10 +41,20 @@ pub fn fork() -> u32 {
   syscall_inner(0x01, 0, 0, 0)
 }
 
+pub fn exec(path: &'static str) {
+  let path_ptr = StringPtr::from_str(path);
+  syscall_inner(0x02, &path_ptr as *const StringPtr as u32, 0, 0);
+}
+
 pub fn yield_coop() {
   syscall_inner(0x06, 0, 0, 0);
 }
 
 pub fn sleep(ms: u32) {
   syscall_inner(0x05, ms, 0, 0);
+}
+
+pub fn exit(code: u32) -> ! {
+  syscall_inner(0, code, 0, 0);
+  unsafe { core::intrinsics::unreachable() }
 }

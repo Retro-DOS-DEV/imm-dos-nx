@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use crate::files::handle::LocalHandle;
 use crate::gdt;
 use crate::kprintln;
 use crate::memory::virt;
@@ -178,4 +179,28 @@ unsafe fn fork_inner(new_proc_esp: *const RwLock<usize>) {
   // directly rather than copy-on-write
   llvm_asm!("mov eax, esp; and eax, 0xfff; add eax, 0xffbff000; mov ecx, [esp]; mov [eax], ecx" : : : "eax", "ecx" : "intel", "volatile");
   *(*new_proc_esp).write() = cur_esp;
+}
+
+pub fn exit(code: u32) {
+  
+  loop {}
+}
+
+pub fn exec(drive_number: usize, handle: LocalHandle) {
+  let entry = {
+    current_process().unwrap().prepare_for_exec(drive_number, handle)
+  };
+
+  unsafe {
+    llvm_asm!("
+      push 0x23
+      push 0xbffffffc
+      push 0x200
+      push 0x1b
+      push $0
+      iretd" : :
+      "r"(entry) : :
+      "intel", "volatile"
+    );
+  }
 }

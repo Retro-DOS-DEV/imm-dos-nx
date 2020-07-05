@@ -16,6 +16,9 @@ kernel_deps := kernel/src/* kernel/src/*/* kernel/src/*/*/*
 
 initfs := build/initfs.img
 
+native_linker_elf := dos-native-elf.ld
+testexec := initfs/test.bin
+
 .PHONY: all, clean, test
 
 all: bootdisk
@@ -79,5 +82,10 @@ $(libkernel_testing): $(kernel_deps)
 	cargo xbuild --lib --target i386-kernel.json --release --features "testing"
 	@cp kernel/target/i386-kernel/release/libkernel.a $(libkernel_testing)
 
-$(initfs):
+$(initfs): $(testexec)
 	@ls initfs/ | cpio -D initfs -H bin -o > $(initfs)
+
+# System programs:
+$(testexec): testexec/test.s
+	@as --32 -march=i386 -o build/testexec.o testexec/test.s
+	@ld -o $(testexec) --oformat binary -e start -m elf_i386 -Ttext 0 build/testexec.o

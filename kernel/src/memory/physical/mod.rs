@@ -37,6 +37,12 @@ pub fn init_allocator(location: usize, memory_map_addr: usize) {
   }
 }
 
+pub fn move_allocator_reference_to_highmem() {
+  with_allocator(|alloc| {
+    alloc.move_to_highmem()
+  });
+}
+
 pub fn init_refcount() {
   let frame_count = with_allocator(|alloc| {
     alloc.get_frame_count()
