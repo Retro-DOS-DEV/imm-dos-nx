@@ -8,7 +8,7 @@ pub trait Handle {
   fn as_usize(&self) -> usize;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct LocalHandle(u32);
 
 impl Handle for LocalHandle {
@@ -81,7 +81,7 @@ impl<T: Handle> HandleAllocator<T> {
   }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct DriveHandlePair(pub usize, pub LocalHandle);
 
 impl PartialEq for DriveHandlePair {
@@ -173,5 +173,11 @@ impl FileHandleMap {
       Some(pair) => *pair,
       None => None,
     }
+  }
+}
+
+impl core::fmt::Debug for FileHandleMap {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    f.debug_list().entries(self.map.iter()).finish()
   }
 }

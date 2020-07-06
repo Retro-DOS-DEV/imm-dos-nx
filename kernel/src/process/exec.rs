@@ -79,7 +79,7 @@ impl ProcessState {
     let entry = match format {
       ExecFormat::BIN => {
         // need to read the file length
-        let length = 0x50;
+        let length = 0xf0;
         self.mmap(VirtualAddress::new(0), length, drive_number, handle);
         // Entry is always 0
         0
@@ -89,7 +89,7 @@ impl ProcessState {
       },
       ExecFormat::COM => {
         // need to read the file length
-        let length = 0x50;
+        let length = 0xf0;
         // To simplify memmapping the files, we start the executable on a page
         // boundary, and place the PSP in the last bytes of the previous page.
         let prog_start = 0x1000;

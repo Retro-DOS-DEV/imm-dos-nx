@@ -7,6 +7,11 @@ start:
   lea ebx, file_path_ptr
   int 0x2b
   mov ebx, eax # file handle
+  mov ecx, 0xffffffff
+  mov eax, 0x1d
+  int 0x2b
+
+  mov ebx, eax
   lea ecx, message
   lea edx, message_len
   mov eax, 0x13
