@@ -14,6 +14,7 @@ use super::memory::MemoryRegions;
 pub enum RunState {
   Running,
   Sleeping(usize),
+  Paused,
   // Blocked(PromiseResult),
 }
 
@@ -183,13 +184,5 @@ impl ProcessState {
       RunState::Running => true,
       _ => false
     }
-  }
-
-  pub fn prepare_for_exec(&self, drive_number: usize, handle: LocalHandle) -> usize {
-    self.unmap_all();
-    self.map_vga_memory();
-    let length = 0x50;
-    self.mmap(VirtualAddress::new(0), length, drive_number, handle);
-    0 // entry point
   }
 }

@@ -37,7 +37,7 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
   unsafe {
     llvm_asm!("mov $0, cr2" : "=r"(address) : : : "intel", "volatile");
   }
-  //kprintln!("\nPage Fault at {:#010x} {:x}:", address, error);
+  kprintln!("\nPage Fault at {:#010x} ({:x})", address, error);
   let current_proc = process::current_process().expect("Page fault outside a process");
   if address >= 0xc0000000 {
     // Kernel region
@@ -114,8 +114,6 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
           // should zero out the new_frame here, now that it's mapped
 
           if let MemoryRegionType::MemMapped(drive, handle, length) = range.backing_type() {
-            kprintln!("MemMapped page!");
-
             let offset = page_start.as_usize() - range.get_starting_address_as_usize();
             let mut read_len = 0x1000;
             if length < offset {
@@ -123,7 +121,6 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
             } else if offset + length < 0x1000 {
               read_len = length;
             }
-            kprintln!("Computed bounds");
             let fs = filesystems::get_fs(drive).expect("Memmapped to invalid fileseystem");
             let buffer = unsafe {
               core::slice::from_raw_parts_mut(page_start.as_usize() as *mut u8, read_len)

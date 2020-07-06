@@ -2,7 +2,6 @@ use crate::files::filename;
 use crate::filesystems;
 use crate::process;
 use super::file::FileError;
-use super::current_process;
 
 pub fn yield_coop() {
   process::yield_coop();
@@ -21,7 +20,7 @@ pub fn exec_path(path_str: &'static str) -> Result<(), FileError> {
   let number = filesystems::get_fs_number(drive).ok_or(FileError::DriveDoesNotExist)?;
   let fs = filesystems::get_fs(number).ok_or(FileError::UnknownFileSystem)?;
   let local_handle = fs.open(path).map_err(|_| FileError::FileDoesNotExist)?;
-  process::exec(number, local_handle);
+  process::exec(number, local_handle, process::exec::InterpretationMode::Detect);
   Ok(())
 }
 

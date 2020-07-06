@@ -113,7 +113,7 @@ pub unsafe fn find_node_from_allocated_pointer(ptr: *mut u8) -> *mut AllocNode {
 }
 
 impl ListAllocator {
-  pub const fn empty() -> ListAllocator 
+  pub const fn empty() -> ListAllocator {
     ListAllocator {
       start: 0,
       size: 0,

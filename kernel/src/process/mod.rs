@@ -5,10 +5,12 @@ use crate::kprintln;
 use crate::memory::virt;
 use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+pub mod exec;
 pub mod id;
 pub mod map;
 pub mod memory;
 pub mod process_state;
+pub mod subsystem;
 
 static mut PROCESS_MAP: Option<RwLock<map::ProcessMap>> = None;
 
@@ -58,11 +60,11 @@ pub fn switch_to(pid: id::ProcessID) {
     let mut map = all_processes_mut();
     let current = map.get_current_process().unwrap();
     let old_proc_esp = current.get_kernel_stack_container() as *const RwLock<usize>;
-    kprintln!("Switch from {:?} to {:?}", current.get_id(), pid);
-    kprintln!(" Cur esp was {:x}", current.get_kernel_stack_pointer());
+    //kprintln!("Switch from {:?} to {:?}", current.get_id(), pid);
+    //kprintln!(" Cur esp was {:x}", current.get_kernel_stack_pointer());
     map.make_current(pid);
     let next = map.get_process(pid).unwrap();
-    kprintln!(" Next esp is {:x}", next.get_kernel_stack_pointer());
+    //kprintln!(" Next esp is {:x}", next.get_kernel_stack_pointer());
     unsafe {
       gdt::set_tss_stack_pointer(virt::STACK_START.as_u32() + 0x1000 - 4);
     }
@@ -186,9 +188,9 @@ pub fn exit(code: u32) {
   loop {}
 }
 
-pub fn exec(drive_number: usize, handle: LocalHandle) {
+pub fn exec(drive_number: usize, handle: LocalHandle, interp_mode: exec::InterpretationMode) {
   let entry = {
-    current_process().unwrap().prepare_for_exec(drive_number, handle)
+    current_process().unwrap().prepare_for_exec(drive_number, handle, interp_mode)
   };
 
   unsafe {

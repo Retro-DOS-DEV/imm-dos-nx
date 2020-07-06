@@ -184,18 +184,9 @@ impl ProcessState {
   }
 
   /**
-   * Temporary to ensure we get VGA access for debugging
+   * Map a memory region to the contents of a file. When pages are accessed,
+   * they'll be fetched from the filesystem, 0x1000 bytes at a time.
    */
-  pub fn map_vga_memory(&self) {
-    let region = VirtualMemoryRegion::new(
-      VirtualAddress::new(0xa0000),
-      0x20000,
-      MemoryRegionType::Direct(physical::frame_range::FrameRange::new(0xa0000, 0x20000)),
-      Permissions::ReadWrite,
-    );
-    self.get_memory_regions().write().execution_regions.push(region);
-  }
-
   pub fn mmap(&self, start: VirtualAddress, length: usize, drive_number: usize, handle: LocalHandle) {
     let mut region_length = length;
     if length & 0xfff != 0 {
@@ -205,6 +196,24 @@ impl ProcessState {
       start,
       region_length,
       MemoryRegionType::MemMapped(drive_number, handle, length),
+      Permissions::ReadWrite,
+    );
+    self.get_memory_regions().write().execution_regions.push(region);
+  }
+
+  /**
+   * Create a mapping to an "anonymous" range, which just pulls in free physical
+   * memory pages as needed.
+   */
+  pub fn anonymous_map(&self, start: VirtualAddress, length: usize) {
+    let mut region_length = length;
+    if length & 0xfff != 0 {
+      region_length = (length + 0x1000) & 0xfffff000;
+    }
+    let region = VirtualMemoryRegion::new(
+      start,
+      region_length,
+      MemoryRegionType::Anonymous(ExpansionDirection::None),
       Permissions::ReadWrite,
     );
     self.get_memory_regions().write().execution_regions.push(region);
