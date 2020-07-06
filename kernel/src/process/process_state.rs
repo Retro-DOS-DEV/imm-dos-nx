@@ -9,6 +9,7 @@ use crate::time;
 use spin::RwLock;
 use super::id::ProcessID;
 use super::memory::MemoryRegions;
+use super::subsystem::Subsystem;
 
 #[derive(Copy, Clone)]
 pub enum RunState {
@@ -31,6 +32,7 @@ pub struct ProcessState {
   open_files: RwLock<FileHandleMap>,
 
   run_state: RwLock<RunState>,
+  subsystem: RwLock<Subsystem>,
 }
 
 impl ProcessState {
@@ -51,6 +53,7 @@ impl ProcessState {
       open_files: RwLock::new(FileHandleMap::new()),
 
       run_state: RwLock::new(RunState::Running),
+      subsystem: RwLock::new(Subsystem::Native),
     }
   }
 
@@ -76,6 +79,7 @@ impl ProcessState {
       open_files: RwLock::new(FileHandleMap::new()),
 
       run_state: RwLock::new(RunState::Running),
+      subsystem: RwLock::new(Subsystem::Native),
     }
   }
 
@@ -156,6 +160,10 @@ impl ProcessState {
   pub fn get_open_file_info(&self, handle: FileHandle) -> Option<DeviceHandlePair> {
     let files = self.open_files.read();
     files.get_drive_and_handle(handle)
+  }
+
+  pub fn get_subsystem(&self) -> &RwLock<Subsystem> {
+    &self.subsystem
   }
 
   pub fn sleep(&self, ms: usize) {

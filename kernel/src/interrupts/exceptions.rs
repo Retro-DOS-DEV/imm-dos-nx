@@ -11,6 +11,7 @@ use crate::memory::{
 };
 use crate::process;
 use super::stack::StackFrame;
+use super::syscall_legacy::{DosApiRegisters, dos_api, VM8086Frame};
 
 #[no_mangle]
 pub extern "x86-interrupt" fn divide_by_zero(stack_frame: &StackFrame) {
@@ -26,6 +27,34 @@ pub extern "x86-interrupt" fn double_fault(stack_frame: &StackFrame) {
 
 #[no_mangle]
 pub extern "x86-interrupt" fn gpf(stack_frame: &StackFrame, error: u32) {
+  let reg_ptr: usize;
+  unsafe {
+    llvm_asm!("" : "={ebp}"(reg_ptr) ::: "volatile");
+  }
+  if stack_frame.eflags & 0x20000 != 0 {
+    // VM 8086
+    let stack_frame_ptr = stack_frame as *const StackFrame as usize;
+    let vm_frame_ptr = (stack_frame_ptr + 12) as *mut VM8086Frame;
+    unsafe {
+      let regs = &mut *((reg_ptr - 6 * 4) as *mut DosApiRegisters);
+      let vm_frame = &mut *vm_frame_ptr;
+      let mut_stack_frame = &mut *(stack_frame_ptr as *mut StackFrame);
+      let op_ptr = ((stack_frame.cs << 4) + stack_frame.eip) as *const u8;
+      if *op_ptr == 0xcd {
+        // INT
+        match *op_ptr.offset(1) {
+          0x21 => {
+            // DOS API
+            dos_api(regs, vm_frame);
+          },
+          _ => (),
+        }
+        mut_stack_frame.eip += 2;
+        return;
+      }
+    }
+  }
+
   kprintln!("\nERR: General Protection Fault, code {}", error);
   kprintln!("{:?}", stack_frame);
   loop {}

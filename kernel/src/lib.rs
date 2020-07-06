@@ -242,7 +242,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 pub extern fn user_init() {
   let pid = syscall::fork();
   if pid == 0 {
-    syscall::exec("INIT:\\test.bin");
+    syscall::exec_format("INIT:\\test.com", 3);
   }
   let ticktock = "TICK ";
   // Creating the file handle after the fork

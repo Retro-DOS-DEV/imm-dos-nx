@@ -30,7 +30,13 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     0x2 => { // exec
       let path_str_ptr = &*(registers.ebx as *const syscall::StringPtr);
       let path_str = path_str_ptr.as_str();
-      match exec::exec_path(path_str) {
+      let arg_str = if registers.ecx == 0 {
+        ""
+      } else {
+        let arg_str_ptr = &*(registers.ecx as *const syscall::StringPtr);
+        arg_str_ptr.as_str()
+      };
+      match exec::exec_path(path_str, arg_str, registers.edx) {
         Ok(_) => (),
         Err(_) => registers.eax = 0xffffffff,
       }

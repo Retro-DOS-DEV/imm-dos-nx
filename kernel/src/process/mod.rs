@@ -189,20 +189,51 @@ pub fn exit(code: u32) {
 }
 
 pub fn exec(drive_number: usize, handle: LocalHandle, interp_mode: exec::InterpretationMode) {
-  let entry = {
-    current_process().unwrap().prepare_for_exec(drive_number, handle, interp_mode)
+  let (entry, flags, segments) = {
+    let cur = current_process().unwrap();
+    let entry = cur.prepare_for_exec(drive_number, handle, interp_mode);
+    let (flags, segments) = match cur.get_vm8086_metadata() {
+      Some(meta) => (0x20200, Some(meta)),
+      None => (0x200, None),
+    };
+    (entry, flags, segments)
   };
 
-  unsafe {
-    llvm_asm!("
-      push 0x23
-      push 0xbffffffc
-      push 0x200
-      push 0x1b
-      push $0
-      iretd" : :
-      "r"(entry) : :
-      "intel", "volatile"
-    );
+  match segments {
+    Some(meta) => {
+      // Enter Virtual 8086 mode
+      let cs = entry >> 4;
+      unsafe {
+        llvm_asm!("
+          push $0
+          push $1
+          push $2
+          push $3
+          push $4
+          push 0xffc
+          push $5
+          push $6
+          push 0
+          iretd" : :
+          "*m"(&meta.gs), "*m"(&meta.fs), "*m"(&meta.ds), "*m"(&meta.es), "*m"(&meta.ss), "r"(flags), "r"(cs) : :
+          "intel", "volatile"
+        );
+      }
+    },
+    None => {
+      unsafe {
+        llvm_asm!("
+          push 0x23
+          push 0xbffffffc
+          push $0
+          push 0x1b
+          push $1
+          iretd" : :
+          "r"(flags), "r"(entry) : :
+          "intel", "volatile"
+        );
+      }
+    }
   }
+
 }

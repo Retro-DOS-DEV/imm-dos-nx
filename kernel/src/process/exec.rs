@@ -14,6 +14,18 @@ pub enum InterpretationMode {
   DOS, // Assume it's ExecType::DOS
 }
 
+impl InterpretationMode {
+  pub fn from_u32(raw: u32) -> InterpretationMode {
+    match raw {
+      1 => InterpretationMode::BIN,
+      2 => InterpretationMode::ELF,
+      3 => InterpretationMode::COM,
+      4 => InterpretationMode::DOS,
+      _ => InterpretationMode::Detect,
+    }
+  }
+}
+
 /**
  * Represents the type of executable running in this process, used for
  * memmapping the file, initializing memory, and determining the subsystem.
@@ -94,6 +106,7 @@ impl ProcessState {
         panic!("Can't interpret MZ executables yet!");
       },
     };
+    *self.get_subsystem().write() = new_subsystem;
 
     entry
   }

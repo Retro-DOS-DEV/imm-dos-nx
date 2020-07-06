@@ -46,6 +46,17 @@ pub fn exec(path: &'static str) {
   syscall_inner(0x02, &path_ptr as *const StringPtr as u32, 0, 0);
 }
 
+pub fn execv(path: &'static str, args: &'static str) {
+  let path_ptr = StringPtr::from_str(path);
+  let arg_ptr = StringPtr::from_str(args);
+  syscall_inner(0x02, &path_ptr as *const StringPtr as u32, &arg_ptr as *const StringPtr as u32, 0);
+}
+
+pub fn exec_format(path: &'static str, format: u32) {
+  let path_ptr = StringPtr::from_str(path);
+  syscall_inner(0x02, &path_ptr as *const StringPtr as u32, 0, format);
+}
+
 pub fn yield_coop() {
   syscall_inner(0x06, 0, 0, 0);
 }
