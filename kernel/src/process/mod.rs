@@ -6,6 +6,7 @@ use crate::memory::virt;
 use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub mod exec;
+pub mod files;
 pub mod id;
 pub mod map;
 pub mod memory;

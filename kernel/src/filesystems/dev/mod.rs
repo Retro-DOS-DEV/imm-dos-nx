@@ -89,4 +89,8 @@ impl FileSystem for DevFileSystem {
   fn close(&self, handle: LocalHandle) -> Result<(), ()> {
     Err(())
   }
+
+  fn dup(&self, handle: LocalHandle, new_handle: Option<LocalHandle>) -> Result<LocalHandle, ()> {
+    Err(())
+  }
 }

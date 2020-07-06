@@ -82,14 +82,24 @@ impl<T: Handle> HandleAllocator<T> {
 }
 
 #[derive(Copy, Clone)]
-pub struct DeviceHandlePair(pub usize, pub LocalHandle);
+pub struct DriveHandlePair(pub usize, pub LocalHandle);
+
+impl PartialEq for DriveHandlePair {
+  fn eq(&self, other: &Self) -> bool {
+    self.0 == other.0 && self.1 == other.1
+  }
+}
+
+impl Eq for DriveHandlePair {}
+
+const MAX_OPEN_FILES: usize = 4096;
 
 /**
  * Map a process's file handles to the filesystem and fs-specific handle behind
  * each one.
  */
 pub struct FileHandleMap {
-  map: Vec<Option<DeviceHandlePair>>,
+  map: Vec<Option<DriveHandlePair>>,
 }
 
 impl FileHandleMap {
@@ -99,24 +109,65 @@ impl FileHandleMap {
     }
   }
 
-  pub fn open_handle(&mut self, drive: usize, local: LocalHandle) -> FileHandle {
-    let pair = DeviceHandlePair(drive, local);
-    self.map.push(Some(pair));
-    let index = self.map.len() - 1;
-    FileHandle::new(index as u32)
+  pub fn open_handle(&mut self, drive: usize, local: LocalHandle) -> Option<FileHandle> {
+    let handle = self.get_next_available_handle()?;
+    self.set_handle_directly(handle, drive, local);
+    Some(handle)
   }
 
-  pub fn close_handle(&mut self, handle: FileHandle) {
+  pub fn set_handle_directly(&mut self, handle: FileHandle, drive: usize, local: LocalHandle) -> Option<DriveHandlePair> {
+    let pair = DriveHandlePair(drive, local);
+    while self.map.len() <= handle.as_usize() {
+      self.map.push(None);
+    }
+    let prev = self.map[handle.as_usize()];
+    self.map[handle.as_usize()] = Some(pair);
+    prev
+  }
+
+  pub fn close_handle(&mut self, handle: FileHandle) -> Option<DriveHandlePair> {
     let entry = self.map.get_mut(handle.as_usize());
     match entry {
       Some(e) => {
+        let prev = *e;
         *e = None;
+        return prev;
       },
       None => (),
     }
+    None
   }
 
-  pub fn get_drive_and_handle(&self, handle: FileHandle) -> Option<DeviceHandlePair> {
+  pub fn get_next_available_handle(&mut self) -> Option<FileHandle> {
+    for (index, item) in self.map.iter().enumerate() {
+      match item {
+        None => return Some(FileHandle::new(index as u32)),
+        _ => (),
+      }
+    }
+    if self.map.len() < MAX_OPEN_FILES {
+      let index = self.map.len();
+      self.map.push(None);
+      return Some(FileHandle::new(index as u32));
+    }
+    None
+  }
+
+  pub fn references_drive_and_handle(&self, drive: usize, local: LocalHandle) -> bool {
+    let seek = DriveHandlePair(drive, local);
+
+    for item in self.map.iter() {
+      match item {
+        Some(pair) => if pair == &seek {
+          return true;
+        },
+        None => (),
+      }
+    }
+    false
+  }
+
+  pub fn get_drive_and_handle(&self, handle: FileHandle) -> Option<DriveHandlePair> {
     let index = handle.as_usize();
     match self.map.get(index) {
       Some(pair) => *pair,

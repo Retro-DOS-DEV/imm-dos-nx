@@ -114,12 +114,21 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     0x1c => { // getcwd
 
     },
+    0x1d => { // dup
+      let to_duplicate = registers.ebx;
+      let to_replace = registers.ecx;
+      let new_handle = match file::dup(to_duplicate, to_replace) {
+        Ok(handle) => handle,
+        Err(_) => 0xffffffff,
+      };
+      registers.eax = new_handle;
+    },
 
     // filesystem
-    0x20 => { // mount
+    0x30 => { // mount
 
     },
-    0x21 => { // unmount
+    0x31 => { // unmount
 
     },
 

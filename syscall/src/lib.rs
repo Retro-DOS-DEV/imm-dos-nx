@@ -37,6 +37,14 @@ pub fn write(handle: u32, buffer: *const u8, length: usize) -> usize {
   syscall_inner(0x13, handle, buffer as u32, length as u32) as usize
 }
 
+pub fn dup(handle: u32) -> u32 {
+  syscall_inner(0x1d, handle, 0xffffffff, 0)
+}
+
+pub fn dup2(handle: u32, replace: u32) -> u32 {
+  syscall_inner(0x1d, handle, replace, 0)
+}
+
 pub fn fork() -> u32 {
   syscall_inner(0x01, 0, 0, 0)
 }

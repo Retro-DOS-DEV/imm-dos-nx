@@ -9,6 +9,18 @@ pub mod filesystem;
 
 pub type FileSystemType = dyn filesystem::FileSystem + Send + Sync;
 
+pub struct FileSystemNumber(usize);
+
+impl FileSystemNumber {
+  pub fn new(index: usize) -> FileSystemNumber {
+    FileSystemNumber(index)
+  }
+
+  pub fn as_usize(&self) -> usize {
+    self.0
+  }
+}
+
 pub struct NamedFileSystem(pub Box<str>, pub Arc<Box<FileSystemType>>);
 
 impl NamedFileSystem {

@@ -1,4 +1,4 @@
-use crate::files::handle::{DeviceHandlePair, FileHandle, FileHandleMap, LocalHandle};
+use crate::files::handle::{DriveHandlePair, FileHandle, FileHandleMap, LocalHandle};
 use crate::memory;
 use crate::memory::address::VirtualAddress;
 use crate::memory::physical::frame::Frame;
@@ -147,19 +147,8 @@ impl ProcessState {
     &self.kernel_esp
   }
 
-  pub fn open_file(&self, drive: usize, local: LocalHandle) -> FileHandle {
-    let mut files = self.open_files.write();
-    files.open_handle(drive, local)
-  }
-
-  pub fn close_file(&self, handle: FileHandle) {
-    let mut files = self.open_files.write();
-    files.close_handle(handle)
-  }
-
-  pub fn get_open_file_info(&self, handle: FileHandle) -> Option<DeviceHandlePair> {
-    let files = self.open_files.read();
-    files.get_drive_and_handle(handle)
+  pub fn get_open_files(&self) -> &RwLock<FileHandleMap> {
+    &self.open_files
   }
 
   pub fn get_subsystem(&self) -> &RwLock<Subsystem> {

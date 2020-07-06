@@ -86,6 +86,10 @@ impl FileSystem for InitFileSystem {
   fn close(&self, handle: LocalHandle) -> Result<(), ()> {
     Err(())
   }
+
+  fn dup(&self, handle: LocalHandle, new_handle: Option<LocalHandle>) -> Result<LocalHandle, ()> {
+    Err(())
+  }
 }
 
 const TRAILER: &[u8] = "TRAILER!!!".as_bytes();
