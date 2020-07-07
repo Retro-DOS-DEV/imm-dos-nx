@@ -228,6 +228,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
 #[inline(never)]
 pub extern fn user_init() {
+  /*
   let com1 = syscall::open("DEV:\\COM1");
   let intro = "Opened COM1. ";
   syscall::write(com1, intro.as_ptr(), intro.len());
@@ -241,5 +242,13 @@ pub extern fn user_init() {
   loop {
     syscall::write(com1, ticktock.as_ptr(), ticktock.len());
     syscall::sleep(1000);
+  }
+  */
+  let com1 = syscall::open("DEV:\\COM1");
+  let kbd = syscall::open("DEV:\\KBD");
+  let mut buffer: [u8; 16] = [0; 16];
+  loop {
+    let len = syscall::read(kbd, buffer.as_mut_ptr(), buffer.len());
+    syscall::write(com1, buffer.as_ptr(), len);
   }
 }

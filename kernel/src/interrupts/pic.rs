@@ -9,3 +9,15 @@ pub extern "x86-interrupt" fn pit(_frame: &stack::StackFrame) {
     devices::PIC.acknowledge_interrupt(0);
   }
 }
+
+pub extern "x86-interrupt" fn keyboard(_frame: &stack::StackFrame) {
+  unsafe {
+    match &devices::KEYBOARD {
+      Some(keyboard) => {
+        keyboard.lock().handle_interrupt();
+      },
+      None => (),
+    }
+    devices::PIC.acknowledge_interrupt(1);
+  }
+}

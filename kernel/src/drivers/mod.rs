@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 pub mod com;
 pub mod driver;
+pub mod keyboard;
 pub mod null;
 pub mod zero;
 
@@ -47,7 +48,7 @@ impl DeviceDrivers {
     self.get_device(number)
   }
 
-  pub fn register_driver(&mut self, name: &str, driver: Box<DriverType>) -> usize {
+  pub fn register_driver(&mut self, name: &str, driver: Arc<Box<DriverType>>) -> usize {
     let mut name_array: [u8; 8] = [0x20; 8];
     if name.len() > 8 {
       // Too long
@@ -60,7 +61,7 @@ impl DeviceDrivers {
       index += 1;
     }
 
-    self.drivers.push(Arc::new(driver));
+    self.drivers.push(driver);
     let index = self.drivers.len();
     self.device_names.push(DeviceNumberByName(name_array, index));
     index

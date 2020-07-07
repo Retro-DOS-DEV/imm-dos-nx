@@ -49,6 +49,10 @@ impl FileSystem for DevFileSystem {
     match devices::get_device_number_by_name(&name) {
       Some(number) => {
         let handle = self.handle_allocator.get_next();
+        {
+          let driver = devices::get_driver_for_device(number).ok_or(())?;
+          driver.open(handle)?;
+        }
         let mut handle_to_device = self.handle_to_device.write();
         while handle_to_device.len() < handle.as_u32() as usize {
           handle_to_device.push(None);

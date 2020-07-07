@@ -3,12 +3,13 @@ use alloc::sync::Arc;
 use crate::drivers;
 use crate::hardware::{pic, pit};
 use crate::hardware::vga::text_mode;
-use spin::RwLock;
+use spin::{Mutex, RwLock};
 
 pub static mut PIC: pic::PIC = pic::PIC::new();
 pub static mut PIT: pit::PIT = pit::PIT::new();
 pub static mut VGA_TEXT: text_mode::TextMode = text_mode::TextMode::new(0xc00b8000);
 
+pub static mut KEYBOARD: Option<Arc<Mutex<drivers::keyboard::Keyboard>>> = None;
 static mut COM1_DIRECT: drivers::com::SerialPort = drivers::com::SerialPort::new(0x3f8);
 
 pub static DEV: RwLock<drivers::DeviceDrivers> = RwLock::new(drivers::DeviceDrivers::new());
@@ -19,9 +20,14 @@ pub unsafe fn init() {
 
   {
     let mut drivers = DEV.write();
-    drivers.register_driver("ZERO", Box::new(drivers::zero::ZeroDevice::new()));
-    drivers.register_driver("NULL", Box::new(drivers::null::NullDevice::new()));
-    drivers.register_driver("COM1", Box::new(drivers::com::ComDevice::new(0x3f8)));
+    drivers.register_driver("ZERO", Arc::new(Box::new(drivers::zero::ZeroDevice::new())));
+    drivers.register_driver("NULL", Arc::new(Box::new(drivers::null::NullDevice::new())));
+    drivers.register_driver("COM1", Arc::new(Box::new(drivers::com::ComDevice::new(0x3f8))));
+    
+    let kbd = Arc::new(Mutex::new(drivers::keyboard::Keyboard::new()));
+    let kbd_clone = Arc::clone(&kbd);
+    KEYBOARD = Some(kbd);
+    drivers.register_driver("KBD", Arc::new(Box::new(drivers::keyboard::KeyboardDevice::new(kbd_clone))));
   }
 }
 
