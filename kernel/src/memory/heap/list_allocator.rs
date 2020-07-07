@@ -4,8 +4,6 @@ use alloc::alloc::Layout;
 use core::ptr::null_mut;
 
 use super::super::address::VirtualAddress;
-use super::super::allocate_physical_frame;
-use super::super::paging::map_address_to_frame;
 
 /**
  * Allocator using a linked list of free blocks to easily find available space.
@@ -234,15 +232,6 @@ impl ListAllocator {
       } else {
         iter_addr = next_addr;
       }
-    }
-  }
-
-  pub fn add_pages(&mut self, pages: usize) {
-    for _ in 0..pages {
-      let frame = allocate_physical_frame().unwrap();
-      let addr = VirtualAddress::new(self.start + self.size);
-      map_address_to_frame(addr, frame);
-      self.size += 4096;
     }
   }
 }

@@ -8,6 +8,7 @@
 #![no_std]
 
 // Test-safe modules
+pub mod files;
 pub mod memory;
 
 #[cfg(not(test))]
@@ -16,8 +17,6 @@ pub mod debug;
 pub mod devices;
 #[cfg(not(test))]
 pub mod drivers;
-#[cfg(not(test))]
-pub mod files;
 #[cfg(not(test))]
 pub mod filesystems;
 #[cfg(not(test))]
@@ -85,17 +84,6 @@ unsafe fn zero_bss() {
     *bss_ptr = 0;
     bss_iter += 1;
   }
-}
-
-#[cfg(not(test))]
-unsafe fn init_memory() {
-  let kernel_start = PhysicalAddress::new(&label_ro_physical_start as *const u8 as usize);
-  let kernel_end = PhysicalAddress::new(&label_rw_physical_end as *const u8 as usize);
-  memory::init(kernel_start, kernel_end);
-
-  memory::init_paging();
-  let stack_start = PhysicalAddress::new(&label_stack_start as *const u8 as usize);
-  memory::move_kernel_stack(memory::frame::Frame::containing_address(stack_start));
 }
 
 #[cfg(not(test))]
