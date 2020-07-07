@@ -1,4 +1,4 @@
-use crate::files::handle::{DriveHandlePair, FileHandle, LocalHandle};
+use crate::files::handle::{DriveHandlePair, FileHandle, FileHandleMap, LocalHandle};
 use super::process_state::ProcessState;
 
 impl ProcessState {
@@ -23,5 +23,13 @@ impl ProcessState {
   pub fn references_drive_and_handle(&self, drive: usize, local: LocalHandle) -> bool {
     let files = self.get_open_files().read();
     files.references_drive_and_handle(drive, local)
+  }
+
+  pub fn fork_file_map(&self) -> FileHandleMap {
+    let mut forked = FileHandleMap::new();
+    for (handle, pair) in self.get_open_files().read().iter() {
+      forked.set_handle_directly(handle, pair.0, pair.1);
+    }
+    forked
   }
 }

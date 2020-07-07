@@ -240,14 +240,16 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
 #[inline(never)]
 pub extern fn user_init() {
-  let pid = syscall::fork();
-  if pid == 0 {
-    syscall::exec_format("INIT:\\test.bin", 0);
-  }
-  let ticktock = "TICK ";
-  // Creating the file handle after the fork
-  // We don't duplicate file handles on fork yet...
   let com1 = syscall::open("DEV:\\COM1");
+  let intro = "Opened COM1. ";
+  syscall::write(com1, intro.as_ptr(), intro.len());
+
+  let pid = syscall::fork();
+  let ticktock = if pid == 0 {
+    "TOCK "
+  } else {
+    "TICK "
+  };
   loop {
     syscall::write(com1, ticktock.as_ptr(), ticktock.len());
     syscall::sleep(1000);

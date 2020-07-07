@@ -64,6 +64,7 @@ impl ProcessState {
   pub fn fork(&self, pid: ProcessID) -> ProcessState {
     let new_regions = RwLock::new(self.memory_regions.read().fork());
     let new_pagedir = self.fork_page_directory();
+    let new_filemap = self.fork_file_map();
     ProcessState {
       pid,
       parent: self.pid,
@@ -76,7 +77,7 @@ impl ProcessState {
         memory::virt::STACK_START.as_usize() + 0x1000 - 4
       ),
 
-      open_files: RwLock::new(FileHandleMap::new()),
+      open_files: RwLock::new(new_filemap),
 
       run_state: RwLock::new(RunState::Running),
       subsystem: RwLock::new(Subsystem::Native),

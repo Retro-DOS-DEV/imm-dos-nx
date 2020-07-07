@@ -87,7 +87,7 @@ impl FileSystem for InitFileSystem {
     Err(())
   }
 
-  fn dup(&self, handle: LocalHandle, new_handle: Option<LocalHandle>) -> Result<LocalHandle, ()> {
+  fn dup(&self, handle: LocalHandle) -> Result<LocalHandle, ()> {
     Err(())
   }
 }

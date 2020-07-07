@@ -174,6 +174,38 @@ impl FileHandleMap {
       None => None,
     }
   }
+
+  pub fn map_size(&self) -> usize {
+    self.map.len()
+  }
+
+  pub fn iter(&self) -> FileHandleIter<'_> {
+    FileHandleIter {
+      map: self,
+      cur: 0,
+    }
+  }
+}
+
+pub struct FileHandleIter<'a> {
+  map: &'a FileHandleMap,
+  cur: usize,
+}
+
+impl Iterator for FileHandleIter<'_> {
+  type Item = (FileHandle, DriveHandlePair);
+
+  fn next(&mut self) -> Option<Self::Item> {
+    while self.cur < self.map.map_size() {
+      let handle = FileHandle::new(self.cur as u32);
+      self.cur += 1;
+      match self.map.get_drive_and_handle(handle) {
+        Some(pair) => return Some((handle, pair)),
+        None => (),
+      }
+    }
+    None
+  }
 }
 
 impl core::fmt::Debug for FileHandleMap {

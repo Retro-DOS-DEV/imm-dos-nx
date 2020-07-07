@@ -87,10 +87,20 @@ impl FileSystem for DevFileSystem {
   }
 
   fn close(&self, handle: LocalHandle) -> Result<(), ()> {
+
     Err(())
   }
 
-  fn dup(&self, handle: LocalHandle, new_handle: Option<LocalHandle>) -> Result<LocalHandle, ()> {
-    Err(())
+  fn dup(&self, handle: LocalHandle) -> Result<LocalHandle, ()> {
+    let device = self.get_device_for_handle(handle);
+    match device {
+      Some(number) => {
+        let new_handle = self.handle_allocator.get_next();
+        let mut handle_to_device = self.handle_to_device.write();
+        handle_to_device.push(Some(number));
+        Ok(new_handle)
+      },
+      None => Err(()),
+    }
   }
 }
