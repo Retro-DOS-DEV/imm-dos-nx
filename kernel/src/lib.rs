@@ -10,6 +10,7 @@
 // Test-safe modules
 pub mod files;
 pub mod memory;
+pub mod time;
 
 #[cfg(not(test))]
 pub mod debug;
@@ -35,8 +36,6 @@ pub mod panic;
 pub mod process;
 #[cfg(not(test))]
 pub mod syscalls;
-#[cfg(not(test))]
-pub mod time;
 #[cfg(not(test))]
 pub mod x86;
 
@@ -153,8 +152,6 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     zero_bss();
     init_memory_new();
     init_tables();
-
-    kprintln!("InitFS at {:#010X}, {:} bytes long", initfs_start, boot_struct.initfs_size);
   }
 
   unsafe {
@@ -176,10 +173,9 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     }
     memory::physical::init_refcount();
 
-    kprintln!("Kernel Initialized.");
-
     // Initialize hardware
     devices::init();
+    time::system::initialize_from_rtc();
 
     filesystems::init_fs();
 
@@ -196,12 +192,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     kprintln!("returned from syscall, got {}", result);
   }
 
-  let initfs_handle = syscall::open("INIT:\\test.txt");
-  let mut initfs_file: [u8; 40] = [0; 40];
-  syscall::read(initfs_handle, initfs_file.as_mut_ptr(), initfs_file.len());
-  kprintln!("File from InitFS:\n{}",
-    unsafe { core::str::from_utf8_unchecked(&initfs_file) }
-  );
+  let current_time = time::system::get_system_time().to_timestamp().to_datetime();
+  kprintln!("System Time: {:} {:}", current_time.date, current_time.time);
 
   // Spawn init process
   kprintln!("Creating init process");

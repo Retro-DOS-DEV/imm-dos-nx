@@ -1,57 +1,24 @@
 /**
- * Track system time
+ * System time tracking
  */
 
 use core::ops::Add;
 use spin::Mutex;
 
+use crate::devices;
 use crate::interrupts;
+use super::timestamp::{Timestamp, TimestampHires};
 
 pub const HUNDRED_NS_PER_TICK: u64 = 100002;
 pub const MS_PER_TICK: usize = (HUNDRED_NS_PER_TICK / 10000) as usize;
 
-// Represents time in number of 100ns increments since midnight on Jan 1, 1980
-#[repr(transparent)]
-#[derive(Copy, Clone)]
-pub struct SystemTime(u64);
-
-impl SystemTime {
-  pub const fn new(value: u64) -> SystemTime {
-    SystemTime(value)
-  }
-
-  pub fn set(&mut self, value: u64) {
-    self.0 = value;
-  }
-
-  pub fn increment(&mut self, value: u64) {
-    self.0 += value;
-  }
-
-  pub fn in_ms(&self) -> u64 {
-    self.0 / 10000
-  }
-
-  pub fn in_seconds(&self) -> u64 {
-    self.0 / 10000000
-  }
-}
-
-impl Add for SystemTime {
-  type Output = SystemTime;
-
-  fn add(self, other: SystemTime) -> SystemTime {
-    SystemTime(self.0 + other.0)
-  }
-}
-
 // Store a known fixed point in time, sourced from CMOS RTC or (in the future)
 // a NTP service. We use the programmable timer to update an offset relative to
 // this.
-static KNOWN_TIME: Mutex<SystemTime> = Mutex::new(SystemTime::new(0));
+static KNOWN_TIME: Mutex<TimestampHires> = Mutex::new(TimestampHires(0));
 
 // Store an offset, regularly updated by the PIT
-static TIME_OFFSET: Mutex<SystemTime> = Mutex::new(SystemTime::new(0));
+static TIME_OFFSET: Mutex<TimestampHires> = Mutex::new(TimestampHires(0));
 
 pub fn reset_known_time(time: u64) {
   let int_reenable = interrupts::is_interrupt_enabled();
@@ -67,7 +34,7 @@ pub fn reset_known_time(time: u64) {
   }
 }
 
-pub fn get_system_time() -> SystemTime {
+pub fn get_system_time() -> TimestampHires {
   let int_reenable = interrupts::is_interrupt_enabled();
   interrupts::cli();
 
@@ -110,4 +77,13 @@ pub fn increment_offset(delta: u64) {
   if int_reenable {
     interrupts::sti();
   }
+}
+
+pub fn initialize_from_rtc() {
+  let cmos_time = unsafe {
+    devices::RTC.read_time()
+  };
+  let timestamp = Timestamp::from_datetime(cmos_time.to_datetime());
+  let system_time = TimestampHires::from_timestamp(timestamp);
+  reset_known_time(system_time.0);
 }

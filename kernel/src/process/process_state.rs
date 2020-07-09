@@ -165,8 +165,8 @@ impl ProcessState {
     let run_state = self.run_state.read().clone();
     match run_state {
       RunState::Sleeping(duration) => {
-        if duration > time::MS_PER_TICK {
-          let remaining = duration - time::MS_PER_TICK;
+        if duration > time::system::MS_PER_TICK {
+          let remaining = duration - time::system::MS_PER_TICK;
           *self.run_state.write() = RunState::Sleeping(remaining);
           return;
         }

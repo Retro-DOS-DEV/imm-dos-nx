@@ -1,12 +1,13 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use crate::drivers;
-use crate::hardware::{pic, pit};
+use crate::hardware::{pic, pit, rtc};
 use crate::hardware::vga::text_mode;
 use spin::{Mutex, RwLock};
 
 pub static mut PIC: pic::PIC = pic::PIC::new();
 pub static mut PIT: pit::PIT = pit::PIT::new();
+pub static RTC: rtc::RTC = rtc::RTC::new();
 pub static mut VGA_TEXT: text_mode::TextMode = text_mode::TextMode::new(0xc00b8000);
 
 pub static mut KEYBOARD: Option<Arc<Mutex<drivers::keyboard::Keyboard>>> = None;
