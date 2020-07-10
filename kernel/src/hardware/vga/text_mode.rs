@@ -1,5 +1,6 @@
 use core::fmt;
 use core::ptr::{read_volatile, write_volatile};
+use crate::memory::address::VirtualAddress;
 
 #[repr(u8)]
 pub enum Color {
@@ -45,9 +46,9 @@ pub struct TextMode {
 }
 
 impl TextMode {
-  pub const fn new(base: usize) -> TextMode {
+  pub const fn new(base: VirtualAddress) -> TextMode {
     TextMode {
-      base_pointer: base as *mut u8,
+      base_pointer: base.as_usize() as *mut u8,
       cursor_col: 0,
       cursor_row: 24,
       current_color: ColorCode::new(Color::LightGrey, Color::Black),
@@ -113,14 +114,34 @@ impl TextMode {
     if self.cursor_col > 79 {
       self.cursor_col = 79;
     }
+    self.cursor_row = row;
     if self.cursor_row > 24 {
       self.cursor_row = 24;
+    }
+  }
+
+  pub fn invert_cursor(&self) {
+    let offset = (self.cursor_row as isize) * 160 + (self.cursor_col as isize) * 2;
+    unsafe {
+      let cursor_color_ptr = self.base_pointer.offset(offset + 1);
+      let current_color = read_volatile(cursor_color_ptr);
+      let inverted_color = ((current_color & 0xf) << 4) | ((current_color & 0xf0) >> 4);
+      write_volatile(cursor_color_ptr, inverted_color);
+    }
+  }
+
+  pub fn disable_cursor(&self) {
+    let offset = (self.cursor_row as isize) * 160 + (self.cursor_col as isize) * 2;
+    unsafe {
+      let cursor_color_ptr = self.base_pointer.offset(offset + 1);
+      write_volatile(cursor_color_ptr, self.current_color.as_u8());
     }
   }
 
   pub fn write_byte(&mut self, byte: u8) {
     match byte {
       b'\n' => unsafe {
+        self.disable_cursor();
         self.newline()
       },
       0x20..=0x7e => unsafe {

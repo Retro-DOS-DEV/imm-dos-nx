@@ -1,9 +1,8 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 use crate::files::handle::LocalHandle;
-use super::codes::KeyCode;
 
 pub struct OpenReaders {
-  map: BTreeMap<LocalHandle, Vec<KeyCode>>,
+  map: BTreeMap<LocalHandle, Vec<u8>>,
 }
 
 impl OpenReaders {
@@ -26,7 +25,7 @@ impl OpenReaders {
         }
         for i in 0..read_len {
           buffer[i] = match entry.pop() {
-            Some(code) => code as u8,
+            Some(code) => code,
             None => 0,
           };
         }
@@ -40,7 +39,7 @@ impl OpenReaders {
     self.map.remove(&handle);
   }
 
-  pub fn get_map(&mut self) -> &mut BTreeMap<LocalHandle, Vec<KeyCode>> {
+  pub fn get_map(&mut self) -> &mut BTreeMap<LocalHandle, Vec<u8>> {
     &mut self.map
   }
 }

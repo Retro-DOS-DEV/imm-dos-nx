@@ -37,6 +37,8 @@ pub mod process;
 #[cfg(not(test))]
 pub mod syscalls;
 #[cfg(not(test))]
+pub mod tty;
+#[cfg(not(test))]
 pub mod x86;
 
 use memory::address::PhysicalAddress;
@@ -175,6 +177,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     // Initialize hardware
     devices::init();
+    tty::init_ttys();
     time::system::initialize_from_rtc();
 
     filesystems::init_fs();
@@ -185,18 +188,13 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     process::init();
     let init_process = process::all_processes_mut().spawn_first_process(heap_start);
-    kprintln!("Created first process: {:?}", init_process);
     process::make_current(init_process);
-
-    let result = syscall::debug();
-    kprintln!("returned from syscall, got {}", result);
   }
 
   let current_time = time::system::get_system_time().to_timestamp().to_datetime();
   kprintln!("System Time: {:} {:}", current_time.date, current_time.time);
 
   // Spawn init process
-  kprintln!("Creating init process");
   let init_proc_id = process::all_processes_mut().fork_current();
   {
     let mut processes = process::all_processes_mut();
@@ -204,10 +202,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     init_proc.set_initial_entry_point(user_init, 0xbffffffc);
   }
 
-  kprintln!("Switching to init: {:?}", init_proc_id);
   process::enter_usermode(init_proc_id);
-
-  kprintln!("Back to proc1");
 
   loop {
     unsafe {

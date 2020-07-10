@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use crate::files::handle::LocalHandle;
+use crate::tty;
 use crate::x86::io::Port;
 use spin::Mutex;
 use super::driver::DeviceDriver;
@@ -10,19 +11,13 @@ pub mod readers;
 use codes::KeyCode;
 
 pub struct Keyboard {
-  meta_keys: MetaKeyState,
   receiving_extended_code: bool,
   data: Port,
 
   open_readers: Mutex<readers::OpenReaders>,
 }
 
-pub struct MetaKeyState {
-  shift_pressed: bool,
-  ctrl_pressed: bool,
-  alt_pressed: bool,
-}
-
+#[derive(Copy, Clone)]
 pub enum KeyAction {
   Press(KeyCode),
   Release(KeyCode),
@@ -31,11 +26,6 @@ pub enum KeyAction {
 impl Keyboard {
   pub fn new() -> Keyboard {
     Keyboard {
-      meta_keys: MetaKeyState {
-        shift_pressed: false,
-        ctrl_pressed: false,
-        alt_pressed: false,
-      },
       receiving_extended_code: false,
       data: Port::new(0x60),
       open_readers: Mutex::new(readers::OpenReaders::new()),
@@ -47,7 +37,11 @@ impl Keyboard {
       self.data.read_u8()
     };
     match self.generate_action_from_scan_code(code) {
-      Some(action) => self.process_action(action),
+      Some(action) => {
+        self.process_action(action);
+        // This should really submit to a queue, not block in the interrupt handler
+        tty::get_router().write().send_key_action(action);
+      },
       None => (),
     }
   }
@@ -79,24 +73,18 @@ impl Keyboard {
   }
 
   pub fn process_action(&mut self, action: KeyAction) {
-    match action {
-      KeyAction::Press(code) => match code {
-        KeyCode::Alt => self.meta_keys.alt_pressed = true,
-        KeyCode::Control => self.meta_keys.ctrl_pressed = true,
-        KeyCode::Shift => self.meta_keys.shift_pressed = true,
-        _ => {
-          let mut open_readers = self.open_readers.lock();
-          for (_, codes) in open_readers.get_map().iter_mut() {
-            codes.push(code);
-          }
+    let mut open_readers = self.open_readers.lock();
+    for (_, codes) in open_readers.get_map().iter_mut() {
+      match action {
+        KeyAction::Press(code) => {
+          codes.push(1);
+          codes.push(code as u8);
         },
-      },
-      KeyAction::Release(code) => match code {
-        KeyCode::Alt => self.meta_keys.alt_pressed = false,
-        KeyCode::Control => self.meta_keys.ctrl_pressed = false,
-        KeyCode::Shift => self.meta_keys.shift_pressed = false,
-        _ => (),
-      },
+        KeyAction::Release(code) => {
+          codes.push(2);
+          codes.push(code as u8);
+        }
+      }
     }
   }
 }
