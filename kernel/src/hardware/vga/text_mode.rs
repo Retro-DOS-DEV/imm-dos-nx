@@ -63,6 +63,50 @@ impl TextMode {
     }
   }
 
+  pub unsafe fn clear_screen_to_beginning(&mut self) {
+    let mut offset = 0;
+    let limit = (self.cursor_col as isize) + (self.cursor_row as isize * 80);
+    while offset <= 2 * limit {
+      write_volatile(self.base_pointer.offset(offset), 0x20);
+      offset += 2;
+    }
+  }
+
+  pub unsafe fn clear_screen_to_end(&mut self) {
+    let mut offset = (self.cursor_col as isize) + (self.cursor_row as isize * 80) * 2;
+    while offset < 2 * 80 * 25 {
+      write_volatile(self.base_pointer.offset(offset), 0x20);
+      offset += 2;
+    }
+  }
+
+  pub unsafe fn clear_row(&mut self) {
+    let mut offset = self.cursor_row as isize * 80 * 2;
+    let limit = offset + 80 * 2;
+    while offset < limit {
+      write_volatile(self.base_pointer.offset(offset), 0x20);
+      offset += 2;
+    }
+  }
+
+  pub unsafe fn clear_row_to_beginning(&mut self) {
+    let mut offset = self.cursor_row as isize * 80 * 2;
+    let limit = offset + (self.cursor_col as isize) * 2;
+    while offset <= limit {
+      write_volatile(self.base_pointer.offset(offset), 0x20);
+      offset += 2;
+    }
+  }
+
+  pub unsafe fn clear_row_to_end(&mut self) {
+    let mut offset = (self.cursor_row as isize * 80 * 2) + (self.cursor_col as isize * 2);
+    let limit = (self.cursor_row as isize + 1) * 80 * 2;
+    while offset < limit {
+      write_volatile(self.base_pointer.offset(offset), 0x20);
+      offset += 2;
+    }
+  }
+
   pub unsafe fn scroll(&mut self, rows: u8) {
     if rows == 0 {
       return;
@@ -118,6 +162,25 @@ impl TextMode {
     if self.cursor_row > 24 {
       self.cursor_row = 24;
     }
+  }
+
+  pub fn move_cursor_relative(&mut self, dcol: isize, drow: isize) {
+    let new_col = self.cursor_col as isize + dcol;
+    self.cursor_col = if new_col < 0 {
+      0
+    } else if new_col > 79 {
+      79
+    } else {
+      new_col as u8
+    };
+    let new_row = self.cursor_row as isize + drow;
+    self.cursor_row = if new_row < 0 {
+      0
+    } else if new_row > 24 {
+      24
+    } else {
+      new_row as u8
+    };
   }
 
   pub fn invert_cursor(&self) {
