@@ -32,14 +32,10 @@ impl Keyboard {
     }
   }
 
-  pub fn handle_interrupt(&mut self) {
-    let code = unsafe {
-      self.data.read_u8()
-    };
-    match self.generate_action_from_scan_code(code) {
+  pub fn handle_data(&mut self, data: u8) {
+    match self.generate_action_from_scan_code(data) {
       Some(action) => {
         self.process_action(action);
-        // This should really submit to a queue, not block in the interrupt handler
         tty::get_router().write().send_key_action(action);
       },
       None => (),

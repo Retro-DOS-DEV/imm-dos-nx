@@ -62,11 +62,11 @@ pub fn switch_to(pid: id::ProcessID) {
     let mut map = all_processes_mut();
     let current = map.get_current_process().unwrap();
     let old_proc_esp = current.get_kernel_stack_container() as *const RwLock<usize>;
-    kprintln!("Switch from {:?} to {:?}", current.get_id(), pid);
+    //kprintln!("Switch from {:?} to {:?}", current.get_id(), pid);
     //kprintln!(" Cur esp was {:x}", current.get_kernel_stack_pointer());
     map.make_current(pid);
     let next = map.get_process(pid).unwrap();
-    kprintln!(" Next esp is {:x}", next.get_kernel_stack_pointer());
+    //kprintln!(" Next esp is {:x}", next.get_kernel_stack_pointer());
     unsafe {
       gdt::set_tss_stack_pointer(virt::STACK_START.as_u32() + 0x1000 - 4);
     }

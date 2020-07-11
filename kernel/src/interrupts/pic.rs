@@ -1,4 +1,4 @@
-use crate::{devices, process, time};
+use crate::{devices, input, process, time, x86};
 use super::stack;
 
 pub extern "x86-interrupt" fn pit(_frame: &stack::StackFrame) {
@@ -10,14 +10,15 @@ pub extern "x86-interrupt" fn pit(_frame: &stack::StackFrame) {
   }
 }
 
+static KEYBOARD_PORT: x86::io::Port = x86::io::Port::new(0x60);
+
 pub extern "x86-interrupt" fn keyboard(_frame: &stack::StackFrame) {
   unsafe {
-    match &devices::KEYBOARD {
-      Some(keyboard) => {
-        keyboard.lock().handle_interrupt();
-      },
-      None => (),
-    }
+    let mut data: [u8; 1] = [0; 1];
+    data[0] = KEYBOARD_PORT.read_u8();
+    input::INPUT_EVENTS.write(&data);
+    input::wake_thread();
+
     devices::PIC.acknowledge_interrupt(1);
   }
 }

@@ -8,6 +8,7 @@
 #![no_std]
 
 // Test-safe modules
+pub mod buffers;
 pub mod files;
 pub mod memory;
 pub mod time;
