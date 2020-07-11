@@ -204,10 +204,11 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     init_proc.set_initial_entry_point(user_init, 0xbffffffc);
   }
 
-  //process::enter_usermode(init_proc_id);
+  process::enter_usermode(init_proc_id);
 
-  if process::fork() == 0 {
-    input::run_input();
+  {
+    let input_proc = process::all_processes_mut().fork_current();
+    process::set_kernel_mode_function(input_proc, input::run_input);
   }
 
   loop {

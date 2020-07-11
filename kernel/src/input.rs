@@ -9,12 +9,9 @@ use crate::process::{self, id::ProcessID};
 
 pub static mut INPUT_THREAD_ID: ProcessID = ProcessID::new(0);
 
-#[naked]
 #[inline(never)]
-pub fn run_input() {
+pub extern "C" fn run_input() {
   unsafe {
-    llvm_asm!("1: jmp 1b");
-    llvm_asm!("mov esp, 0xffbfeffc" : : : : "intel", "volatile");
     INPUT_THREAD_ID = process::get_current_pid();
   }
   crate::kprintln!("INPUT THREAD REPORTING!");

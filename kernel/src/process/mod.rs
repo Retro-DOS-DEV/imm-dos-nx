@@ -111,7 +111,6 @@ unsafe fn switch_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_p
   *(*old_proc_esp).write() = cur_esp;
   let next_esp = (*new_proc_esp).read().clone();
   llvm_asm!("mov esp, $0" : : "r"(next_esp) : : "intel", "volatile");
-  llvm_asm!("1: jmp 1b");
 }
 
 #[naked]
@@ -179,7 +178,6 @@ pub extern "C" fn fork() -> u32 {
 #[inline(never)]
 unsafe fn fork_inner(new_proc_esp: *const RwLock<usize>) {
   let cur_esp;
-  llvm_asm!("1: jmp 1b");
   llvm_asm!("mov $0, esp" : "=r"(cur_esp) : : : "intel", "volatile");
   // This is super hacky, but it's what we get for making the stack copied
   // directly rather than copy-on-write
@@ -238,6 +236,14 @@ pub fn exec(drive_number: usize, handle: LocalHandle, interp_mode: exec::Interpr
         );
       }
     }
+  }
+}
+
+pub fn set_kernel_mode_function(pid: id::ProcessID, f: extern fn()) {
+  let processes = all_processes();
+  let process = processes.get_process(pid);
+  if let Some(p) = process {
+    p.set_kernel_mode_entry_point(f);
   }
 }
 

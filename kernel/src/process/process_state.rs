@@ -124,6 +124,17 @@ impl ProcessState {
     *self.kernel_esp.write() = kernel_esp - 4 * 5;
   }
 
+  pub fn set_kernel_mode_entry_point(&self, func: extern fn()) {
+    let stack_addr = 0xffbfeff8;
+    *self.kernel_esp.write() = stack_addr;
+    self.make_current_stack_frame_editable();
+    let temp_page_address = page_directory::get_temporary_page_address().as_usize();
+    unsafe {
+      let stack_ptr = 0xffbffff8 as *mut usize;
+      *stack_ptr = func as usize; 
+    }
+  }
+
   pub fn get_range_containing_address(&self, addr: VirtualAddress) -> Option<VirtualMemoryRegion> {
     self.memory_regions.read().get_range_containing_address(addr)
   }
