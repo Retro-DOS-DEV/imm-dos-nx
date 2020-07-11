@@ -11,7 +11,7 @@ use super::id::ProcessID;
 use super::memory::MemoryRegions;
 use super::subsystem::Subsystem;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum RunState {
   Running,
   Sleeping(usize),
@@ -182,5 +182,9 @@ impl ProcessState {
       RunState::Running => true,
       _ => false
     }
+  }
+
+  pub fn get_run_state(&self) -> &RwLock<RunState> {
+    &self.run_state
   }
 }

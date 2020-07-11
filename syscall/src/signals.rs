@@ -1,0 +1,17 @@
+pub const HUP: u32 = 1;
+pub const INT: u32 = 2;
+pub const QUIT: u32 = 3;
+pub const ILL: u32 = 4;
+pub const TRAP: u32 = 5;
+pub const ABORT: u32 = 6;
+pub const BUS: u32 = 7;
+pub const FPE: u32 = 8;
+pub const KILL: u32 = 9;
+pub const SEGFAULT: u32 = 11;
+pub const PIPE: u32 = 13;
+pub const ALARM: u32 = 14;
+pub const TERM: u32 = 15;
+pub const CHILD: u32 = 17;
+pub const CONTINUE: u32 = 18;
+pub const STOP: u32 = 19;
+pub const TSTOP: u32 = 20;

@@ -29,6 +29,8 @@ pub mod idt;
 #[cfg(not(test))]
 pub mod init;
 #[cfg(not(test))]
+pub mod input;
+#[cfg(not(test))]
 pub mod interrupts;
 #[cfg(not(test))]
 pub mod panic;
@@ -202,7 +204,11 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     init_proc.set_initial_entry_point(user_init, 0xbffffffc);
   }
 
-  process::enter_usermode(init_proc_id);
+  //process::enter_usermode(init_proc_id);
+
+  if process::fork() == 0 {
+    input::run_input();
+  }
 
   loop {
     unsafe {
@@ -215,7 +221,6 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
 #[inline(never)]
 pub extern fn user_init() {
-  /*
   let com1 = syscall::open("DEV:\\COM1");
   let intro = "Opened COM1. ";
   syscall::write(com1, intro.as_ptr(), intro.len());
@@ -230,7 +235,8 @@ pub extern fn user_init() {
     syscall::write(com1, ticktock.as_ptr(), ticktock.len());
     syscall::sleep(1000);
   }
-  */
+  
+  /*
   let com1 = syscall::open("DEV:\\COM1");
   let kbd = syscall::open("DEV:\\KBD");
   let mut buffer: [u8; 16] = [0; 16];
@@ -238,4 +244,5 @@ pub extern fn user_init() {
     let len = syscall::read(kbd, buffer.as_mut_ptr(), buffer.len());
     syscall::write(com1, buffer.as_ptr(), len);
   }
+  */
 }

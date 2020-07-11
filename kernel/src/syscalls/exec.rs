@@ -28,3 +28,16 @@ pub fn exec_path(path_str: &'static str, arg_str: &'static str, raw_interp_mode:
 pub fn exit(code: u32) {
   process::exit(code);
 }
+
+pub fn get_pid() -> u32 {
+  process::get_current_pid().as_u32()
+}
+
+pub fn raise_signal(sig: u32) {
+  let id = process::get_current_pid();
+  process::send_signal(id, sig);
+}
+
+pub fn send_signal(id: u32, sig: u32) {
+  process::send_signal(process::id::ProcessID::new(id), sig);
+}

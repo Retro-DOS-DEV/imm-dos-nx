@@ -41,8 +41,9 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
         Err(_) => registers.eax = 0xffffffff,
       }
     },
-    0x3 => { // getpid
-
+    0x3 => { // get_pid
+      let pid = exec::get_pid();
+      registers.eax = pid;
     },
     0x4 => { // brk
 
@@ -53,6 +54,11 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     },
     0x6 => { // yield
       exec::yield_coop();
+    },
+    0x7 => { // raise
+
+    },
+    0x8 => { // send_signal
     },
 
     // files

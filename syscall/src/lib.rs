@@ -4,6 +4,7 @@
 #![no_std]
 
 pub mod data;
+pub mod signals;
 
 pub use data::*;
 
@@ -77,3 +78,22 @@ pub fn exit(code: u32) -> ! {
   syscall_inner(0, code, 0, 0);
   unsafe { core::intrinsics::unreachable() }
 }
+
+pub fn get_pid() -> u32 {
+  syscall_inner(0x03, 0, 0, 0)
+}
+
+/**
+ * Send a signal to a specific thread, equivalent to POSIX `kill`
+ */
+pub fn send_signal(pid: u32, signal: u32) {
+  syscall_inner(0x8, pid, signal, 0);
+}
+
+/**
+ * Send a signal to the current thread
+ */
+pub fn raise(signal: u32) {
+  syscall_inner(0x7, signal, 0, 0);
+}
+

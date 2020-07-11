@@ -6,7 +6,7 @@ use core::fmt;
 pub struct ProcessID(u32);
 
 impl ProcessID {
-  pub fn new(id: u32) -> ProcessID {
+  pub const fn new(id: u32) -> ProcessID {
     ProcessID(id)
   }
 

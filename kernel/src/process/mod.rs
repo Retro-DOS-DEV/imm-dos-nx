@@ -11,6 +11,7 @@ pub mod id;
 pub mod map;
 pub mod memory;
 pub mod process_state;
+pub mod signals;
 pub mod subsystem;
 
 static mut PROCESS_MAP: Option<RwLock<map::ProcessMap>> = None;
@@ -61,11 +62,11 @@ pub fn switch_to(pid: id::ProcessID) {
     let mut map = all_processes_mut();
     let current = map.get_current_process().unwrap();
     let old_proc_esp = current.get_kernel_stack_container() as *const RwLock<usize>;
-    //kprintln!("Switch from {:?} to {:?}", current.get_id(), pid);
+    kprintln!("Switch from {:?} to {:?}", current.get_id(), pid);
     //kprintln!(" Cur esp was {:x}", current.get_kernel_stack_pointer());
     map.make_current(pid);
     let next = map.get_process(pid).unwrap();
-    //kprintln!(" Next esp is {:x}", next.get_kernel_stack_pointer());
+    kprintln!(" Next esp is {:x}", next.get_kernel_stack_pointer());
     unsafe {
       gdt::set_tss_stack_pointer(virt::STACK_START.as_u32() + 0x1000 - 4);
     }
@@ -110,6 +111,7 @@ unsafe fn switch_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_p
   *(*old_proc_esp).write() = cur_esp;
   let next_esp = (*new_proc_esp).read().clone();
   llvm_asm!("mov esp, $0" : : "r"(next_esp) : : "intel", "volatile");
+  llvm_asm!("1: jmp 1b");
 }
 
 #[naked]
@@ -156,8 +158,8 @@ pub extern "C" fn fork() -> u32 {
         next_proc.make_current_stack_frame_editable();
 
         let temp_page_address = crate::memory::virt::page_directory::get_temporary_page_address().as_usize();
-        let kernel_esp: usize;
-        llvm_asm!("mov $0, esp" : "=r"(kernel_esp) : : : "intel", "volatile");
+        let mut kernel_esp: usize = 0;
+        llvm_asm!("mov $0, esp" : "=*m"(&mut kernel_esp) : : : "intel", "volatile");
         let stack_offset = kernel_esp & 0xfff;
 
         let stack_ptr = (temp_page_address + stack_offset) as *mut usize;
@@ -177,10 +179,11 @@ pub extern "C" fn fork() -> u32 {
 #[inline(never)]
 unsafe fn fork_inner(new_proc_esp: *const RwLock<usize>) {
   let cur_esp;
+  llvm_asm!("1: jmp 1b");
   llvm_asm!("mov $0, esp" : "=r"(cur_esp) : : : "intel", "volatile");
   // This is super hacky, but it's what we get for making the stack copied
   // directly rather than copy-on-write
-  llvm_asm!("mov eax, esp; and eax, 0xfff; add eax, 0xffbff000; mov ecx, [esp]; mov [eax], ecx" : : : "eax", "ecx" : "intel", "volatile");
+  llvm_asm!("mov eax, esp; and eax, 0xfff; or eax, 0xffbff000; mov ecx, [esp]; mov [eax], ecx" : : : "eax", "ecx" : "intel", "volatile");
   *(*new_proc_esp).write() = cur_esp;
 }
 
@@ -236,5 +239,16 @@ pub fn exec(drive_number: usize, handle: LocalHandle, interp_mode: exec::Interpr
       }
     }
   }
+}
 
+pub fn get_current_pid() -> id::ProcessID {
+  all_processes().get_current_pid()
+}
+
+pub fn send_signal(pid: id::ProcessID, sig: u32) {
+  let processes = all_processes();
+  let recipient = processes.get_process(pid);
+  if let Some(p) = recipient {
+    p.send_signal(sig);
+  }
 }
