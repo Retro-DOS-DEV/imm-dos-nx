@@ -112,6 +112,7 @@ pub unsafe fn init() {
 
   IDT[0x30].set_handler(interrupts::pic::pit);
   IDT[0x31].set_handler(interrupts::pic::keyboard);
+  IDT[0x34].set_handler(interrupts::pic::com1);
 
   lidt(&IDTR);
 }

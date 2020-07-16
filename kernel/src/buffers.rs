@@ -18,6 +18,12 @@ impl<'data> RingBuffer<'data> {
     }
   }
 
+  /**
+   * Read elements from the buffer into a byte slice.
+   * Bytes will be copied into the slice until either the data in the buffer has
+   * been exhausted, or the slice has been filled. The method returns the number
+   * of copied bytes.
+   */
   pub fn read(&self, dest: &mut [u8]) -> usize {
     let mut to_read = dest.len();
     let len = self.data.len();
@@ -38,6 +44,13 @@ impl<'data> RingBuffer<'data> {
     to_read
   }
 
+  /**
+   * Write elements to the buffer from a byte slice.
+   * Bytes will be copied from the slice to the current tail of the buffer. If
+   * there is not enough room remaining in the buffer, bytes will be copied
+   * until the buffer is full.
+   * The method returns the number of copied bytes.
+   */
   pub fn write(&self, src: &[u8]) -> usize {
     let mut to_write = src.len();
     let len = self.data.len();
@@ -58,9 +71,21 @@ impl<'data> RingBuffer<'data> {
     to_write
   }
 
+  /**
+   * Fetch the "length" of the buffer, representing the number of bytes that
+   * have been written, but not yet read.
+   */
   pub fn available_bytes(&self) -> usize {
     let tail = self.tail.load(Ordering::SeqCst);
     let head = self.head.load(Ordering::SeqCst);
     tail - head
+  }
+
+  /**
+   * Empty all data from the buffer by moving the head up to meet the tail.
+   */
+  pub fn drain(&self) {
+    let tail = self.tail.load(Ordering::SeqCst);
+    self.head.store(tail, Ordering::SeqCst);
   }
 }

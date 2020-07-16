@@ -1,93 +1,24 @@
-use core::fmt;
+use alloc::collections::VecDeque;
 use crate::files::handle::LocalHandle;
-use crate::x86::io::Port;
+use crate::process::id::ProcessID;
 use super::driver::{DeviceDriver};
+use super::queue::ReadQueue;
+use spin::Mutex;
 
-const STATUS_ERROR_IMPENDING: u8 = 1 << 7;
-const STATUS_TRANSMIT_IDLE: u8 = 1 << 6;
-const STATUS_TRANSMIT_BUFFER_EMPTY: u8 = 1 << 5;
-const STATUS_BREAK: u8 = 1 << 4;
-const STATUS_FRAME_ERROR: u8 = 1 << 3;
-const STATUS_PARITY_ERROR: u8 = 1 << 2;
-const STATUS_OVERRUN_ERROR: u8 = 1 << 1;
-const STATUS_DATA_READY: u8 = 1;
+pub mod serial;
 
-pub struct SerialPort {
-  data: Port,
-  interrupt_enable: Port,
-  fifo_control: Port,
-  line_control: Port,
-  modem_control: Port,
-  line_status: Port,
-  modem_status: Port,
-}
-
-impl SerialPort {
-  pub const fn new(initial_port: u16) -> SerialPort {
-    SerialPort {
-      data: Port::new(initial_port),
-      interrupt_enable: Port::new(initial_port + 1),
-      fifo_control: Port::new(initial_port + 2),
-      line_control: Port::new(initial_port + 3),
-      modem_control: Port::new(initial_port + 4),
-      line_status: Port::new(initial_port + 5),
-      modem_status: Port::new(initial_port + 6),
-    }
-  }
-
-  pub unsafe fn init(&self) {
-    self.interrupt_enable.write_u8(0x00); // Disable interrupts
-    self.line_control.write_u8(0x80); // Enable DLAB bit
-    self.data.write_u8(0x03); // Set divisor low to 3, aka 38400 baud
-    self.interrupt_enable.write_u8(0x00); // Set divisor high
-    self.line_control.write_u8(0x03); // 8 bits, no parity, 1 stop bit
-    self.fifo_control.write_u8(0xc7); // Enable fifo
-    self.modem_control.write_u8(0x0b); // Set RTS/DTR
-  }
-
-  pub unsafe fn is_transmitting(&self) -> bool {
-    (self.line_status.read_u8() & STATUS_TRANSMIT_BUFFER_EMPTY) == 0
-  }
-
-  pub unsafe fn send_byte(&self, byte: u8) {
-    while self.is_transmitting() {}
-    self.data.write_u8(byte);
-  }
-
-  pub unsafe fn has_data(&self) -> bool {
-    (self.line_status.read_u8() & STATUS_DATA_READY) != 0
-  }
-
-  pub unsafe fn receive_byte(&self) -> Option<u8> {
-    if self.has_data() {
-      Some(self.data.read_u8())
-    } else {
-      None
-    }
-  }
-}
-
-impl fmt::Write for SerialPort {
-  fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
-    unsafe {
-      for byte in s.bytes() {
-        self.send_byte(byte);
-      }
-    }
-    Ok(())
-  }
-}
+use serial::SerialPort;
 
 pub struct ComDevice {
-  serial: SerialPort,
-  // need to track currently reading / writing handles with some sort of
-  // BlockingCharDevice implementation
+  serial: &'static SerialPort,
+  queue: Mutex<VecDeque<ProcessID>>,
 }
 
 impl ComDevice {
-  pub const fn new(port: u16) -> ComDevice {
+  pub fn new(serial: &'static SerialPort) -> ComDevice {
     ComDevice {
-      serial: SerialPort::new(port),
+      serial,
+      queue: Mutex::new(VecDeque::with_capacity(2)),
     }
   }
 }
@@ -102,17 +33,9 @@ impl DeviceDriver for ComDevice {
   }
 
   fn read(&self, _handle: LocalHandle, buffer: &mut [u8]) -> Result<usize, ()> {
-    let mut index = 0;
-    while index < buffer.len() {
-      match unsafe { self.serial.receive_byte() } {
-        Some(byte) => {
-          buffer[index] = byte;
-          index += 1;
-        },
-        None => (),
-      }
-    }
-    Ok(index)
+    let bytes_read = self.blocking_read(buffer);
+
+    Ok(bytes_read)
   }
 
   fn write(&self, _handle: LocalHandle, buffer: &[u8]) -> Result<usize, ()> {
@@ -124,5 +47,65 @@ impl DeviceDriver for ComDevice {
       index += 1;
     }
     Ok(index)
+  }
+}
+
+impl ReadQueue for ComDevice {
+  fn add_process_to_queue(&self, pid: ProcessID) -> usize {
+    let len = {
+      let mut queue = self.queue.lock();
+      queue.push_back(pid);
+      queue.len()
+    };
+    if len == 1 {
+      self.serial.maybe_set_wake_on_data_ready(pid);
+    }
+    len
+  }
+
+  fn remove_first_in_queue(&self) -> Option<ProcessID> {
+    self.serial.clear_wake_on_data_ready();
+    let (first, next) = {
+      let mut queue = self.queue.lock();
+      let first = queue.pop_front();
+      let next = match queue.get(0) {
+        Some(pid) => Some(*pid),
+        None => None,
+      };
+      (first, next)
+    };
+    if let Some(pid) = next {
+      self.serial.force_wake_on_data_ready(pid);
+    }
+    first
+  }
+
+  fn get_queue_length(&self) -> usize {
+    self.queue.lock().len()
+  }
+
+  fn get_first_process_in_queue(&self) -> Option<ProcessID> {
+    let queue = self.queue.lock();
+    let first = queue.get(0)?;
+    Some(*first)
+  }
+
+  fn is_data_available(&self) -> bool {
+    unsafe {
+      self.serial.has_data()
+    }
+  }
+
+  fn read_available_data(&self, buffer: &mut [u8]) -> usize {
+    let mut read = 0;
+    unsafe {
+      while read < buffer.len() && self.serial.has_data() {
+        if let Some(data) = self.serial.receive_byte() {
+          buffer[read] = data;
+          read += 1;
+        }
+      }
+    }
+    read
   }
 }

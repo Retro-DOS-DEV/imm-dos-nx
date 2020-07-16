@@ -1,3 +1,4 @@
+pub mod device;
 pub mod keyboard;
 pub mod router;
 pub mod tty;

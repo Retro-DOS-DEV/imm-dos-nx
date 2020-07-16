@@ -17,6 +17,8 @@ pub struct TTY {
   arg_digits_written: usize,
   csi_args: Vec<Option<u32>>,
   text_buffer: TextMode,
+
+  
 }
 
 impl TTY {
@@ -156,7 +158,7 @@ impl TTY {
             }
             true
           },
-          
+
           _ => true,
         };
         if done {

@@ -2,10 +2,12 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
+pub mod blocking;
 pub mod com;
 pub mod driver;
 pub mod keyboard;
 pub mod null;
+pub mod queue;
 pub mod zero;
 
 pub type DeviceName = [u8; 8];

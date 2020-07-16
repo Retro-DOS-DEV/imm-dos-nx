@@ -227,6 +227,7 @@ pub extern fn user_init() {
   let intro = "Opened COM1. ";
   syscall::write(com1, intro.as_ptr(), intro.len());
 
+  /*
   let pid = syscall::fork();
   let ticktock = if pid == 0 {
     "TOCK "
@@ -236,6 +237,35 @@ pub extern fn user_init() {
   loop {
     syscall::write(com1, ticktock.as_ptr(), ticktock.len());
     syscall::sleep(1000);
+  }
+  */
+  let pid = syscall::fork();
+  if pid == 0 {
+    let mut buffer: [u8; 5] = [0; 5];
+    syscall::read(com1, buffer.as_mut_ptr(), buffer.len());
+    let done = " READ 5 ";
+    syscall::write(com1, done.as_ptr(), done.len());
+    loop {
+      syscall::yield_coop();
+    }
+  } else {
+    let pid = syscall::fork();
+    if pid == 0 {
+      syscall::sleep(10000);
+      let mut buffer: [u8; 3] = [0; 3];
+      syscall::read(com1, buffer.as_mut_ptr(), buffer.len());
+      let done = " READ 3 ";
+      syscall::write(com1, done.as_ptr(), done.len());
+      loop {
+        syscall::yield_coop();
+      }
+    } else {
+      let msg = "TICK";
+      loop {
+        syscall::write(com1, msg.as_ptr(), msg.len());
+        syscall::sleep(1000);
+      }
+    }
   }
   
   /*
