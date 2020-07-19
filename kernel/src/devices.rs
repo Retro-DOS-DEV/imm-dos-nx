@@ -4,6 +4,7 @@ use crate::drivers::{self, com::serial::SerialPort};
 use crate::hardware::{dma, floppy, pic, pit, rtc};
 use crate::hardware::vga::text_mode;
 use crate::memory::address::VirtualAddress;
+use crate::tty;
 use spin::{Mutex, RwLock};
 
 pub static mut PIC: pic::PIC = pic::PIC::new();
@@ -34,6 +35,8 @@ pub unsafe fn init() {
     let kbd_clone = Arc::clone(&kbd);
     KEYBOARD = Some(kbd);
     drivers.register_driver("KBD", Arc::new(Box::new(drivers::keyboard::KeyboardDevice::new(kbd_clone))));
+
+    drivers.register_driver("TTY0", Arc::new(Box::new(tty::device::TTYDevice::for_tty(0))));
 
     COM1.init();
   }

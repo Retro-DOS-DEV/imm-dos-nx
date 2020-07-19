@@ -215,6 +215,9 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     let disk_proc = process::all_processes_mut().fork_current();
     process::set_kernel_mode_function(disk_proc, disks::init);
+
+    let ttys_proc = process::all_processes_mut().fork_current();
+    process::set_kernel_mode_function(ttys_proc, tty::ttys_process);
   }
 
   loop {
@@ -232,6 +235,7 @@ pub extern fn user_init() {
   let intro = "Opened COM1. ";
   syscall::write(com1, intro.as_ptr(), intro.len());
 
+  /*
   let pid = syscall::fork();
   let ticktock = if pid == 0 {
     "TOCK "
@@ -242,35 +246,22 @@ pub extern fn user_init() {
     syscall::write(com1, ticktock.as_ptr(), ticktock.len());
     syscall::sleep(1000);
   }
+  */
 
-  /*
   let pid = syscall::fork();
   if pid == 0 {
-    let mut buffer: [u8; 5] = [0; 5];
-    syscall::read(com1, buffer.as_mut_ptr(), buffer.len());
-    let done = " READ 5 ";
-    syscall::write(com1, done.as_ptr(), done.len());
+    let tty0 = syscall::open("DEV:\\TTY0");
+    let prompt = "\nA:\\>";
+    syscall::write(tty0, prompt.as_ptr(), prompt.len());
+
     loop {
       syscall::yield_coop();
     }
   } else {
-    let pid = syscall::fork();
-    if pid == 0 {
-      syscall::sleep(10000);
-      let mut buffer: [u8; 3] = [0; 3];
-      syscall::read(com1, buffer.as_mut_ptr(), buffer.len());
-      let done = " READ 3 ";
-      syscall::write(com1, done.as_ptr(), done.len());
-      loop {
-        syscall::yield_coop();
-      }
-    } else {
-      let msg = "TICK";
-      loop {
-        syscall::write(com1, msg.as_ptr(), msg.len());
-        syscall::sleep(1000);
-      }
+    let msg = "TICK";
+    loop {
+      syscall::write(com1, msg.as_ptr(), msg.len());
+      syscall::sleep(1000);
     }
   }
-  */
 }

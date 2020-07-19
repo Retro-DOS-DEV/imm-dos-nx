@@ -4,7 +4,7 @@ use crate::process;
 pub extern "C" fn init() {
   let floppy = &devices::FLOPPY;
   match floppy.init() {
-    Ok(_) => crate::kprintln!("Floppy Initialized"),
+    Ok(_) => (),
     Err(e) => crate::kprintln!("Floppy Init Failed: {:?}", e),
   }
 
