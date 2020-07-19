@@ -1,3 +1,4 @@
+#[derive(Copy, Clone)]
 pub struct Port {
   number: u16,
 }

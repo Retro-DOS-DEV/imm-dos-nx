@@ -1,38 +1,48 @@
-use alloc::vec::Vec;
-use crate::process::{all_processes, id::ProcessID, send_signal, yield_coop};
-use spin::Mutex;
+use crate::process::{id::ProcessID, send_signal};
+use spin::RwLock;
 
-pub struct BlockQueue {
-  queue: Mutex<Vec<ProcessID>>,
+/// A WakeReference stores a process that should be woken from sleep when an
+/// event like an interrupt occurs. It provides some utilities to simplify
+/// implementation of broader blocking methods that are concurrent-safe.
+pub struct WakeReference {
+  pid: RwLock<Option<ProcessID>>,
 }
 
-impl BlockQueue {
-  pub fn new() -> BlockQueue {
-    BlockQueue {
-      queue: Mutex::new(Vec::new()),
+impl WakeReference {
+  pub const fn new() -> WakeReference {
+    WakeReference {
+      pid: RwLock::new(None),
     }
   }
 
-  pub fn add_process(&self, id: ProcessID) {
-    self.queue.lock().push(id);
+  /// Set the internal reference to the process specified in `pid` only if there
+  /// is no reference already set. This is useful for methods where multiple
+  /// entry calls may be running in parallel.
+  pub fn maybe_set_process(&self, pid: ProcessID) {
+    let mut pid_ref = self.pid.write();
+    if let None = *pid_ref {
+      *pid_ref = Some(pid);
+    }
   }
 
-  pub fn block_current(&self) {
-    let pid = {
-      all_processes().get_current_pid()
-    };
-    self.add_process(pid);
-    send_signal(pid, syscall::signals::STOP);
-    yield_coop();
+  /// Force the internal reference to point to the process specified in `pid`.
+  /// This overrides any previous value without waking it.
+  pub fn set_process(&self, pid: ProcessID) {
+    let mut pid_ref = self.pid.write();
+    *pid_ref = Some(pid);
   }
 
-  pub fn unblock(&self) {
-    let mut queue = self.queue.lock();
-    while !queue.is_empty() {
-      let pid = queue.pop();
-      if let Some(id) = pid {
-        send_signal(id, syscall::signals::CONTINUE);
-      }
+  /// Remove any reference to a process
+  pub fn clear_process(&self) {
+    let mut pid_ref = self.pid.write();
+    *pid_ref = None;
+  }
+
+  /// Wake up the process, if one is referenced
+  pub fn wake(&self) {
+    let pid_ref = *self.pid.read();
+    if let Some(pid) = pid_ref {
+      send_signal(pid, syscall::signals::CONTINUE);
     }
   }
 }

@@ -29,3 +29,12 @@ pub extern "x86-interrupt" fn com1(_frame: &stack::StackFrame) {
     devices::PIC.acknowledge_interrupt(4);
   }
 }
+
+
+
+pub extern "x86-interrupt" fn floppy(_frame: &stack::StackFrame) {
+  unsafe {
+    devices::FLOPPY.handle_int6();
+    devices::PIC.acknowledge_interrupt(6);
+  }
+}

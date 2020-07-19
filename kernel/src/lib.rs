@@ -18,6 +18,8 @@ pub mod debug;
 #[cfg(not(test))]
 pub mod devices;
 #[cfg(not(test))]
+pub mod disks;
+#[cfg(not(test))]
 pub mod drivers;
 #[cfg(not(test))]
 pub mod filesystems;
@@ -210,6 +212,9 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
   {
     let input_proc = process::all_processes_mut().fork_current();
     process::set_kernel_mode_function(input_proc, input::run_input);
+
+    let disk_proc = process::all_processes_mut().fork_current();
+    process::set_kernel_mode_function(disk_proc, disks::init);
   }
 
   loop {
@@ -227,7 +232,6 @@ pub extern fn user_init() {
   let intro = "Opened COM1. ";
   syscall::write(com1, intro.as_ptr(), intro.len());
 
-  /*
   let pid = syscall::fork();
   let ticktock = if pid == 0 {
     "TOCK "
@@ -238,7 +242,8 @@ pub extern fn user_init() {
     syscall::write(com1, ticktock.as_ptr(), ticktock.len());
     syscall::sleep(1000);
   }
-  */
+
+  /*
   let pid = syscall::fork();
   if pid == 0 {
     let mut buffer: [u8; 5] = [0; 5];
@@ -266,15 +271,6 @@ pub extern fn user_init() {
         syscall::sleep(1000);
       }
     }
-  }
-  
-  /*
-  let com1 = syscall::open("DEV:\\COM1");
-  let kbd = syscall::open("DEV:\\KBD");
-  let mut buffer: [u8; 16] = [0; 16];
-  loop {
-    let len = syscall::read(kbd, buffer.as_mut_ptr(), buffer.len());
-    syscall::write(com1, buffer.as_ptr(), len);
   }
   */
 }

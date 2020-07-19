@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use crate::drivers::{self, com::serial::SerialPort};
-use crate::hardware::{pic, pit, rtc};
+use crate::hardware::{dma, floppy, pic, pit, rtc};
 use crate::hardware::vga::text_mode;
 use crate::memory::address::VirtualAddress;
 use spin::{Mutex, RwLock};
@@ -15,11 +15,10 @@ pub static mut KEYBOARD: Option<Arc<Mutex<drivers::keyboard::Keyboard>>> = None;
 pub static COM1: SerialPort = SerialPort::new(0x3f8);
 static mut COM1_DIRECT: SerialPort = SerialPort::new(0x3f8);
 
-pub static DEV: RwLock<drivers::DeviceDrivers> = RwLock::new(drivers::DeviceDrivers::new());
+pub static DMA: dma::DMA = dma::DMA::new();
+pub static FLOPPY: floppy::FloppyController = floppy::FloppyController::new();
 
-fn com1_handler() {
-  crate::kprint!("D");
-}
+pub static DEV: RwLock<drivers::DeviceDrivers> = RwLock::new(drivers::DeviceDrivers::new());
 
 pub unsafe fn init() {
   PIC.init();
