@@ -19,6 +19,7 @@ pub extern "C" fn run_input() {
   unsafe {
     INPUT_THREAD_ID = process::get_current_pid();
   }
+  crate::tty::console_write(format_args!("Keyboard Ready"));
   let mut read_buffer: [u8; 1] = [0; 1];
   loop {
     process::send_signal(unsafe { INPUT_THREAD_ID }, syscall::signals::STOP);

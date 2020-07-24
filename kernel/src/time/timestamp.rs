@@ -1,10 +1,8 @@
 use core::ops::Add;
 
-/**
- * Unsigned, 32-bit number representing the number of seconds passed since
- * midnight on 1 January 1980. It neglects leap seconds.
- * This is NOT the same as POSIX time.
- */
+/// Unsigned, 32-bit number representing the number of seconds passed since
+/// midnight on 1 January 1980. It neglects leap seconds.
+/// This is NOT the same as POSIX time.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Timestamp(pub u32);
@@ -13,10 +11,8 @@ impl Timestamp {
 
 }
 
-/**
- * High-resolution 64-bit number representing the number of 100ns increments
- * since midnight on 1 January 1980.
- */
+/// High-resolution 64-bit number representing the number of 100ns increments
+/// since midnight on 1 January 1980.
 #[repr(transparent)]
 #[derive(Copy, Clone)]
 pub struct TimestampHires(pub u64);

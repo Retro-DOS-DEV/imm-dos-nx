@@ -4,6 +4,7 @@
 #![no_std]
 
 pub mod data;
+pub mod result;
 pub mod signals;
 
 pub use data::*;

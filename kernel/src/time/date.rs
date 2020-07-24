@@ -169,7 +169,7 @@ mod tests {
 
   #[test]
   fn to_timestamp() {
-    let mut dt = Timestamp(1278713001).to_datetime();
+    let dt = Timestamp(1278713001).to_datetime();
     assert_eq!(Timestamp::from_datetime(dt), Timestamp(1278713001));
   }
 }

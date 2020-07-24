@@ -1,6 +1,7 @@
 use crate::kprintln;
 use crate::syscalls::{exec, file, fs};
 use super::stack;
+use syscall::result::SystemError;
 
 #[repr(C, packed)]
 pub struct SavedRegisters {
@@ -36,10 +37,11 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
         let arg_str_ptr = &*(registers.ecx as *const syscall::StringPtr);
         arg_str_ptr.as_str()
       };
-      match exec::exec_path(path_str, arg_str, registers.edx) {
-        Ok(_) => (),
-        Err(_) => registers.eax = 0xffffffff,
-      }
+      let result = match exec::exec_path(path_str, arg_str, registers.edx) {
+        Ok(_) => 0,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
     },
     0x3 => { // get_pid
       let pid = exec::get_pid();
@@ -65,33 +67,39 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     0x10 => { // open
       let path_str_ptr = &*(registers.ebx as *const syscall::StringPtr);
       let path_str = path_str_ptr.as_str();
-      match file::open_path(path_str) {
-        Ok(handle) => registers.eax = handle,
-        Err(_) => registers.eax = 0xffffffff,
-      }
+      let result = match file::open_path(path_str) {
+        Ok(handle) => handle,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
     },
     0x11 => { // close
       let handle = registers.eax;
-      file::close(handle);
-      registers.eax = 0;
+      let result = match file::close(handle) {
+        Ok(_) => 0,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
     },
     0x12 => { // read
       let handle = registers.ebx;
       let dest_addr = registers.ecx as *mut u8;
       let length = registers.edx as usize;
-      match file::read(handle, dest_addr, length) {
-        Ok(bytes_read) => registers.eax = bytes_read as u32,
-        Err(_) => (),
-      }
+      let result = match file::read(handle, dest_addr, length) {
+        Ok(bytes_read) => bytes_read as u32,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
     },
     0x13 => { // write
       let handle = registers.ebx;
       let src_addr = registers.ecx as *const u8;
       let length = registers.edx as usize;
-      match file::write(handle, src_addr, length) {
-        Ok(bytes_written) => registers.eax = bytes_written as u32,
-        Err(_) => (),
-      }
+      let result = match file::write(handle, src_addr, length) {
+        Ok(bytes_written) => bytes_written as u32,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
     },
     0x14 => { // unlink
 
@@ -129,13 +137,27 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
       };
       registers.eax = new_handle;
     },
+    0x1e => { // ioctl
+      let handle = registers.ebx;
+      let command = registers.ecx;
+      let value = registers.edx;
+      let result = match file::ioctl(handle, command, value) {
+        Ok(value) => value,
+        Err(_) => SystemError::UnsupportedCommand.to_code(),
+      };
+      registers.eax = result;
+    },
 
     // filesystem
-    0x30 => { // mount
+    0x30 => { // register
 
     },
-    0x31 => { // unmount
+    0x31 => { // unregister
 
+    },
+    0x32 => { // mount
+    },
+    0x33 => { // unmount
     },
 
     // misc
@@ -145,6 +167,7 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     },
     _ => {
       // unknown syscall
+      registers.eax = SystemError::Unknown.to_code();
     },
   }
 }

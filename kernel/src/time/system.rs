@@ -1,8 +1,5 @@
-/**
- * System time tracking
- */
+/// Utilities for managing system time
 
-use core::ops::Add;
 use spin::Mutex;
 
 use crate::devices;
@@ -12,14 +9,15 @@ use super::timestamp::{Timestamp, TimestampHires};
 pub const HUNDRED_NS_PER_TICK: u64 = 100002;
 pub const MS_PER_TICK: usize = (HUNDRED_NS_PER_TICK / 10000) as usize;
 
-// Store a known fixed point in time, sourced from CMOS RTC or (in the future)
-// a NTP service. We use the programmable timer to update an offset relative to
-// this.
+/// Store a known fixed point in time, sourced from CMOS RTC or (in the future)
+/// a NTP service. We use the programmable timer to update an offset relative to
+/// this.
 static KNOWN_TIME: Mutex<TimestampHires> = Mutex::new(TimestampHires(0));
 
-// Store an offset, regularly updated by the PIT
+/// Store an offset, regularly updated by the PIT
 static TIME_OFFSET: Mutex<TimestampHires> = Mutex::new(TimestampHires(0));
 
+/// Reset the known true reference point
 pub fn reset_known_time(time: u64) {
   let int_reenable = interrupts::is_interrupt_enabled();
   interrupts::cli();
@@ -79,6 +77,7 @@ pub fn increment_offset(delta: u64) {
   }
 }
 
+/// Process 
 pub fn initialize_from_rtc() {
   let cmos_time = unsafe {
     devices::RTC.read_time()

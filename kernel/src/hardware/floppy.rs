@@ -116,7 +116,7 @@ impl FloppyController {
   /// the response from a command is done in a different method.
   pub fn send_command(&self, command: Command, params: &[u8]) -> Result<(), ControllerError> {
     if self.get_status() & 0xc0 != 0x80 {
-      self.reset();
+      self.reset()?;
     }
 
     *self.interrupt_received.write() = false;
@@ -198,7 +198,7 @@ impl FloppyController {
       self.ccr_dir_port.write_u8(0);
     }
     // SPECIFY, with SRT=8, HUT=0, HLT=5, NDMA=0
-    self.send_command(Command::Specify, &[8 << 4, 5 << 1]);
+    self.send_command(Command::Specify, &[8 << 4, 5 << 1])?;
     Ok(())
   }
 
@@ -234,11 +234,15 @@ impl FloppyController {
     Ok(())
   }
 
-  pub fn read(&self, cylinder: usize, head: usize, sector: usize) {
-    self.dma(Command::ReadData, cylinder, head, sector);
+  pub fn read(&self, cylinder: usize, head: usize, sector: usize) -> Result<(), ControllerError> {
+    self.dma(Command::ReadData, cylinder, head, sector)
   }
 
-  pub fn dma(&self, command: Command, cylinder: usize, head: usize, sector: usize) {
+  pub fn write(&self, cylinder: usize, head: usize, sector: usize) -> Result<(), ControllerError> {
+    self.dma(Command::WriteData, cylinder, head, sector)
+  }
+
+  pub fn dma(&self, command: Command, cylinder: usize, head: usize, sector: usize) -> Result<(), ControllerError> {
     self.send_command(
       command,
       &[
@@ -251,10 +255,12 @@ impl FloppyController {
         0x1b,
         0xff,
       ],
-    );
+    )?;
     self.wait_for_interrupt();
     let mut response = [0, 0, 0, 0, 0, 0, 0];
-    self.get_response(&mut response);
+    self.get_response(&mut response)?;
+    // Process response
+    Ok(())
   }
 }
 

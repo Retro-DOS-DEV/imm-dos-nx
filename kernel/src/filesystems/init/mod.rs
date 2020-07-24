@@ -97,13 +97,13 @@ const TRAILER: &[u8] = "TRAILER!!!".as_bytes();
 #[repr(packed)]
 pub struct CpioHeader {
   pub magic: u16,
-  device: u16,
-  inode: u16,
+  _device: u16,
+  _inode: u16,
   file_mode: u16,
-  owner_uid: u16,
-  owner_gid: u16,
-  link_count: u16,
-  device_no: u16,
+  _owner_uid: u16,
+  _owner_gid: u16,
+  _link_count: u16,
+  _device_no: u16,
   modification_time: u32,
   pub name_size: u16,
   file_size_high: u16,
@@ -153,9 +153,7 @@ impl CpioHeader {
   }
 
   pub fn get_filename_str(&self) -> &str {
-    unsafe {
-      core::str::from_utf8(self.get_filename()).unwrap()
-    }
+    core::str::from_utf8(self.get_filename()).unwrap()
   }
 
   pub fn is_trailer(&self) -> bool {

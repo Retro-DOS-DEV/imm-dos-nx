@@ -197,17 +197,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
   }
 
   let current_time = time::system::get_system_time().to_timestamp().to_datetime();
-  kprintln!("System Time: {:} {:}", current_time.date, current_time.time);
-
-  // Spawn init process
-  let init_proc_id = process::all_processes_mut().fork_current();
-  {
-    let mut processes = process::all_processes_mut();
-    let init_proc = processes.get_process(init_proc_id).unwrap();
-    init_proc.set_initial_entry_point(user_init, 0xbffffffc);
-  }
-
-  process::enter_usermode(init_proc_id);
+  tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
 
   {
     let input_proc = process::all_processes_mut().fork_current();
@@ -219,6 +209,16 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     let ttys_proc = process::all_processes_mut().fork_current();
     process::set_kernel_mode_function(ttys_proc, tty::ttys_process);
   }
+
+  // Spawn init process
+  let init_proc_id = process::all_processes_mut().fork_current();
+  {
+    let mut processes = process::all_processes_mut();
+    let init_proc = processes.get_process(init_proc_id).unwrap();
+    init_proc.set_initial_entry_point(user_init, 0xbffffffc);
+  }
+
+  process::enter_usermode(init_proc_id);
 
   loop {
     unsafe {

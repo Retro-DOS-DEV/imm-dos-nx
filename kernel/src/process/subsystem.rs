@@ -15,7 +15,7 @@ pub struct DosSubsystemMetadata {
   pub gs: usize,
   pub ss: usize,
 
-  interrupts_enabled: bool,
+  pub interrupts_enabled: bool,
 }
 
 impl DosSubsystemMetadata {

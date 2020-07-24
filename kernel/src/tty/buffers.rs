@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 use crate::buffers::RingBuffer;
 
 const BUFFER_SIZE: usize = 64;
@@ -19,23 +18,6 @@ pub struct TTYReadWriteBuffers {
 
 impl TTYReadWriteBuffers {
   pub fn new() -> TTYReadWriteBuffers {
-    /*
-    let output = Vec::with_capacity(BUFFER_SIZE);
-    let input = Vec::with_capacity(BUFFER_SIZE);
-    for _ in 0..BUFFER_SIZE {
-      output.push(0);
-      input.push(0);
-    }
-    let output_box: Box<[u8]> = output.into_boxed_slice();
-    let input_box: Box<[u8]> = input.into_boxed_slice();
-
-    let output_slice = output_box.as_ref();
-    let input_slice = input_box.as_ref();
-
-    let output_raw_ptr = Box::into_raw(output_box);
-    let input_raw_ptr = Box::into_raw(input_box);
-    */
-
     let output_box: Box<[u8; BUFFER_SIZE]> = Box::new([0; BUFFER_SIZE]);
     let input_box: Box<[u8; BUFFER_SIZE]> = Box::new([0; BUFFER_SIZE]);
 
@@ -59,5 +41,14 @@ impl TTYReadWriteBuffers {
 
   pub fn write(&self, buffer: &[u8]) -> usize {
     self.input_buffer.write(buffer)
+  }
+}
+
+impl Drop for TTYReadWriteBuffers {
+  fn drop(&mut self) {
+    unsafe {
+      Box::from(self.output_raw_ptr);
+      Box::from(self.input_raw_ptr);
+    }
   }
 }

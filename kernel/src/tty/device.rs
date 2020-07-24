@@ -16,17 +16,17 @@ impl TTYDevice {
 }
 
 impl DeviceDriver for TTYDevice {
-  fn open(&self, handle: LocalHandle) -> Result<(), ()> {
+  fn open(&self, _handle: LocalHandle) -> Result<(), ()> {
 
     Ok(())
   }
 
-  fn close(&self, handle: LocalHandle) -> Result<(), ()> {
+  fn close(&self, _handle: LocalHandle) -> Result<(), ()> {
     
     Ok(())
   }
 
-  fn read(&self, handle: LocalHandle, buffer: &mut [u8]) -> Result<usize, ()> {
+  fn read(&self, _handle: LocalHandle, buffer: &mut [u8]) -> Result<usize, ()> {
     let router = super::get_router().read();
     let buffers = router.get_tty_buffers(self.tty_id);
     match buffers {

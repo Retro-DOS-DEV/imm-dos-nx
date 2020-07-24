@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use crate::hardware::vga::text_mode::{ColorCode, TextMode};
+use crate::hardware::vga::text_mode::{TextMode};
 use crate::memory::address::VirtualAddress;
 
 #[derive(Copy, Clone)]
@@ -9,13 +9,20 @@ pub enum ParseState {
   CSI, // Recognized a CSI sequence
 }
 
+/// Interface for a TTY. It parses ANSI-style terminal bytes and 
 pub struct TTY {
+  /// Whether this TTY is currently active, determines whether it outputs new
+  /// characters to video RAM
   is_active: bool,
+  /// Whether echoing is enabled, controled by ioctl commands
   echo: bool,
+  /// Whether the cursor is currently visible
   show_cursor: bool,
+  /// Track the current parsing state
   parse_state: ParseState,
   arg_digits_written: usize,
   csi_args: Vec<Option<u32>>,
+  /// Access to VGA video memory, also stores the current cursor info
   text_buffer: TextMode,
 }
 
@@ -42,7 +49,7 @@ impl TTY {
 
       if let Some(ch) = output {
         if self.echo {
-          self.text_buffer.write_byte(byte);
+          self.text_buffer.write_byte(ch);
           if self.show_cursor {
             self.text_buffer.invert_cursor();
           }
