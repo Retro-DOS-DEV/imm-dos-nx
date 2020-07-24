@@ -36,14 +36,22 @@ pub struct ListAllocator {
   first_free: usize,
 }
 
+/// Magic number indicating a memory node: "ALLOCATE"
 const MAGIC: u32 = 0xA110CA7E;
+/// Size of the magic + size header
+const HEADER_SIZE: usize = core::mem::size_of::<u32>() * 2;
 
 #[repr(C, packed)]
 pub struct AllocNode {
+  /// Magic number used to confirm we're looking at a real allocation node
   magic: u32,
-  size: u32,  // We only use the lower 31 bits for size. The 32nd bit is used to
-              // indicate if the node is currently in use (1), or free (0)
-  next: u32,  // Only used on free nodes to point to the next free node
+  /// Size of the node, including the magic / size fields
+  /// The lower 31 bits are used for actual size. The 32nd bit is used to
+  /// indicate if the node is currently in use (1), or free (0)
+  size: u32,
+  /// In an allocated node, the data would start here. In a free node, this
+  /// offset contains a pointer to the next free node.
+  next: u32,
 }
 
 impl AllocNode {
@@ -132,6 +140,58 @@ impl ListAllocator {
     }
   }
 
+  pub unsafe fn expand_size(&mut self, size: usize) {
+    if size < self.size {
+      panic!("Cannot expand heap to a smaller size");
+    }
+    let new_free_space_addr = self.start + self.size;
+    let new_free_space_ptr = new_free_space_addr as *mut AllocNode;
+    let new_free_node = &mut *new_free_space_ptr;
+    new_free_node.init(size - self.size);
+    self.get_last_free_node().set_next(new_free_space_addr);
+    self.size = size;
+    self.merge_free_areas();
+    crate::kprintln!("Extended heap, new size is {:x}, new space at {:x}", size, new_free_space_addr);
+    let last = self.get_last_free_node();
+    crate::kprintln!("last free node: {:x} {:x}", last as *const AllocNode as usize, last.get_size());
+  }
+
+  /// Return a reference to the last free node in the list
+  pub unsafe fn get_last_free_node(&self) -> &mut AllocNode {
+    let mut iter_addr = self.first_free;
+    while iter_addr != 0 {
+      let iter_ptr = iter_addr as *mut AllocNode;
+      let iter_node = &mut *iter_ptr;
+      let next = iter_node.get_next();
+      if next == 0 {
+        return iter_node;
+      }
+      iter_addr = iter_node.get_next();
+    }
+    return &mut *(self.first_free as *mut AllocNode);
+  }
+
+  /// Iterate over the linked list of nodes. If two adjacent nodes are free,
+  /// merge them into a single free space.
+  pub unsafe fn merge_free_areas(&mut self) {
+    let mut iter_addr = self.first_free;
+    while iter_addr != 0 {
+      let iter_ptr = iter_addr as *mut AllocNode;
+      let iter_node = &mut *iter_ptr;
+      let next_byte = iter_addr + iter_node.get_size();
+      let next_addr = iter_node.get_next();
+      if next_byte == next_addr {
+        // merge adjacent nodes
+        let next_ptr = next_addr as *mut AllocNode;
+        let next_node = &mut *next_ptr;
+        iter_node.set_size(iter_node.get_size() + next_node.get_size());
+        iter_node.set_next(next_node.get_next());
+      } else {
+        iter_addr = next_addr;
+      }
+    }
+  }
+
   pub unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
     let mut prev = 0;
     let mut current = self.first_free;
@@ -216,22 +276,7 @@ impl ListAllocator {
         }
       }
     }
-    // Iterate through the list to merge any neighboring free areas
-    let mut iter_addr = self.first_free;
-    while iter_addr != 0 {
-      let iter_ptr = iter_addr as *mut AllocNode;
-      let iter_node = &mut *iter_ptr;
-      let next_byte = iter_addr + iter_node.get_size();
-      let next_addr = iter_node.get_next();
-      if next_byte == next_addr {
-        // merge adjacent nodes
-        let next_ptr = next_addr as *mut AllocNode;
-        let next_node = &mut *next_ptr;
-        iter_node.set_size(iter_node.get_size() + next_node.get_size());
-        iter_node.set_next(next_node.get_next());
-      } else {
-        iter_addr = next_addr;
-      }
-    }
+
+    self.merge_free_areas();
   }
 }

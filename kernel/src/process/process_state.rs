@@ -1,14 +1,14 @@
-use crate::files::handle::{DriveHandlePair, FileHandle, FileHandleMap, LocalHandle};
+use crate::files::handle::FileHandleMap;
 use crate::memory;
 use crate::memory::address::VirtualAddress;
 use crate::memory::physical::frame::Frame;
 use crate::memory::virt::page_directory;
 use crate::memory::virt::page_table::{PageTable, PageTableReference};
-use crate::memory::virt::region::{ExpansionDirection, MemoryRegionType, Permissions, VirtualMemoryRegion};
+use crate::memory::virt::region::VirtualMemoryRegion;
 use crate::time;
 use spin::RwLock;
 use super::id::ProcessID;
-use super::memory::MemoryRegions;
+use super::memory::{MemoryRegions, STACK_SIZE, STACK_START};
 use super::subsystem::Subsystem;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -74,7 +74,7 @@ impl ProcessState {
       page_directory: new_pagedir,
 
       kernel_esp: RwLock::new(
-        memory::virt::STACK_START.as_usize() + 0x1000 - 4
+        STACK_START.as_usize() + STACK_SIZE - 4
       ),
 
       open_files: RwLock::new(new_filemap),

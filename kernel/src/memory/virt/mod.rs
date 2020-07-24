@@ -5,12 +5,10 @@ pub mod region;
 
 use page_table::{PageTable, PageTableReference};
 use super::address::{PhysicalAddress, VirtualAddress};
-use super::physical::{self, frame::Frame};
+use super::physical;
 
 #[cfg(not(test))]
 use crate::x86;
-
-pub const STACK_START: VirtualAddress = VirtualAddress::new(0xffbfd000);
 
 /**
  * Create the initial Page Directory, before paging has been enabled.

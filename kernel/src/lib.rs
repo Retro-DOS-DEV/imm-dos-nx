@@ -172,7 +172,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     let heap_start = memory::address::VirtualAddress::new(0xc0400000);
     {
-      let heap_size_frames = 64;
+      let heap_size_frames = memory::heap::INITIAL_HEAP_SIZE;
       memory::heap::map_allocator(heap_start, heap_size_frames);
       let heap_size = heap_size_frames * 0x1000;
       kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));

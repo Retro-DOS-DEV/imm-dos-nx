@@ -5,8 +5,9 @@ extern crate alloc;
 use alloc::alloc::{GlobalAlloc, Layout};
 use spin::Mutex;
 
+use crate::process::memory::expand_kernel_heap;
 use super::address::VirtualAddress;
-use super::{physical};
+use super::physical;
 use super::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
 
 struct Allocator {
@@ -29,7 +30,17 @@ impl Allocator {
 unsafe impl GlobalAlloc for Allocator {
   unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
     let mut allocator = self.locked_allocator.lock();
-    allocator.alloc(layout)
+    let mut ptr = allocator.alloc(layout);
+    if ptr.is_null() {
+      crate::kprintln!("GROW");
+      // Attempt to extend the heap
+      let space_needed = layout.size();
+      let new_size = expand_kernel_heap(space_needed);
+      allocator.expand_size(new_size);
+      // Try again with new free space
+      ptr = allocator.alloc(layout);
+    }
+    ptr
   }
 
   unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {

@@ -121,9 +121,13 @@ impl AlternatePageDirectory {
 
   pub fn map_region(&self, region: VirtualMemoryRegion) {
     match region.backing_type() {
-      MemoryRegionType::Direct(_) | MemoryRegionType::IO(_) => {
+      MemoryRegionType::Direct(_) => {
         // Copy the mappings directly
-        panic!("Direct/IO mapping not implemented");
+        panic!("Direct mapping not implemented");
+      },
+      MemoryRegionType::DMA(_) => {
+        // Copy the mappings directly
+        panic!("DMA mapping not implemented");
       },
       MemoryRegionType::MemMapped(_, _, _) => {
         match region.get_permissions() {
@@ -204,7 +208,7 @@ impl AlternatePageDirectory {
           unsafe {
             let mut from_ptr = page_start.as_usize() as *const u32;
             let mut to_ptr = get_temporary_page_address().as_usize() as *mut u32;
-            for i in 0..1024 {
+            for _ in 0..1024 {
               *to_ptr = *from_ptr;
               from_ptr = from_ptr.offset(1);
               to_ptr = to_ptr.offset(1);

@@ -13,13 +13,36 @@ use crate::memory::{
       Permissions,
       VirtualMemoryRegion,
     },
-    STACK_START,
   },
 };
+use spin::RwLock;
 use super::process_state::ProcessState;
 
+/// The kernel stack extends from 0xffbf0000 to 0xffbfefff
+pub const STACK_START: VirtualAddress = VirtualAddress::new(0xffbfd000);
+pub const STACK_SIZE: usize = 0xffbff000 - STACK_START.as_usize();
+
+static KERNEL_HEAP: RwLock<VirtualMemoryRegion> =
+  RwLock::new(
+    VirtualMemoryRegion::new(
+      VirtualAddress::new(0),
+      INITIAL_HEAP_SIZE * 0x1000,
+      MemoryRegionType::Anonymous(ExpansionDirection::After),
+      Permissions::ReadOnly,
+    ),
+  );
+
+/// Increase the kernel heap range, returning the new range size
+pub fn expand_kernel_heap(min_space_needed: usize) -> usize {
+  let mut frames_needed = min_space_needed / 0x1000;
+  if frames_needed < INITIAL_HEAP_SIZE {
+    frames_needed = INITIAL_HEAP_SIZE;
+  }
+  let mut heap = KERNEL_HEAP.write();
+  heap.expand(frames_needed)
+}
+
 pub struct MemoryRegions {
-  pub kernel_heap_region: VirtualMemoryRegion,
   pub kernel_stack_region: VirtualMemoryRegion,
   pub kernel_exec_region: VirtualMemoryRegion,
   pub heap_region: VirtualMemoryRegion,
@@ -29,6 +52,10 @@ pub struct MemoryRegions {
 
 impl MemoryRegions {
   pub fn initial(heap_start: VirtualAddress) -> MemoryRegions {
+    {
+      let mut heap = KERNEL_HEAP.write();
+      heap.set_starting_address(heap_start);
+    }
     let mut execution_regions = Vec::with_capacity(1);
     execution_regions.push(VirtualMemoryRegion::new(
       VirtualAddress::new(0),
@@ -38,17 +65,10 @@ impl MemoryRegions {
     ));
 
     MemoryRegions {
-      kernel_heap_region: VirtualMemoryRegion::new(
-        heap_start,
-        INITIAL_HEAP_SIZE * 0x1000,
-        MemoryRegionType::Anonymous(ExpansionDirection::After),
-        Permissions::ReadOnly,
-      ),
-
       kernel_stack_region: VirtualMemoryRegion::new(
         STACK_START,
-        0x2000,
-        MemoryRegionType::Anonymous(ExpansionDirection::Before),
+        STACK_SIZE,
+        MemoryRegionType::Anonymous(ExpansionDirection::None),
         Permissions::ReadWrite,
       ),
 
@@ -77,7 +97,6 @@ impl MemoryRegions {
    * The kernel uses a copy-on-write scheme
    */
   pub fn fork(&self) -> MemoryRegions {
-    let kernel_heap_region = self.kernel_heap_region.clone();
     let kernel_stack_region = self.kernel_stack_region.copy_with_permissions(Permissions::ReadWrite);
     let kernel_exec_region = self.kernel_exec_region.copy_for_new_process();
     let heap_region = self.heap_region.copy_for_new_process();
@@ -88,7 +107,6 @@ impl MemoryRegions {
       .collect();
 
     MemoryRegions {
-      kernel_heap_region,
       kernel_stack_region,
       kernel_exec_region,
       heap_region,
@@ -98,9 +116,11 @@ impl MemoryRegions {
   }
 
   pub fn get_range_containing_address(&self, addr: VirtualAddress) -> Option<VirtualMemoryRegion> {
-    let kernel_heap = self.kernel_heap_region;
-    if kernel_heap.contains_address(addr) {
-      return Some(kernel_heap.clone());
+    {
+      let kernel_heap = KERNEL_HEAP.read();
+      if kernel_heap.contains_address(addr) {
+        return Some(kernel_heap.clone());
+      }
     }
 
     let kernel_stack = self.kernel_stack_region;
@@ -158,9 +178,12 @@ impl ProcessState {
     // Map each of the ranges
     let new_page_dir = AlternatePageDirectory::new(directory_frame.get_address());
     {
+      let kernel_heap = *KERNEL_HEAP.read();
+      new_page_dir.map_region(kernel_heap);
+    }
+    {
       let regions = self.get_memory_regions().write();
       new_page_dir.map_region(regions.kernel_stack_region);
-      new_page_dir.map_region(regions.kernel_heap_region);
       new_page_dir.map_region(regions.kernel_exec_region);
       new_page_dir.map_region(regions.stack_region);
       new_page_dir.map_region(regions.heap_region);
