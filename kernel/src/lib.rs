@@ -11,6 +11,7 @@
 pub mod buffers;
 pub mod files;
 pub mod memory;
+pub mod pipes;
 pub mod promise;
 pub mod time;
 
@@ -199,6 +200,17 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
   let current_time = time::system::get_system_time().to_timestamp().to_datetime();
   tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
+
+  // Test pipes
+  {
+    let (read, write) = pipes::PIPES.create().unwrap();
+    let pipe_test = "TEST THE PIPE";
+    pipes::PIPES.write(write, pipe_test.as_bytes());
+    let mut buffer: [u8; 13] = [0; 13];
+    let bytes_read = pipes::PIPES.read(read, &mut buffer).unwrap();
+    assert_eq!(bytes_read, 13);
+    assert_eq!(pipe_test.as_bytes(), &buffer);
+  }
 
   {
     let input_proc = process::all_processes_mut().fork_current();
