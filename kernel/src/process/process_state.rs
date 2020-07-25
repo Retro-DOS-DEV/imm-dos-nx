@@ -5,18 +5,38 @@ use crate::memory::physical::frame::Frame;
 use crate::memory::virt::page_directory;
 use crate::memory::virt::page_table::{PageTable, PageTableReference};
 use crate::memory::virt::region::VirtualMemoryRegion;
+use crate::promise::Promise;
 use crate::time;
 use spin::RwLock;
 use super::id::ProcessID;
 use super::memory::{MemoryRegions, STACK_SIZE, STACK_START};
 use super::subsystem::Subsystem;
 
+/// Current state of the process
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum RunState {
+  /// Running normally
   Running,
+  /// Sleeping for a fixed amount of time
   Sleeping(usize),
+  /// Paused because of a signal
   Paused,
-  // Blocked(PromiseResult),
+  /// Blocked on some external factor
+  Blocked(BlockReason),
+  /// Just resumed from a Blocked state. This is quickly replaced with a Running
+  /// state once the return code has been processed.
+  Resumed(u32),
+  /// Process has exited, or been terminated. Waiting to be cleaned up
+  Terminated,
+}
+
+/// Different ways a process can be Blocked
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum BlockReason {
+  /// Just waiting for a resume() call
+  None,
+  /// Waiting for a child to exit
+  Child(ProcessID),
 }
 
 pub struct ProcessState {
@@ -33,6 +53,7 @@ pub struct ProcessState {
 
   run_state: RwLock<RunState>,
   subsystem: RwLock<Subsystem>,
+  exit_code: RwLock<u32>,
 }
 
 impl ProcessState {
@@ -54,6 +75,7 @@ impl ProcessState {
 
       run_state: RwLock::new(RunState::Running),
       subsystem: RwLock::new(Subsystem::Native),
+      exit_code: RwLock::new(0),
     }
   }
 
@@ -81,6 +103,7 @@ impl ProcessState {
 
       run_state: RwLock::new(RunState::Running),
       subsystem: RwLock::new(Subsystem::Native),
+      exit_code: RwLock::new(0),
     }
   }
 
@@ -143,6 +166,10 @@ impl ProcessState {
     self.pid
   }
 
+  pub fn get_parent(&self) -> ProcessID {
+    self.parent
+  }
+
   pub fn get_page_directory(&self) -> &PageTableReference {
     &self.page_directory
   }
@@ -165,6 +192,14 @@ impl ProcessState {
 
   pub fn get_subsystem(&self) -> &RwLock<Subsystem> {
     &self.subsystem
+  }
+
+  pub fn get_exit_code(&self) -> u32 {
+    *self.exit_code.read()
+  }
+
+  pub fn set_exit_code(&self, code: u32) {
+    *self.exit_code.write() = code;
   }
 
   pub fn sleep(&self, ms: usize) {
@@ -191,6 +226,7 @@ impl ProcessState {
     let run_state = self.run_state.read().clone();
     match run_state {
       RunState::Running => true,
+      RunState::Resumed(_) => true,
       _ => false
     }
   }

@@ -84,6 +84,12 @@ pub fn get_pid() -> u32 {
   syscall_inner(0x03, 0, 0, 0)
 }
 
+pub fn wait_pid(id: u32) -> (u32, u32) {
+  let mut status = 0;
+  let pid = syscall_inner(0x09, id, &mut status as *mut u32 as u32, 0);
+  (pid, status)
+}
+
 /**
  * Send a signal to a specific thread, equivalent to POSIX `kill`
  */

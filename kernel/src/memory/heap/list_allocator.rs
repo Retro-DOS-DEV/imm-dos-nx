@@ -151,9 +151,7 @@ impl ListAllocator {
     self.get_last_free_node().set_next(new_free_space_addr);
     self.size = size;
     self.merge_free_areas();
-    crate::kprintln!("Extended heap, new size is {:x}, new space at {:x}", size, new_free_space_addr);
-    let last = self.get_last_free_node();
-    crate::kprintln!("last free node: {:x} {:x}", last as *const AllocNode as usize, last.get_size());
+    crate::kprintln!("Extended heap, new size is {:x}, new space starts at {:x}", size, new_free_space_addr);
   }
 
   /// Return a reference to the last free node in the list

@@ -41,3 +41,13 @@ pub fn raise_signal(sig: u32) {
 pub fn send_signal(id: u32, sig: u32) {
   process::send_signal(process::id::ProcessID::new(id), sig);
 }
+
+pub fn wait_pid(id: u32) -> (u32, u32) {
+  if id == 0 {
+    // TODO: wait on any process
+    (0, 0)
+  } else {
+    let code = process::wait(process::id::ProcessID::new(id));
+    (id, code)
+  }
+}

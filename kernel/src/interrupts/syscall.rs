@@ -62,6 +62,13 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     },
     0x8 => { // send_signal
     },
+    0x09 => { // wait_pid
+      let wait_id = registers.ebx;
+      let (pid, code) = exec::wait_pid(wait_id);
+      let status_ptr = registers.ecx as *mut u32;
+      *status_ptr = code;
+      registers.eax = pid;
+    },
 
     // files
     0x10 => { // open

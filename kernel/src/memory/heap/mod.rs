@@ -32,7 +32,6 @@ unsafe impl GlobalAlloc for Allocator {
     let mut allocator = self.locked_allocator.lock();
     let mut ptr = allocator.alloc(layout);
     if ptr.is_null() {
-      crate::kprintln!("GROW");
       // Attempt to extend the heap
       let space_needed = layout.size();
       let new_size = expand_kernel_heap(space_needed);

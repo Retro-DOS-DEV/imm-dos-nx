@@ -11,6 +11,7 @@
 pub mod buffers;
 pub mod files;
 pub mod memory;
+pub mod promise;
 pub mod time;
 
 #[cfg(not(test))]
@@ -235,6 +236,25 @@ pub extern fn user_init() {
   let intro = "Opened COM1. ";
   syscall::write(com1, intro.as_ptr(), intro.len());
 
+  let start = "Forking child. ";
+  syscall::write(com1, start.as_ptr(), start.len());
+  let pid = syscall::fork();
+  if pid == 0 {
+    let ch_start = "Child start. ";
+    syscall::write(com1, ch_start.as_ptr(), ch_start.len());
+    syscall::sleep(1000);
+    let ch_end = "Child end. ";
+    syscall::write(com1, ch_end.as_ptr(), ch_end.len());
+    syscall::exit(0x10);
+  } else {
+    let (_, code) = syscall::wait_pid(pid);
+    let back = "Back to parent. ";
+    syscall::write(com1, back.as_ptr(), back.len());
+    loop {
+      syscall::yield_coop();
+    }
+  }
+
   /*
   let pid = syscall::fork();
   let ticktock = if pid == 0 {
@@ -248,6 +268,7 @@ pub extern fn user_init() {
   }
   */
 
+  /*
   let pid = syscall::fork();
   if pid == 0 {
     let tty0 = syscall::open("DEV:\\TTY0");
@@ -264,4 +285,5 @@ pub extern fn user_init() {
       syscall::sleep(1000);
     }
   }
+  */
 }

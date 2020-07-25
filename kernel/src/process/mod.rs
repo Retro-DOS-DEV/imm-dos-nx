@@ -185,7 +185,12 @@ unsafe fn fork_inner(new_proc_esp: *const RwLock<usize>) {
 }
 
 pub fn exit(code: u32) {
-  
+  {
+    let cur = current_process().unwrap();
+    cur.exit(code);
+  }
+  yield_coop();
+  // Should never reach this loop
   loop {}
 }
 
@@ -256,4 +261,11 @@ pub fn send_signal(pid: id::ProcessID, sig: u32) {
   if let Some(p) = recipient {
     p.send_signal(sig);
   }
+}
+
+pub fn wait(pid: id::ProcessID) -> u32 {
+  all_processes().get_current_process().unwrap().block_on_child(pid);
+  yield_coop();
+  // process has resumed
+  all_processes().get_current_process().unwrap().get_resume_code()
 }
