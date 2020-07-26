@@ -1,6 +1,7 @@
 use crate::files::filename;
 use crate::files::handle::{FileHandle, Handle};
 use crate::filesystems;
+use crate::pipes;
 use super::current_process;
 use syscall::result::SystemError;
 
@@ -93,4 +94,16 @@ pub fn dup(to_duplicate: u32, to_replace: u32) -> Result<u32, SystemError> {
     },
     None => Err(SystemError::NoSuchFileSystem),
   }
+}
+
+pub fn pipe() -> Result<(u32, u32), SystemError> {
+  let (read_local, write_local) = pipes::create_pipe().map_err(|_| SystemError::Unknown)?;
+  let (read, write) = {
+    let current = current_process();
+    let fs_number = unsafe { filesystems::PIPE_FS };
+    let read = current.open_file(fs_number, read_local).as_u32();
+    let write = current.open_file(fs_number, write_local).as_u32();
+    (read, write)
+  };
+  Ok((read, write))
 }

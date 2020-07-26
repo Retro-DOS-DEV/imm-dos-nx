@@ -154,6 +154,19 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
       };
       registers.eax = result;
     },
+    0x1f => { // pipe
+      let read_handle_ptr = registers.ebx as *mut usize;
+      let write_handle_ptr = registers.ecx as *mut usize;
+      let result = match file::pipe() {
+        Ok((read, write)) => {
+          *read_handle_ptr = read as usize;
+          *write_handle_ptr = write as usize;
+          0
+        },
+        Err(_) => 0xffffffff,
+      };
+      registers.eax = result;
+    },
 
     // filesystem
     0x30 => { // register

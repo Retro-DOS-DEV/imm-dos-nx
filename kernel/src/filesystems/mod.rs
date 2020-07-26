@@ -71,6 +71,8 @@ impl FileSystemMap {
 
 pub static VFS: FileSystemMap = FileSystemMap::new();
 
+pub static mut PIPE_FS: usize = 0;
+
 pub fn get_fs_number(name: &str) -> Option<usize> {
   VFS.get_fs_number(name)
 }
@@ -82,4 +84,9 @@ pub fn get_fs(index: usize) -> Option<Arc<Box<FileSystemType>>> {
 pub fn init_fs() {
   let dev_fs = dev::DevFileSystem::new();
   VFS.register_fs("DEV", Box::new(dev_fs)).expect("Failed to register DEV FS");
+  let pipe_fs = crate::pipes::create_fs();
+  let pipe_number = VFS.register_fs("PIPE", pipe_fs).expect("Failed to register PIPE FS");
+  unsafe {
+    PIPE_FS = pipe_number;
+  }
 }

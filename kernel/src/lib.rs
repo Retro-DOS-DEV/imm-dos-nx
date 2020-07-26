@@ -9,6 +9,7 @@
 
 // Test-safe modules
 pub mod buffers;
+pub mod collections;
 pub mod files;
 pub mod memory;
 pub mod pipes;
@@ -201,17 +202,6 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
   let current_time = time::system::get_system_time().to_timestamp().to_datetime();
   tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
 
-  // Test pipes
-  {
-    let (read, write) = pipes::PIPES.create().unwrap();
-    let pipe_test = "TEST THE PIPE";
-    pipes::PIPES.write(write, pipe_test.as_bytes());
-    let mut buffer: [u8; 13] = [0; 13];
-    let bytes_read = pipes::PIPES.read(read, &mut buffer).unwrap();
-    assert_eq!(bytes_read, 13);
-    assert_eq!(pipe_test.as_bytes(), &buffer);
-  }
-
   {
     let input_proc = process::all_processes_mut().fork_current();
     process::set_kernel_mode_function(input_proc, input::run_input);
@@ -248,6 +238,29 @@ pub extern fn user_init() {
   let intro = "Opened COM1. ";
   syscall::write(com1, intro.as_ptr(), intro.len());
 
+  let read_write: [u32; 2] = [0; 2];
+  let _ = syscall::pipe(&read_write);
+  let read = read_write[0];
+  let write = read_write[1];
+
+  let pid = syscall::fork();
+  if pid == 0 {
+    let child_msg = "CHILD MSG";
+    syscall::write(write, child_msg.as_ptr(), child_msg.len());
+    syscall::exit(0);
+  } else {
+    let msg = "Got message: ";
+    syscall::write(com1, msg.as_ptr(), msg.len());
+    let mut buffer: [u8; 9] = [0; 9];
+    syscall::read(read, buffer.as_mut_ptr(), buffer.len());
+    syscall::write(com1, buffer.as_ptr(), buffer.len());
+
+    loop {
+      syscall::yield_coop();
+    }
+  }
+
+  /*
   let start = "Forking child. ";
   syscall::write(com1, start.as_ptr(), start.len());
   let pid = syscall::fork();
@@ -266,6 +279,7 @@ pub extern fn user_init() {
       syscall::yield_coop();
     }
   }
+  */
 
   /*
   let pid = syscall::fork();

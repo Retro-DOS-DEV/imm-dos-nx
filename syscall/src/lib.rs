@@ -47,6 +47,10 @@ pub fn dup2(handle: u32, replace: u32) -> u32 {
   syscall_inner(0x1d, handle, replace, 0)
 }
 
+pub fn pipe(handles: &[u32; 2]) -> u32 {
+  syscall_inner(0x1e, &handles[0] as *const u32 as u32, &handles[1] as *const u32 as u32, 0)
+}
+
 pub fn fork() -> u32 {
   syscall_inner(0x01, 0, 0, 0)
 }
