@@ -54,7 +54,7 @@ impl TTY {
   }
 
   pub fn send_data(&mut self, byte: u8) {
-    if self.is_active {
+    //if self.is_active {
       let output = unsafe { self.process_character(byte) };
 
       if let Some(ch) = output {
@@ -65,7 +65,7 @@ impl TTY {
           }
         }
       }
-    }
+    //}
   }
 
   pub fn get_csi_arg(&self, index: usize, default: u32) -> u32 {
@@ -199,7 +199,12 @@ impl TTY {
     }
   }
 
-  /// Copy the back buffer to VRAM, and make the text buffer point to VRAM
+  pub fn force_background(&mut self) {
+    let back_ptr = self.back_buffer.as_ptr();
+    self.text_buffer.set_buffer_pointer(back_ptr as usize);
+  }
+
+  /// Copy the back buffer to VRAM, and make the text buffer point to VRAM.
   pub unsafe fn swap_in(&mut self) {
     let count = BACK_BUFFER_SIZE as isize / 4;
     let dest = 0xb8000;

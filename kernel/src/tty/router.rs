@@ -48,7 +48,9 @@ impl TTYRouter {
     tty0.set_active(true);
 
     set.push(TTYData::new(tty0));
-    set.push(TTYData::new(TTY::new()));
+    let mut tty1 = TTY::new();
+    tty1.force_background();
+    set.push(TTYData::new(tty1));
     TTYRouter {
       tty_set: RwLock::new(set),
       active_tty: 0,

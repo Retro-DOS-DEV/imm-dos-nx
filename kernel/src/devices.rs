@@ -37,6 +37,7 @@ pub unsafe fn init() {
     drivers.register_driver("KBD", Arc::new(Box::new(drivers::keyboard::KeyboardDevice::new(kbd_clone))));
 
     drivers.register_driver("TTY0", Arc::new(Box::new(tty::device::TTYDevice::for_tty(0))));
+    drivers.register_driver("TTY1", Arc::new(Box::new(tty::device::TTYDevice::for_tty(1))));
 
     COM1.init();
   }

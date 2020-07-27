@@ -238,6 +238,7 @@ pub extern fn user_init() {
   let intro = "Opened COM1. ";
   syscall::write(com1, intro.as_ptr(), intro.len());
 
+  /*
   let read_write: [u32; 2] = [0; 2];
   let _ = syscall::pipe(&read_write);
   let read = read_write[0];
@@ -265,6 +266,7 @@ pub extern fn user_init() {
       syscall::yield_coop();
     }
   }
+  */
 
   /*
   let start = "Forking child. ";
@@ -300,22 +302,21 @@ pub extern fn user_init() {
   }
   */
 
-  /*
   let pid = syscall::fork();
   if pid == 0 {
-    let tty0 = syscall::open("DEV:\\TTY0");
+    let tty1 = syscall::open("DEV:\\TTY1");
     let prompt = "\nA:\\>";
-    syscall::write(tty0, prompt.as_ptr(), prompt.len());
+    syscall::write(tty1, prompt.as_ptr(), prompt.len());
 
     loop {
       syscall::yield_coop();
     }
   } else {
+    let console = syscall::open("DEV:\\TTY0");
     let msg = "TICK";
     loop {
-      syscall::write(com1, msg.as_ptr(), msg.len());
+      syscall::write(console, msg.as_ptr(), msg.len());
       syscall::sleep(1000);
     }
   }
-  */
 }
