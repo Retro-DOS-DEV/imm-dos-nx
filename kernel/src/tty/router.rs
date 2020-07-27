@@ -1,6 +1,6 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use crate::drivers::keyboard::KeyAction;
+use crate::drivers::keyboard::{KeyAction, codes::KeyCode};
 use spin::RwLock;
 
 use super::buffers::TTYReadWriteBuffers;
@@ -44,10 +44,11 @@ pub struct TTYRouter {
 impl TTYRouter {
   pub fn new() -> TTYRouter {
     let mut set = Vec::with_capacity(1);
-    let mut tty = TTY::new();
-    tty.set_active(true);
+    let mut tty0 = TTY::new();
+    tty0.set_active(true);
 
-    set.push(TTYData::new(tty));
+    set.push(TTYData::new(tty0));
+    set.push(TTYData::new(TTY::new()));
     TTYRouter {
       tty_set: RwLock::new(set),
       active_tty: 0,
@@ -87,19 +88,37 @@ impl TTYRouter {
       return;
     }
     if let Some(tty) = self.get_active_tty() {
-      tty.write().set_active(false);
+      let mut prev = tty.write();
+      prev.set_active(false);
+      unsafe { prev.swap_out(); }
     }
     self.active_tty = index;
     if let Some(tty) = self.get_active_tty() {
-      tty.write().set_active(true);
+      let mut next = tty.write();
+      next.set_active(true);
+      unsafe { next.swap_in(); }
     }
   }
 
   pub fn send_key_action(&mut self, action: KeyAction) {
     let output = self.key_state.process_key_action(action);
     if let Some(ascii) = output {
-      if let Some(tty) = self.get_active_tty() {
-        tty.write().send_data(ascii);
+      match action {
+        KeyAction::Press(KeyCode::Num0) => {
+          if self.key_state.alt {
+            self.set_active_tty(0);
+          }
+        },
+        KeyAction::Press(KeyCode::Num1) => {
+          if self.key_state.alt {
+            self.set_active_tty(1);
+          }
+        },
+        _ => {
+          if let Some(tty) = self.get_active_tty() {
+            tty.write().send_data(ascii);
+          }
+        },
       }
     }
   }

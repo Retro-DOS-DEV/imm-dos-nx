@@ -222,6 +222,12 @@ impl TextMode {
       self.write_byte(byte);
     }
   }
+
+  pub fn set_buffer_pointer(&mut self, ptr: usize) -> usize {
+    let current_ptr = self.base_pointer as usize;
+    self.base_pointer = ptr as *mut u8;
+    current_ptr
+  }
 }
 
 impl fmt::Write for TextMode {

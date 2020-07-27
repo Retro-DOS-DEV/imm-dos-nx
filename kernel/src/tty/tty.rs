@@ -1,6 +1,9 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use crate::hardware::vga::text_mode::{TextMode};
 use crate::memory::address::VirtualAddress;
+
+const BACK_BUFFER_SIZE: usize = 80 * 25 * 2;
 
 #[derive(Copy, Clone)]
 pub enum ParseState {
@@ -24,10 +27,16 @@ pub struct TTY {
   csi_args: Vec<Option<u32>>,
   /// Access to VGA video memory, also stores the current cursor info
   text_buffer: TextMode,
+
+  back_buffer: Vec<u8>,
 }
 
 impl TTY {
   pub fn new() -> TTY {
+    let mut back_buffer = Vec::with_capacity(BACK_BUFFER_SIZE);
+    for _ in 0..BACK_BUFFER_SIZE {
+      back_buffer.push(0);
+    }
     TTY {
       is_active: false,
       echo: true,
@@ -36,6 +45,7 @@ impl TTY {
       arg_digits_written: 0,
       csi_args: Vec::with_capacity(8),
       text_buffer: TextMode::new(VirtualAddress::new(0xc00b8000)),
+      back_buffer,
     }
   }
 
@@ -174,6 +184,30 @@ impl TTY {
         }
         return None;
       },
+    }
+  }
+
+  /// Copy VRAM to the back buffer, and make the text buffer point to the
+  /// back buffer.
+  pub unsafe fn swap_out(&mut self) {
+    let count = BACK_BUFFER_SIZE as isize / 4;
+    let dest_ptr = self.back_buffer.as_mut_ptr() as *mut u32;
+    let src = self.text_buffer.set_buffer_pointer(dest_ptr as usize);
+    let src_ptr = src as *const u32;
+    for off in 0..count {
+      *dest_ptr.offset(off) = *src_ptr.offset(off);
+    }
+  }
+
+  /// Copy the back buffer to VRAM, and make the text buffer point to VRAM
+  pub unsafe fn swap_in(&mut self) {
+    let count = BACK_BUFFER_SIZE as isize / 4;
+    let dest = 0xb8000;
+    let dest_ptr = dest as *mut u32;
+    self.text_buffer.set_buffer_pointer(dest);
+    let src_ptr = self.back_buffer.as_ptr() as *mut u32;
+    for off in 0..count {
+      *dest_ptr.offset(off) = *src_ptr.offset(off);
     }
   }
 }
