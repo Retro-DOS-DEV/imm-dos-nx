@@ -66,4 +66,19 @@ impl PipeCollection {
       PipeHandle::ReadHandle(_) => Err(PipeError::WrongHandleType),
     }
   }
+
+  pub fn get_available_bytes(&self, handle: LocalHandle) -> Result<usize, PipeError> {
+    let pipe_handle = {
+      let handles = self.handles.read();
+      *handles.get(handle.as_usize()).ok_or(PipeError::InvalidHandle)?
+    };
+    match pipe_handle {
+      PipeHandle::ReadHandle(index) => {
+        let pipes = self.pipes.read();
+        let pipe = pipes.get(index).ok_or(PipeError::UnknownPipe)?;
+        Ok(pipe.available_bytes())
+      },
+      PipeHandle::WriteHandle(_) => Err(PipeError::WrongHandleType),
+    }
+  }
 }

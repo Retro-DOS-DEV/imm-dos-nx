@@ -90,6 +90,10 @@ impl FileSystem for InitFileSystem {
   fn dup(&self, handle: LocalHandle) -> Result<LocalHandle, ()> {
     Err(())
   }
+
+  fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {
+    Err(())
+  }
 }
 
 const TRAILER: &[u8] = "TRAILER!!!".as_bytes();

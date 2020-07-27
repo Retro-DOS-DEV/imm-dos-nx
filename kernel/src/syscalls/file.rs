@@ -55,9 +55,13 @@ pub unsafe fn write(handle: u32, src: *const u8, length: usize) -> Result<usize,
   fs.write(drive_and_handle.1, buffer).map_err(|_| SystemError::IOError)
 }
 
-pub fn ioctl(handle: u32, command: u32, value: u32) -> Result<u32, SystemError> {
+pub fn ioctl(handle: u32, command: u32, arg: u32) -> Result<u32, SystemError> {
+  let drive_and_handle = current_process()
+    .get_open_file_info(FileHandle::new(handle))
+    .ok_or(SystemError::BadFileDescriptor)?;
 
-  Err(SystemError::UnsupportedCommand)
+  let fs = filesystems::get_fs(drive_and_handle.0).ok_or(SystemError::NoSuchFileSystem)?;
+  fs.ioctl(drive_and_handle.1, command, arg).map_err(|_| SystemError::IOError)
 }
 
 pub fn dup(to_duplicate: u32, to_replace: u32) -> Result<u32, SystemError> {

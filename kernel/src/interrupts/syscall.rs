@@ -147,8 +147,8 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     0x1e => { // ioctl
       let handle = registers.ebx;
       let command = registers.ecx;
-      let value = registers.edx;
-      let result = match file::ioctl(handle, command, value) {
+      let arg = registers.edx;
+      let result = match file::ioctl(handle, command, arg) {
         Ok(value) => value,
         Err(_) => SystemError::UnsupportedCommand.to_code(),
       };

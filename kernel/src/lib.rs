@@ -242,6 +242,8 @@ pub extern fn user_init() {
   let _ = syscall::pipe(&read_write);
   let read = read_write[0];
   let write = read_write[1];
+  assert_eq!(read, 1);
+  assert_eq!(write, 2);
 
   let pid = syscall::fork();
   if pid == 0 {
@@ -249,6 +251,10 @@ pub extern fn user_init() {
     syscall::write(write, child_msg.as_ptr(), child_msg.len());
     syscall::exit(0);
   } else {
+    syscall::sleep(1000);
+    let mut bytes_available: u32 = 0;
+    assert_eq!(syscall::ioctl(read, syscall::flags::FIONREAD, &bytes_available as *const u32 as u32), 0);
+    assert_eq!(bytes_available, 9);
     let msg = "Got message: ";
     syscall::write(com1, msg.as_ptr(), msg.len());
     let mut buffer: [u8; 9] = [0; 9];

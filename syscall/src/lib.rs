@@ -4,6 +4,7 @@
 #![no_std]
 
 pub mod data;
+pub mod flags;
 pub mod result;
 pub mod signals;
 
@@ -47,8 +48,12 @@ pub fn dup2(handle: u32, replace: u32) -> u32 {
   syscall_inner(0x1d, handle, replace, 0)
 }
 
+pub fn ioctl(handle: u32, command: u32, arg: u32) -> u32 {
+  syscall_inner(0x1e, handle, command, arg)
+}
+
 pub fn pipe(handles: &[u32; 2]) -> u32 {
-  syscall_inner(0x1e, &handles[0] as *const u32 as u32, &handles[1] as *const u32 as u32, 0)
+  syscall_inner(0x1f, &handles[0] as *const u32 as u32, &handles[1] as *const u32 as u32, 0)
 }
 
 pub fn fork() -> u32 {
