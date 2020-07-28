@@ -12,11 +12,21 @@ pub enum ParseState {
   CSI, // Recognized a CSI sequence
 }
 
+/// How the terminal processes input
+pub enum LineDiscipline {
+  /// Send individual bytes directly to the TTY device, no output
+  Raw,
+  /// Process one line at a time. Arrow keys and 
+  Canonical,
+}
+
 /// Interface for a TTY. It parses ANSI-style terminal bytes and 
 pub struct TTY {
   /// Whether this TTY is currently active, determines whether it outputs new
   /// characters to video RAM
   is_active: bool,
+  /// Line discipline determines how data is collected before passed to readers
+  line_discipline: LineDiscipline,
   /// Whether echoing is enabled, controled by ioctl commands
   echo: bool,
   /// Whether the cursor is currently visible
@@ -39,6 +49,7 @@ impl TTY {
     }
     TTY {
       is_active: false,
+      line_discipline: LineDiscipline::Raw,
       echo: true,
       show_cursor: true,
       parse_state: ParseState::Ready,
@@ -54,18 +65,20 @@ impl TTY {
   }
 
   pub fn send_data(&mut self, byte: u8) {
-    //if self.is_active {
-      let output = unsafe { self.process_character(byte) };
+    let output = unsafe { self.process_character(byte) };
 
-      if let Some(ch) = output {
-        if self.echo {
-          self.text_buffer.write_byte(ch);
-          if self.show_cursor {
-            self.text_buffer.invert_cursor();
-          }
-        }
+    if let Some(ch) = output {
+      self.text_buffer.write_byte(ch);
+      if self.show_cursor {
+        self.text_buffer.invert_cursor();
       }
-    //}
+    }
+  }
+
+  pub fn handle_input(&mut self, byte: u8) {
+    if self.echo {
+      self.send_data(byte);
+    }
   }
 
   pub fn get_csi_arg(&self, index: usize, default: u32) -> u32 {

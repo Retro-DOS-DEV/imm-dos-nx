@@ -48,6 +48,7 @@ impl TTYRouter {
     tty0.set_active(true);
 
     set.push(TTYData::new(tty0));
+    // Put all other TTYs into the background by default
     let mut tty1 = TTY::new();
     tty1.force_background();
     set.push(TTYData::new(tty1));
@@ -103,24 +104,34 @@ impl TTYRouter {
   }
 
   pub fn send_key_action(&mut self, action: KeyAction) {
-    let output = self.key_state.process_key_action(action);
-    if let Some(ascii) = output {
+    let mut buffer: [u8; 4] = [0; 4];
+
+    let output = self.key_state.process_key_action(action, &mut buffer);
+    if let Some(len) = output {
       match action {
         KeyAction::Press(KeyCode::Num0) => {
           if self.key_state.alt {
             self.set_active_tty(0);
+            return;
           }
         },
         KeyAction::Press(KeyCode::Num1) => {
           if self.key_state.alt {
             self.set_active_tty(1);
+            return;
           }
         },
-        _ => {
-          if let Some(tty) = self.get_active_tty() {
-            tty.write().send_data(ascii);
-          }
-        },
+        _ => (),
+      }
+
+      let tty_set = self.tty_set.read();
+      if let Some(active) = tty_set.get(self.active_tty) {
+        let mut tty = active.tty.write();
+        let data: &[u8] = &buffer[0..len];
+        for i in 0..len {
+          tty.handle_input(data[i]);
+        }
+        active.buffers.output_buffer.write(&data);
       }
     }
   }

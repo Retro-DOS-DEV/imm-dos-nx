@@ -15,7 +15,7 @@ impl KeyState {
     }
   }
 
-  pub fn process_key_action(&mut self, action: KeyAction) -> Option<u8> {
+  pub fn process_key_action(&mut self, action: KeyAction, buffer: &mut [u8]) -> Option<usize> {
     match action {
       KeyAction::Press(code) => {
         match code {
@@ -31,7 +31,7 @@ impl KeyState {
             self.shift = true;
             None
           },
-          _ => Some(self.key_code_to_ascii(code)),
+          _ => Some(self.key_code_to_ascii(code, buffer)),
         }
       },
       KeyAction::Release(code) => {
@@ -46,17 +46,29 @@ impl KeyState {
     }
   }
 
-  pub fn key_code_to_ascii(&self, input: KeyCode) -> u8 {
-    let index = input as usize;
-    let (normal, shifted) = if index < 0x60 {
-      US_LAYOUT[index]
-    } else {
-      (0, 0)
-    };
-    if self.shift {
-      shifted
-    } else {
-      normal
+  pub fn key_code_to_ascii(&self, input: KeyCode, buffer: &mut [u8]) -> usize {
+    match input {
+      KeyCode::ArrowLeft => {
+        buffer[0] = 0x1b;
+        buffer[1] = b'[';
+        buffer[2] = b'D';
+        3
+      },
+
+      _ => {
+        let index = input as usize;
+        let (normal, shifted) = if index < 0x60 {
+          US_LAYOUT[index]
+        } else {
+          (0, 0)
+        };
+        buffer[0] = if self.shift {
+          shifted
+        } else {
+          normal
+        };
+        1
+      }
     }
   }
 }
