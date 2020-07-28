@@ -1,9 +1,9 @@
 use alloc::vec::Vec;
 use crate::files::handle::LocalHandle;
 use crate::memory::{
-  address::VirtualAddress,
+  address::{PhysicalAddress, VirtualAddress},
   heap::INITIAL_HEAP_SIZE,
-  physical,
+  physical::{self, frame_range::FrameRange},
   virt::{
     page_directory::{AlternatePageDirectory, CurrentPageDirectory, self},
     page_table::{PageTable, PageTableReference},
@@ -19,7 +19,7 @@ use spin::RwLock;
 use super::process_state::ProcessState;
 
 /// The kernel stack extends from 0xffbf0000 to 0xffbfefff
-pub const STACK_START: VirtualAddress = VirtualAddress::new(0xffbfd000);
+pub const STACK_START: VirtualAddress = VirtualAddress::new(0xffbf0000);
 pub const STACK_SIZE: usize = 0xffbff000 - STACK_START.as_usize();
 
 static KERNEL_HEAP: RwLock<VirtualMemoryRegion> =
@@ -31,6 +31,9 @@ static KERNEL_HEAP: RwLock<VirtualMemoryRegion> =
       Permissions::ReadOnly,
     ),
   );
+
+/// Store custom memmap regions shared between all processes in kernel space
+static KERNEL_MEMMAP: RwLock<Vec<VirtualMemoryRegion>> = RwLock::new(Vec::new());
 
 /// Increase the kernel heap range, returning the new range size
 pub fn expand_kernel_heap(min_space_needed: usize) -> usize {
@@ -133,6 +136,15 @@ impl MemoryRegions {
       return Some(kernel_exec.clone());
     }
 
+    {
+      let kernel_memmap = KERNEL_MEMMAP.read();
+      for region in kernel_memmap.iter() {
+        if region.contains_address(addr) {
+          return Some(region.clone());
+        }
+      }
+    }
+
     let heap = self.heap_region;
     if heap.contains_address(addr) {
       return Some(heap.clone());
@@ -187,7 +199,7 @@ impl ProcessState {
       new_page_dir.map_region(regions.kernel_exec_region);
       new_page_dir.map_region(regions.stack_region);
       new_page_dir.map_region(regions.heap_region);
-      
+
       for region in regions.execution_regions.iter() {
         new_page_dir.map_region(*region);
       }
@@ -240,5 +252,53 @@ impl ProcessState {
       Permissions::ReadWrite,
     );
     self.get_memory_regions().write().execution_regions.push(region);
+  }
+
+  /// Map a virtual address to a contiguous region of memory suitable for DMA
+  /// transfers
+  fn mmap_dma_region(&self, virt: VirtualAddress, length: usize) -> (PhysicalAddress, VirtualMemoryRegion) {
+    // Find an appropriately sized physical memory region first
+    let mut frame_count = length >> 12;
+    if length & 0xfff > 0 {
+      frame_count += 1;
+    }
+    // This should be updated to ensure the memory is in the first 16MiB
+    let range = physical::allocate_frames(frame_count).unwrap();
+    let phys = range.get_starting_address();
+
+    let mut region_length = length;
+    if length & 0xfff != 0 {
+      region_length = (length + 0x1000) & 0xfffff000;
+    }
+    let range = FrameRange::new(phys.as_usize(), length);
+    let region = VirtualMemoryRegion::new(
+      virt,
+      region_length,
+      MemoryRegionType::DMA(range),
+      Permissions::ReadWrite,
+    );
+    (phys, region)
+  }
+
+  pub fn mmap_dma(&self, virt: VirtualAddress, length: usize) -> PhysicalAddress {
+    let (phys, region) = self.mmap_dma_region(virt, length);
+    self.get_memory_regions().write().execution_regions.push(region);
+    phys
+  }
+
+  pub fn kernel_mmap_dma(&self, length: usize) -> (PhysicalAddress, VirtualAddress) {
+    let mut kernel_memmap = KERNEL_MEMMAP.write();
+    // Find a free space below the stack
+    let mut last_occupied = STACK_START.as_usize();
+    for region in kernel_memmap.iter() {
+      let region_start = region.get_starting_address_as_usize();
+      if region_start < last_occupied {
+        last_occupied = region_start;
+      }
+    }
+    let new_region_start = VirtualAddress::new((last_occupied - length) & 0xfffff000);
+    let (phys, region) = self.mmap_dma_region(new_region_start, length);
+    kernel_memmap.push(region);
+    (phys, new_region_start)
   }
 }

@@ -84,15 +84,31 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
         let current_pagedir = CurrentPageDirectory::get();
         match current_proc.get_range_containing_address(vaddr) {
           Some(range) => {
-            let kernel_frame = match memory::physical::allocate_frame() {
-              Ok(frame) => frame,
-              Err(_) => {
-                // Out of memory
-                // At some point we need to implement disk paging
-                panic!("Unable to allocate kernel memory");
+            match range.backing_type() {
+              MemoryRegionType::Anonymous(_) => {
+                let kernel_frame = match memory::physical::allocate_frame() {
+                  Ok(frame) => frame,
+                  Err(_) => {
+                    // Out of memory
+                    // At some point we need to implement disk paging
+                    panic!("Unable to allocate kernel memory");
+                  },
+                };
+                current_pagedir.map(kernel_frame, VirtualAddress::new(address & 0xfffff000), PermissionFlags::empty());
+                return;
               },
-            };
-            current_pagedir.map(kernel_frame, VirtualAddress::new(address & 0xfffff000), PermissionFlags::empty());
+              MemoryRegionType::DMA(frame_range) => {
+                let offset = (address & 0xfffff000) - range.get_starting_address_as_usize();
+                let paddr = frame_range.get_starting_address().as_usize();
+                let frame = physical::frame::Frame::new(paddr + offset);
+                
+                let page_start = VirtualAddress::new(address & 0xfffff000);
+                let flags = PermissionFlags::empty();
+                current_pagedir.map(frame, page_start, flags);
+                return;
+              },
+              _ => (),
+            }
           },
           None => (),
         }

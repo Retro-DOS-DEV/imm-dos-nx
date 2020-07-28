@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 pub mod blocking;
 pub mod com;
 pub mod driver;
+pub mod floppy;
 pub mod keyboard;
 pub mod null;
 pub mod queue;

@@ -207,7 +207,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     process::set_kernel_mode_function(input_proc, input::run_input);
 
     let disk_proc = process::all_processes_mut().fork_current();
-    process::set_kernel_mode_function(disk_proc, disks::init);
+    process::set_kernel_mode_function(disk_proc, disks::floppy_driver);
 
     let ttys_proc = process::all_processes_mut().fork_current();
     process::set_kernel_mode_function(ttys_proc, tty::ttys_process);
@@ -312,10 +312,15 @@ pub extern fn user_init() {
       syscall::yield_coop();
     }
   } else {
+    let fd = syscall::open("DEV:\\FD0");
+    let mut buffer: [u8; 10] = [0; 10];
+    syscall::read(fd, buffer.as_mut_ptr(), buffer.len());
+
     let console = syscall::open("DEV:\\TTY0");
-    let msg = "TICK";
+    syscall::write(console, buffer.as_ptr(), buffer.len());
+    //let msg = "TICK";
     loop {
-      syscall::write(console, msg.as_ptr(), msg.len());
+      //syscall::write(console, msg.as_ptr(), msg.len());
       syscall::sleep(1000);
     }
   }
