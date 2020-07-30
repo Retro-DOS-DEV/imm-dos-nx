@@ -1,3 +1,4 @@
+use crate::files::cursor::SeekMethod;
 use crate::files::filename;
 use crate::files::handle::{FileHandle, Handle};
 use crate::filesystems;
@@ -110,4 +111,19 @@ pub fn pipe() -> Result<(u32, u32), SystemError> {
     (read, write)
   };
   Ok((read, write))
+}
+
+pub fn seek(handle: u32, method: u32, cursor: u32) -> Result<u32, SystemError> {
+  let seek_method = match method {
+    1 => SeekMethod::Relative(cursor as i32 as isize),
+    _ => SeekMethod::Absolute(cursor as usize),
+  };
+  let drive_and_handle = current_process()
+    .get_open_file_info(FileHandle::new(handle))
+    .ok_or(SystemError::BadFileDescriptor)?;
+
+  let fs = filesystems::get_fs(drive_and_handle.0).ok_or(SystemError::NoSuchFileSystem)?;
+  fs.seek(drive_and_handle.1, seek_method)
+    .map(|new_cursor| new_cursor as u32)
+    .map_err(|_| SystemError::IOError)
 }

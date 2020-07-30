@@ -1,4 +1,4 @@
-use crate::files::handle::LocalHandle;
+use crate::files::{cursor::SeekMethod, handle::LocalHandle};
 
 pub trait DeviceDriver {
   fn open(&self, handle: LocalHandle) -> Result<(), ()> {
@@ -14,6 +14,10 @@ pub trait DeviceDriver {
   }
 
   fn write(&self, _handle: LocalHandle, _buffer: &[u8]) -> Result<usize, ()> {
+    Err(())
+  }
+
+  fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()> {
     Err(())
   }
 }

@@ -167,6 +167,16 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
       };
       registers.eax = result;
     },
+    0x20 => { // seek
+      let handle = registers.ebx;
+      let method = registers.ecx;
+      let cursor = registers.edx;
+      let result = match file::seek(handle, method, cursor) {
+        Ok(new_cursor) => new_cursor,
+        Err(_) => SystemError::BadFileDescriptor.to_code(),
+      };
+      registers.eax = result;
+    },
 
     // filesystem
     0x30 => { // register

@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use crate::devices;
-use crate::files::handle::{Handle, HandleAllocator, LocalHandle};
+use crate::files::{handle::{Handle, HandleAllocator, LocalHandle}, cursor::SeekMethod};
 use spin::RwLock;
 use super::filesystem::FileSystem;
 
@@ -110,5 +110,18 @@ impl FileSystem for DevFileSystem {
 
   fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {
     Err(())
+  }
+
+  fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()> {
+    match self.get_device_for_handle(handle) {
+      Some(number) => {
+        let driver = devices::get_driver_for_device(number).ok_or(())?;
+        match driver.seek(handle, offset) {
+          Ok(position) => Ok(position),
+          Err(_) => Err(())
+        }
+      },
+      None => Err(())
+    }
   }
 }

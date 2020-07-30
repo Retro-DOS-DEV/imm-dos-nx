@@ -1,4 +1,4 @@
-use crate::files::handle::LocalHandle;
+use crate::files::{cursor::SeekMethod, handle::LocalHandle};
 
 pub trait FileSystem {
   fn open(&self, path: &str) -> Result<LocalHandle, ()>;
@@ -7,4 +7,5 @@ pub trait FileSystem {
   fn close(&self, handle: LocalHandle) -> Result<(), ()>;
   fn dup(&self, handle: LocalHandle) -> Result<LocalHandle, ()>;
   fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()>;
+  fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()>;
 }

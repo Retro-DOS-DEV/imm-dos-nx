@@ -1,5 +1,5 @@
 use alloc::collections::BTreeMap;
-use crate::files::handle::{HandleAllocator, LocalHandle};
+use crate::files::{cursor::SeekMethod, handle::{HandleAllocator, LocalHandle}};
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
 use super::filesystem::FileSystem;
@@ -93,6 +93,17 @@ impl FileSystem for InitFileSystem {
 
   fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {
     Err(())
+  }
+
+  fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()> {
+    match self.open_files.write().get_mut(&handle) {
+      Some(open_file) => {
+        let new_cursor = offset.from_current_position(open_file.cursor);
+        open_file.cursor = new_cursor;
+        Ok(new_cursor)
+      },
+      None => Err(())
+    }
   }
 }
 

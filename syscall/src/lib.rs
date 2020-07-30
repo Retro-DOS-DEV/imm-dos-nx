@@ -56,6 +56,14 @@ pub fn pipe(handles: &[u32; 2]) -> u32 {
   syscall_inner(0x1f, &handles[0] as *const u32 as u32, &handles[1] as *const u32 as u32, 0)
 }
 
+pub fn seek(handle: u32, position: u32) {
+  syscall_inner(0x20, handle, 0, position);
+}
+
+pub fn seek_relative(handle: u32, offset: i32) -> u32 {
+  syscall_inner(0x20, handle, 1, offset as u32)
+}
+
 pub fn fork() -> u32 {
   syscall_inner(0x01, 0, 0, 0)
 }

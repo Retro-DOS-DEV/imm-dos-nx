@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use crate::files::cursor::SeekMethod;
 use crate::files::handle::LocalHandle;
 use crate::files::ioctl::FIONREAD;
 use crate::filesystems::filesystem::FileSystem;
@@ -51,5 +52,9 @@ impl FileSystem for PipeFileSystem {
       },
       _ => Err(()),
     }
+  }
+
+  fn seek(&self, _handle: LocalHandle, _offset: SeekMethod) -> Result<usize, ()> {
+    Err(())
   }
 }

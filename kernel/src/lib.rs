@@ -311,17 +311,28 @@ pub extern fn user_init() {
     loop {
       syscall::yield_coop();
     }
+  } else if syscall::fork() == 0 {
+    let console = syscall::open("DEV:\\TTY0");
+    let msg = "TICK";
+    loop {
+      syscall::write(console, msg.as_ptr(), msg.len());
+      syscall::sleep(1000);
+    }
   } else {
     let fd = syscall::open("DEV:\\FD0");
+    syscall::seek(fd, 0x2b);
     let mut buffer: [u8; 10] = [0; 10];
     syscall::read(fd, buffer.as_mut_ptr(), buffer.len());
 
     let console = syscall::open("DEV:\\TTY0");
     syscall::write(console, buffer.as_ptr(), buffer.len());
-    //let msg = "TICK";
+
+    syscall::seek_relative(fd, -10);
+    syscall::read(fd, buffer.as_mut_ptr(), buffer.len());
+    syscall::write(console, buffer.as_ptr(), buffer.len());
+
     loop {
-      //syscall::write(console, msg.as_ptr(), msg.len());
-      syscall::sleep(1000);
+      syscall::yield_coop();
     }
   }
 }
