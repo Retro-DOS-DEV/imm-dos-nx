@@ -47,8 +47,14 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
       let pid = exec::get_pid();
       registers.eax = pid;
     },
-    0x4 => { // brk
-
+    0x4 => { // brk / sbrk
+      let method = registers.ebx;
+      let offset = registers.ecx;
+      let result = match exec::brk(method, offset) {
+        Ok(new_cursor) => new_cursor,
+        Err(_) => SystemError::Unknown.to_code(),
+      };
+      registers.eax = result;
     },
     0x5 => { // sleep
       let time = registers.ebx;
@@ -61,6 +67,7 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
 
     },
     0x8 => { // send_signal
+
     },
     0x09 => { // wait_pid
       let wait_id = registers.ebx;

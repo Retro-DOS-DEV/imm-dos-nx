@@ -68,7 +68,6 @@ impl ProcessState {
 
   pub fn prepare_for_exec(&self, drive_number: usize, handle: LocalHandle, interp_mode: InterpretationMode) -> usize {
     let format = self.get_exec_format(interp_mode);
-
     let new_subsystem = match format {
       ExecFormat::DOS | ExecFormat::COM => Subsystem::DOS(DosSubsystemMetadata::new()),
       _ => Subsystem::Native,
@@ -81,6 +80,8 @@ impl ProcessState {
         // need to read the file length
         let length = 0xf0;
         self.mmap(VirtualAddress::new(0), length, drive_number, handle);
+        // Start the brk heap space on the next page
+        self.start_heap(VirtualAddress::new((length + 0x1000) & 0x1000));
         // Entry is always 0
         0
       },

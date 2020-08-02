@@ -73,6 +73,18 @@ impl VirtualAddress {
   }
 }
 
+impl cmp::Ord for VirtualAddress {
+  fn cmp(&self, other: &Self) -> cmp::Ordering {
+    self.0.cmp(&other.0)
+  }
+}
+
+impl PartialOrd for VirtualAddress {
+  fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
 impl PartialEq for VirtualAddress {
   fn eq(&self, other: &Self) -> bool {
     self.0 == other.0

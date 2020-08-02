@@ -194,7 +194,7 @@ impl ProcessState {
       new_page_dir.map_region(kernel_heap);
     }
     {
-      let regions = self.get_memory_regions().write();
+      let regions = self.get_memory_regions().read();
       new_page_dir.map_region(regions.kernel_stack_region);
       new_page_dir.map_region(regions.kernel_exec_region);
       new_page_dir.map_region(regions.stack_region);
@@ -216,6 +216,53 @@ impl ProcessState {
         current_pagedir.unmap_region(region);
       }
     }
+  }
+
+  /// Move the heap to a specific page boundary. This should only be called when
+  /// a program is first mapped.
+  pub fn start_heap(&self, addr: VirtualAddress) {
+    let mut regions = self.get_memory_regions().write();
+    regions.heap_region.set_starting_address(addr);
+  }
+
+  /// Underlying implementation of the brk() syscall
+  pub fn set_heap_break(&self, addr: VirtualAddress) -> Result<VirtualAddress, ()> {
+    let heap_break = *self.get_heap_break().read();
+    // Short-circuit the common sbrk(0) call
+    if addr == heap_break {
+      return Ok(heap_break);
+    }
+    if heap_break.as_usize() & 0xfffff000 != addr.as_usize() & 0xfffff000 || heap_break.as_usize() == 0 {
+      // The old break point and the new break point are on different pages,
+      // so we need to modify the mapping region
+      let mut regions = self.get_memory_regions().write();
+      let start = regions.heap_region.get_starting_address();
+      if addr < start {
+        // Can't move the heap break below the starting point
+        return Err(());
+      }
+
+      let new_size = addr.as_usize() - start.as_usize();
+      let old_size = regions.heap_region.get_size();
+      let page_rounded_size = (new_size + 0x1000) & 0xfffff000;
+      regions.heap_region.set_size(page_rounded_size);
+
+      if new_size < old_size {
+        // TODO: unmap now-unused pages
+      }
+    }
+    *self.get_heap_break().write() = addr;
+    Ok(heap_break)
+  }
+
+  /// Underlying implementation of the sbrk() syscall
+  pub fn move_heap_break(&self, delta: isize) -> Result<VirtualAddress, ()> {
+    let heap_break = *self.get_heap_break().read();
+    let (new_break, overflow) = (heap_break.as_usize() as isize).overflowing_add(delta);
+    if overflow || new_break < 0 {
+      return Err(());
+    }
+    self.set_heap_break(VirtualAddress::new(new_break as usize))
   }
 
   /**

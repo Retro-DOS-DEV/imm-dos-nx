@@ -44,6 +44,7 @@ pub struct ProcessState {
   parent: ProcessID,
 
   memory_regions: RwLock<MemoryRegions>,
+  heap_break: RwLock<VirtualAddress>,
 
   page_directory: PageTableReference,
 
@@ -66,6 +67,7 @@ impl ProcessState {
       parent: pid,
 
       memory_regions: RwLock::new(MemoryRegions::initial(heap_start)),
+      heap_break: RwLock::new(VirtualAddress::new(0)),
 
       page_directory: PageTableReference::current(),
 
@@ -87,11 +89,13 @@ impl ProcessState {
     let new_regions = RwLock::new(self.memory_regions.read().fork());
     let new_pagedir = self.fork_page_directory();
     let new_filemap = self.fork_file_map();
+    let heap_break = *self.heap_break.read();
     ProcessState {
       pid,
       parent: self.pid,
 
       memory_regions: new_regions,
+      heap_break: RwLock::new(heap_break),
 
       page_directory: new_pagedir,
 
@@ -233,5 +237,9 @@ impl ProcessState {
 
   pub fn get_run_state(&self) -> &RwLock<RunState> {
     &self.run_state
+  }
+
+  pub fn get_heap_break(&self) -> &RwLock<VirtualAddress> {
+    &self.heap_break
   }
 }

@@ -3,6 +3,14 @@
 .global start
 
 start:
+  # make space on the heap
+  mov eax, 0x04
+  mov ebx, 0
+  mov ecx, 0x1000
+  int 0x2b
+  # attempt a write to heap space
+  movb [0x1004], 0xfc
+
   mov eax, 0x10
   lea ebx, file_path_ptr
   int 0x2b

@@ -3,7 +3,9 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::RwLock;
 
+#[cfg(not(test))]
 pub mod dev;
+#[cfg(not(test))]
 pub mod init;
 pub mod filesystem;
 
@@ -81,6 +83,7 @@ pub fn get_fs(index: usize) -> Option<Arc<Box<FileSystemType>>> {
   VFS.get_fs(index)
 }
 
+#[cfg(not(test))]
 pub fn init_fs() {
   let dev_fs = dev::DevFileSystem::new();
   VFS.register_fs("DEV", Box::new(dev_fs)).expect("Failed to register DEV FS");

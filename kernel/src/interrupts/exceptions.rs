@@ -71,6 +71,7 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
   if address >= 0xc0000000 {
     // Kernel region
     if error & 4 == 4 {
+      kprintln!("IP: {:#010x}", stack_frame.eip);
       // At ring 3
       kprintln!("Attempt to access kernel memory from userspace: {:#010x}", address);
       loop {}
@@ -101,7 +102,7 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
                 let offset = (address & 0xfffff000) - range.get_starting_address_as_usize();
                 let paddr = frame_range.get_starting_address().as_usize();
                 let frame = physical::frame::Frame::new(paddr + offset);
-                
+
                 let page_start = VirtualAddress::new(address & 0xfffff000);
                 let flags = PermissionFlags::empty();
                 current_pagedir.map(frame, page_start, flags);

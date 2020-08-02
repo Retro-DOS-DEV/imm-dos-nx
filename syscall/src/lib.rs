@@ -84,6 +84,14 @@ pub fn exec_format(path: &'static str, format: u32) {
   syscall_inner(0x02, &path_ptr as *const StringPtr as u32, 0, format);
 }
 
+pub fn brk(addr: u32) -> u32 {
+  syscall_inner(0x04, 0, addr, 0)
+}
+
+pub fn sbrk(delta: i32) -> u32 {
+  syscall_inner(0x04, 1, delta as u32, 0)
+}
+
 pub fn yield_coop() {
   syscall_inner(0x06, 0, 0, 0);
 }

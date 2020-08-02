@@ -19,7 +19,7 @@ impl PipeFileSystem {
 
 impl FileSystem for PipeFileSystem {
   /// Open only works for named pipes, which are not yet implemented
-  fn open(&self, path: &str) -> Result<LocalHandle, ()> {
+  fn open(&self, _path: &str) -> Result<LocalHandle, ()> {
     Err(())
   }
 
@@ -31,11 +31,11 @@ impl FileSystem for PipeFileSystem {
     self.collection.write(handle, buffer).map_err(|_| ())
   }
 
-  fn close(&self, handle: LocalHandle) -> Result<(), ()> {
+  fn close(&self, _handle: LocalHandle) -> Result<(), ()> {
     Err(())
   }
 
-  fn dup(&self, handle: LocalHandle) -> Result<LocalHandle, ()> {
+  fn dup(&self, _handle: LocalHandle) -> Result<LocalHandle, ()> {
     Err(())
   }
 

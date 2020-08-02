@@ -11,6 +11,7 @@
 pub mod buffers;
 pub mod collections;
 pub mod files;
+pub mod filesystems;
 pub mod memory;
 pub mod pipes;
 pub mod promise;
@@ -24,8 +25,6 @@ pub mod devices;
 pub mod disks;
 #[cfg(not(test))]
 pub mod drivers;
-#[cfg(not(test))]
-pub mod filesystems;
 #[cfg(not(test))]
 pub mod gdt;
 #[cfg(not(test))]
@@ -302,6 +301,7 @@ pub extern fn user_init() {
   }
   */
 
+  /*
   let pid = syscall::fork();
   if pid == 0 {
     let tty1 = syscall::open("DEV:\\TTY1");
@@ -331,6 +331,16 @@ pub extern fn user_init() {
     syscall::read(fd, buffer.as_mut_ptr(), buffer.len());
     syscall::write(console, buffer.as_ptr(), buffer.len());
 
+    loop {
+      syscall::yield_coop();
+    }
+  }
+  */
+
+  let pid = syscall::fork();
+  if pid == 0 {
+    syscall::exec("INIT:\\test.bin");
+  } else {
     loop {
       syscall::yield_coop();
     }

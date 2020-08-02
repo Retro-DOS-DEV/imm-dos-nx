@@ -72,12 +72,20 @@ impl VirtualMemoryRegion {
     self.start = start;
   }
 
+  pub fn get_starting_address(&self) -> VirtualAddress {
+    self.start
+  }
+
   pub fn get_starting_address_as_usize(&self) -> usize {
     self.start.as_usize()
   }
 
   pub fn get_size(&self) -> usize {
     self.size
+  }
+
+  pub fn set_size(&mut self, size: usize) {
+    self.size = size;
   }
 
   pub fn contains_address(&self, addr: VirtualAddress) -> bool {
