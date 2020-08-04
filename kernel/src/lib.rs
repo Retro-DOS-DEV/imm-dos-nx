@@ -193,6 +193,9 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     let boxed_fs = alloc::boxed::Box::new(init_fs);
     filesystems::VFS.register_fs("INIT", boxed_fs).expect("Failed to register INIT FS");
 
+    let fat_fs = filesystems::fat12::create_fs("FD0").unwrap();
+    filesystems::VFS.register_fs("A", fat_fs).expect("Failed to register A:");
+
     process::init();
     let init_process = process::all_processes_mut().spawn_first_process(heap_start);
     process::make_current(init_process);
@@ -337,6 +340,7 @@ pub extern fn user_init() {
   }
   */
 
+  /*
   let pid = syscall::fork();
   if pid == 0 {
     syscall::exec("INIT:\\test.bin");
@@ -344,5 +348,11 @@ pub extern fn user_init() {
     loop {
       syscall::yield_coop();
     }
+  }
+  */
+  syscall::sleep(1000);
+  syscall::open("A:\\TEST");
+  loop {
+    syscall::yield_coop();
   }
 }

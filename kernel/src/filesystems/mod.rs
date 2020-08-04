@@ -6,6 +6,8 @@ use spin::RwLock;
 #[cfg(not(test))]
 pub mod dev;
 #[cfg(not(test))]
+pub mod fat12;
+#[cfg(not(test))]
 pub mod init;
 pub mod filesystem;
 
