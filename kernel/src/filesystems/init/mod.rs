@@ -3,6 +3,7 @@ use crate::files::{cursor::SeekMethod, handle::{HandleAllocator, LocalHandle}};
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
 use super::filesystem::FileSystem;
+use syscall::files::DirEntryInfo;
 
 struct OpenFile {
   pub cursor: usize,
@@ -104,6 +105,14 @@ impl FileSystem for InitFileSystem {
       },
       None => Err(())
     }
+  }
+
+  fn open_dir(&self, path: &str) -> Result<LocalHandle, ()> {
+    Err(())
+  }
+
+  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<(), ()> {
+    Err(())
   }
 }
 

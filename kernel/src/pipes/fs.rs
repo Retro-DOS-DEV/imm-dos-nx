@@ -4,6 +4,7 @@ use crate::files::handle::LocalHandle;
 use crate::files::ioctl::FIONREAD;
 use crate::filesystems::filesystem::FileSystem;
 use super::collection::PipeCollection;
+use syscall::files::DirEntryInfo;
 
 pub struct PipeFileSystem {
   collection: Arc<PipeCollection>,
@@ -55,6 +56,14 @@ impl FileSystem for PipeFileSystem {
   }
 
   fn seek(&self, _handle: LocalHandle, _offset: SeekMethod) -> Result<usize, ()> {
+    Err(())
+  }
+
+  fn open_dir(&self, path: &str) -> Result<LocalHandle, ()> {
+    Err(())
+  }
+
+  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<(), ()> {
     Err(())
   }
 }

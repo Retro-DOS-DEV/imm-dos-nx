@@ -51,6 +51,7 @@ pub struct ProcessState {
   kernel_esp: RwLock<usize>,
 
   open_files: RwLock<FileHandleMap>,
+  open_directories: RwLock<FileHandleMap>,
 
   run_state: RwLock<RunState>,
   subsystem: RwLock<Subsystem>,
@@ -74,6 +75,7 @@ impl ProcessState {
       kernel_esp: RwLock::new(0),
 
       open_files: RwLock::new(FileHandleMap::new()),
+      open_directories: RwLock::new(FileHandleMap::new()),
 
       run_state: RwLock::new(RunState::Running),
       subsystem: RwLock::new(Subsystem::Native),
@@ -89,6 +91,7 @@ impl ProcessState {
     let new_regions = RwLock::new(self.memory_regions.read().fork());
     let new_pagedir = self.fork_page_directory();
     let new_filemap = self.fork_file_map();
+    let new_dirmap = self.fork_directory_map();
     let heap_break = *self.heap_break.read();
     ProcessState {
       pid,
@@ -104,6 +107,7 @@ impl ProcessState {
       ),
 
       open_files: RwLock::new(new_filemap),
+      open_directories: RwLock::new(new_dirmap),
 
       run_state: RwLock::new(RunState::Running),
       subsystem: RwLock::new(Subsystem::Native),
@@ -192,6 +196,10 @@ impl ProcessState {
 
   pub fn get_open_files(&self) -> &RwLock<FileHandleMap> {
     &self.open_files
+  }
+
+  pub fn get_open_directories(&self) -> &RwLock<FileHandleMap> {
+    &self.open_directories
   }
 
   pub fn get_subsystem(&self) -> &RwLock<Subsystem> {

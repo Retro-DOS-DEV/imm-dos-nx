@@ -4,6 +4,7 @@ use crate::files::handle::{FileHandle, Handle};
 use crate::filesystems;
 use crate::pipes;
 use super::current_process;
+use syscall::files::{DirEntryInfo, DirEntryType};
 use syscall::result::SystemError;
 
 pub fn open_path(path_str: &'static str) -> Result<u32, SystemError> {
@@ -126,4 +127,22 @@ pub fn seek(handle: u32, method: u32, cursor: u32) -> Result<u32, SystemError> {
   fs.seek(drive_and_handle.1, seek_method)
     .map(|new_cursor| new_cursor as u32)
     .map_err(|_| SystemError::IOError)
+}
+
+pub fn opendir(path_str: &'static str) -> Result<u32, SystemError> {
+  let (drive, path) = filename::string_to_drive_and_path(path_str);
+  let number = filesystems::get_fs_number(drive).ok_or(SystemError::NoSuchDrive)?;
+  let fs = filesystems::get_fs(number).ok_or(SystemError::NoSuchFileSystem)?;
+  let local_handle = fs.open_dir(path).map_err(|_| SystemError::NoSuchEntity)?;
+  current_process().open_directory(number, local_handle).map(|handle| handle.as_u32())
+}
+
+pub fn readdir(handle: u32, index: usize, info: *mut DirEntryInfo) -> Result<(), SystemError> {
+  let drive_and_handle = current_process()
+    .get_open_file_info(FileHandle::new(handle))
+    .ok_or(SystemError::BadFileDescriptor)?;
+  let fs = filesystems::get_fs(drive_and_handle.0).ok_or(SystemError::NoSuchFileSystem)?;
+  
+  let entry = unsafe { &mut *info };
+  fs.read_dir(drive_and_handle.1, index, entry).map_err(|_| SystemError::NoSuchEntity)
 }

@@ -9,6 +9,7 @@ use spin::RwLock;
 use super::directory;
 use super::disk::Cluster;
 use super::super::filesystem::FileSystem;
+use syscall::files::DirEntryInfo;
 
 struct OpenFile {
   pub cursor: usize,
@@ -87,6 +88,14 @@ impl FileSystem for Fat12FileSystem {
   }
 
   fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()> {
+    Err(())
+  }
+
+  fn open_dir(&self, path: &str) -> Result<LocalHandle, ()> {
+    Err(())
+  }
+
+  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<(), ()> {
     Err(())
   }
 }
