@@ -64,10 +64,10 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
       exec::yield_coop();
     },
     0x7 => { // raise
-
+      exec::raise_signal(registers.ebx);
     },
     0x8 => { // send_signal
-
+      exec::send_signal(registers.ebx, registers.ecx);
     },
     0x09 => { // wait_pid
       let wait_id = registers.ebx;

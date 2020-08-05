@@ -21,5 +21,7 @@ pub fn create_fs(device: &str) -> Result<Box<FileSystemType>, ()> {
     }
   }
   let device_no = devices::get_device_number_by_name(&name).ok_or(())?;
-  Ok(Box::new(fs::Fat12FileSystem::new(device_no)))
+  let mut fat = fs::Fat12FileSystem::new(device_no);
+  fat.init()?;
+  Ok(Box::new(fat))
 }

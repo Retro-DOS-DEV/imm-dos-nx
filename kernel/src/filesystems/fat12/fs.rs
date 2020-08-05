@@ -7,7 +7,7 @@ use crate::files::handle::{Handle, HandleAllocator, LocalHandle};
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
 use super::directory;
-use super::disk::Cluster;
+use super::disk::{BiosParamBlock, Cluster, DiskConfig};
 use super::super::filesystem::FileSystem;
 use syscall::files::DirEntryInfo;
 
@@ -21,6 +21,7 @@ pub struct Fat12FileSystem {
   open_files: RwLock<BTreeMap<LocalHandle, OpenFile>>,
 
   drive_number: usize,
+  config: DiskConfig,
   io_buffer: RwLock<Vec<u8>>,
 }
 
@@ -35,8 +36,20 @@ impl Fat12FileSystem {
       open_files: RwLock::new(BTreeMap::new()),
 
       drive_number,
+      config: DiskConfig::empty(),
       io_buffer: RwLock::new(io_buffer),
     }
+  }
+
+  pub fn init(&mut self) -> Result<(), ()> {
+    let handle = self.handle_allocator.get_next();
+    let driver = devices::get_driver_for_device(self.drive_number).ok_or(())?;
+    driver.open(handle)?;
+    driver.seek(handle, SeekMethod::Absolute(0x0b))?;
+    let mut bpb = BiosParamBlock::empty();
+    driver.read(handle, bpb.as_buffer())?;
+    self.config.from_bpb(&bpb);
+    Ok(())
   }
 
   fn get_io_buffer_address(&self) -> VirtualAddress {

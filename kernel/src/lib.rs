@@ -193,9 +193,6 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     let boxed_fs = alloc::boxed::Box::new(init_fs);
     filesystems::VFS.register_fs("INIT", boxed_fs).expect("Failed to register INIT FS");
 
-    let fat_fs = filesystems::fat12::create_fs("FD0").unwrap();
-    filesystems::VFS.register_fs("A", fat_fs).expect("Failed to register A:");
-
     process::init();
     let init_process = process::all_processes_mut().spawn_first_process(heap_start);
     process::make_current(init_process);
@@ -203,6 +200,14 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
   let current_time = time::system::get_system_time().to_timestamp().to_datetime();
   tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
+
+  // Spawn init process
+  let init_proc_id = process::all_processes_mut().fork_current();
+  {
+    let mut processes = process::all_processes_mut();
+    let init_proc = processes.get_process(init_proc_id).unwrap();
+    init_proc.set_initial_entry_point(user_init, 0xbffffffc);
+  }
 
   {
     let input_proc = process::all_processes_mut().fork_current();
@@ -213,14 +218,6 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     let ttys_proc = process::all_processes_mut().fork_current();
     process::set_kernel_mode_function(ttys_proc, tty::ttys_process);
-  }
-
-  // Spawn init process
-  let init_proc_id = process::all_processes_mut().fork_current();
-  {
-    let mut processes = process::all_processes_mut();
-    let init_proc = processes.get_process(init_proc_id).unwrap();
-    init_proc.set_initial_entry_point(user_init, 0xbffffffc);
   }
 
   process::enter_usermode(init_proc_id);
@@ -236,9 +233,18 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
 #[inline(never)]
 pub extern fn user_init() {
-  let com1 = syscall::open("DEV:\\COM1");
-  let intro = "Opened COM1. ";
-  syscall::write(com1, intro.as_ptr(), intro.len());
+  let tty0 = syscall::open("DEV:\\TTY0");
+  syscall::write_str(tty0, "Initializing devices...\n");
+  let pid = syscall::get_pid() as u8;
+  let mut pidmsg: [u8; 7] = [b'P', b'I', b'D', b':', b' ', b' ', b'\n'];
+  unsafe {
+    pidmsg[5] = pid + 48;
+  }
+  syscall::write(tty0, pidmsg.as_ptr(), pidmsg.len());
+  syscall::raise(syscall::signals::STOP);
+  syscall::yield_coop();
+
+  syscall::write_str(tty0, "System ready.\n");
 
   /*
   let read_write: [u32; 2] = [0; 2];

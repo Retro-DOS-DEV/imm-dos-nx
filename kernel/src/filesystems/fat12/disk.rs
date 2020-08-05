@@ -49,6 +49,24 @@ pub struct DiskConfig {
 }
 
 impl DiskConfig {
+  pub fn empty() -> DiskConfig {
+    DiskConfig {
+      sectors_per_cluster: 1,
+      reserved_sectors: 1,
+      fat_count: 1,
+      root_directory_entries: 1,
+      sectors_per_fat: 1,
+    }
+  }
+
+  pub fn from_bpb(&mut self, bpb: &BiosParamBlock) {
+    self.sectors_per_cluster = bpb.sectors_per_cluster as usize;
+    self.reserved_sectors = bpb.reserved_sectors as usize;
+    self.fat_count = bpb.fat_count as usize;
+    self.root_directory_entries = bpb.root_directory_entries as usize;
+    self.sectors_per_fat = bpb.sectors_per_fat as usize;
+  }
+
   /// Determine which disk sectors correspond with a given cluster
   pub fn get_sectors_for_cluster(&self, cluster: Cluster) -> SectorRange {
     let first = cluster.as_usize() * self.sectors_per_cluster;
@@ -70,5 +88,40 @@ impl DiskConfig {
 
   pub fn get_root_directory_size(&self) -> usize {
     self.root_directory_entries * DIRECTORY_ENTRY_SIZE
+  }
+}
+
+#[repr(C, packed)]
+pub struct BiosParamBlock {
+  pub bytes_per_sector: u16,
+  pub sectors_per_cluster: u8,
+  pub reserved_sectors: u16,
+  pub fat_count: u8,
+  pub root_directory_entries: u16,
+  pub total_sectors: u16,
+  pub media_desc: u8,
+  pub sectors_per_fat: u16,
+}
+
+impl BiosParamBlock {
+  pub fn empty() -> BiosParamBlock {
+    BiosParamBlock {
+      bytes_per_sector: 0,
+      sectors_per_cluster: 0,
+      reserved_sectors: 0,
+      fat_count: 0,
+      root_directory_entries: 0,
+      total_sectors: 0,
+      media_desc: 0,
+      sectors_per_fat: 0,
+    }
+  }
+
+  pub fn as_buffer(&mut self) -> &mut [u8] {
+    let len = core::mem::size_of::<BiosParamBlock>();
+    unsafe {
+      let ptr = self as *mut BiosParamBlock as *mut u8;
+      core::slice::from_raw_parts_mut(ptr, len)
+    }
   }
 }

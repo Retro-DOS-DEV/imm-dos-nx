@@ -19,7 +19,7 @@ impl ProcessMap {
   pub fn new() -> ProcessMap {
     ProcessMap {
       current: ProcessID::new(0),
-      next_pid: AtomicU32::new(1),
+      next_pid: AtomicU32::new(0),
       processes: BTreeMap::new(),
     }
   }
