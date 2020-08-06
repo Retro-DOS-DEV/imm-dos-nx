@@ -1,21 +1,7 @@
 use super::errors::FatError;
+use super::fat::Cluster;
 
-const DIRECTORY_ENTRY_SIZE: usize = 32;
-
-/// Wrapper type representing a cluster index
-/// Clusters typically have a 1-1 relationship with sectors, but they may differ
-/// so we want to have a special data type for them.
-pub struct Cluster(usize);
-
-impl Cluster {
-  pub fn new(index: usize) -> Cluster {
-    Cluster(index)
-  }
-
-  pub fn as_usize(&self) -> usize {
-    self.0
-  }
-}
+pub const DIRECTORY_ENTRY_SIZE: usize = 32;
 
 /// Represent a contiguous block of sectors on a disk
 pub struct SectorRange {
@@ -41,30 +27,40 @@ impl SectorRange {
 }
 
 pub struct DiskConfig {
+  bytes_per_sector: usize,
   sectors_per_cluster: usize,
   reserved_sectors: usize,
   fat_count: usize,
   root_directory_entries: usize,
   sectors_per_fat: usize,
+  total_sectors: usize,
 }
 
 impl DiskConfig {
   pub fn empty() -> DiskConfig {
     DiskConfig {
+      bytes_per_sector: 512,
       sectors_per_cluster: 1,
       reserved_sectors: 1,
       fat_count: 1,
       root_directory_entries: 1,
       sectors_per_fat: 1,
+      total_sectors: 1,
     }
   }
 
   pub fn from_bpb(&mut self, bpb: &BiosParamBlock) {
+    self.bytes_per_sector = bpb.bytes_per_sector as usize;
     self.sectors_per_cluster = bpb.sectors_per_cluster as usize;
     self.reserved_sectors = bpb.reserved_sectors as usize;
     self.fat_count = bpb.fat_count as usize;
     self.root_directory_entries = bpb.root_directory_entries as usize;
     self.sectors_per_fat = bpb.sectors_per_fat as usize;
+    self.total_sectors = bpb.total_sectors as usize;
+  }
+
+  pub fn get_sectors_per_cluster(&self) -> usize {
+    self.sectors_per_cluster
   }
 
   /// Determine which disk sectors correspond with a given cluster
@@ -88,6 +84,29 @@ impl DiskConfig {
 
   pub fn get_root_directory_size(&self) -> usize {
     self.root_directory_entries * DIRECTORY_ENTRY_SIZE
+  }
+
+  pub fn get_bytes_per_sector(&self) -> usize {
+    self.bytes_per_sector
+  }
+
+  pub fn get_root_directory_sectors(&self) -> SectorRange {
+    let sector_count = self.get_root_directory_size() / self.bytes_per_sector;
+    let first_sector = self.reserved_sectors + (self.fat_count * self.sectors_per_fat);
+    SectorRange::new(first_sector, sector_count)
+  }
+
+  pub fn get_data_sectors(&self) -> SectorRange {
+    let first_sector = self.get_root_directory_sectors().get_first_sector();
+    let count = self.total_sectors - first_sector;
+    SectorRange::new(first_sector, count)
+  }
+
+  pub fn get_directory_index_location(&self, index: usize) -> (usize, usize) {
+    let entries_per_sector = self.bytes_per_sector / DIRECTORY_ENTRY_SIZE;
+    let absolute_sector = index / entries_per_sector;
+    let local_index = index % entries_per_sector;
+    (absolute_sector, local_index)
   }
 }
 

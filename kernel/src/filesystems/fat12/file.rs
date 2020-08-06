@@ -38,3 +38,19 @@ pub enum FileType {
   Directory,
   VolumeLabel,
 }
+
+impl FileType {
+  pub fn is_file(&self) -> bool {
+    match self {
+      FileType::File => true,
+      _ => false,
+    }
+  }
+
+  pub fn is_directory(&self) -> bool {
+    match self {
+      FileType::Directory => true,
+      _ => false,
+    }
+  }
+}

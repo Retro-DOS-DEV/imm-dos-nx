@@ -133,13 +133,26 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     0x19 => { // rmdir
 
     },
-    0x1a => { // readdir
-
+    0x1a => { // opendir
+      let path_str_ptr = &*(registers.ebx as *const syscall::StringPtr);
+      let path_str = path_str_ptr.as_str();
+      let result = match file::open_dir(path_str) {
+        Ok(handle) => handle,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
     },
-    0x1b => { // chdir
-
+    0x1b => { // readdir
+      let handle = registers.ebx;
+      let index = registers.ecx as usize;
+      let info_ptr = registers.edx as *mut syscall::files::DirEntryInfo;
+      let result = match file::read_dir(handle, index, info_ptr) {
+        Ok(_) => 0,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
     },
-    0x1c => { // getcwd
+    0x1c => { // closedir
 
     },
     0x1d => { // dup
@@ -183,6 +196,10 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
         Err(_) => SystemError::BadFileDescriptor.to_code(),
       };
       registers.eax = result;
+    },
+    0x21 => { // chdir
+    },
+    0x22 => { // getcwd
     },
 
     // filesystem

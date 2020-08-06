@@ -246,6 +246,24 @@ pub extern fn user_init() {
 
   syscall::write_str(tty0, "System ready.\n");
 
+  let mut entry = syscall::files::DirEntryInfo::empty();
+  syscall::write_str(tty0, "Root Directory Contents:\n");
+  let dir_handle = syscall::open_dir("A:\\");
+  let mut dir_index = 0;
+  loop {
+    syscall::read_dir(dir_handle, dir_index, &mut entry as *mut syscall::files::DirEntryInfo);
+    dir_index += 1;
+    if entry.is_empty() {
+      break;
+    }
+    syscall::write_str(tty0, "  ");
+    syscall::write(tty0, entry.file_name.as_ptr(), entry.file_name.len());
+    syscall::write_str(tty0, " ");
+    syscall::write(tty0, entry.file_ext.as_ptr(), entry.file_ext.len());
+    syscall::write_str(tty0, "\n");
+  }
+  syscall::write_str(tty0, "DONE");
+
   /*
   let read_write: [u32; 2] = [0; 2];
   let _ = syscall::pipe(&read_write);
@@ -356,8 +374,7 @@ pub extern fn user_init() {
     }
   }
   */
-  syscall::sleep(1000);
-  syscall::open("A:\\TEST");
+
   loop {
     syscall::yield_coop();
   }

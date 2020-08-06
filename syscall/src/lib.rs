@@ -45,6 +45,15 @@ pub fn write_str(handle: u32, str: &str) -> usize {
   write(handle, str.as_ptr(), str.len())
 }
 
+pub fn open_dir(path: &'static str) -> u32 {
+  let path_ptr = StringPtr::from_str(path);
+  syscall_inner(0x1a, &path_ptr as *const StringPtr as u32, 0, 0)
+}
+
+pub fn read_dir(handle: u32, index: u32, info: *mut files::DirEntryInfo) {
+  syscall_inner(0x1b, handle, index, info as u32);
+}
+
 pub fn dup(handle: u32) -> u32 {
   syscall_inner(0x1d, handle, 0xffffffff, 0)
 }

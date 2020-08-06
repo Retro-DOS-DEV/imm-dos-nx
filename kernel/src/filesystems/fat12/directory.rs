@@ -1,12 +1,19 @@
-use alloc::vec::Vec;
 use crate::memory::address::VirtualAddress;
-use super::disk::{Cluster};
+use super::fat::{Cluster, ClusterChain};
 use super::file::{FileDate, FileTime, FileType};
 
 /// Directories are handled internally as chains of Clusters, so that the driver
 /// can easily iterate through the sections on disk.
 pub struct Directory {
-  clusters: Vec<Cluster>
+  pub clusters: ClusterChain,
+}
+
+impl Directory {
+  pub fn empty() -> Directory {
+    Directory {
+      clusters: ClusterChain::empty(),
+    }
+  }
 }
 
 /// On-disk representation of a file or subdirectory
@@ -41,6 +48,13 @@ pub struct DirectoryEntry {
 }
 
 impl DirectoryEntry {
+  pub fn at_address(addr: VirtualAddress) -> &'static mut DirectoryEntry {
+    let ptr = addr.as_usize() as *mut DirectoryEntry;
+    unsafe {
+      &mut *ptr
+    }
+  }
+
   pub fn get_name(&self) -> &[u8] {
     &self.file_name
   }
@@ -65,6 +79,18 @@ impl DirectoryEntry {
 
   pub fn is_empty(&self) -> bool {
     self.file_name[0] == 0
+  }
+
+  pub fn copy_name(&self, buffer: &mut [u8; 8]) {
+    for i in 0..8 {
+      buffer[i] = self.file_name[i];
+    }
+  }
+
+  pub fn copy_ext(&self, buffer: &mut [u8; 3]) {
+    for i in 0..3 {
+      buffer[i] = self.ext[i];
+    }
   }
 
   pub fn get_full_name(&self, buffer: &mut [u8; 11]) {
@@ -118,4 +144,9 @@ impl<'a> Iterator for DirectoryEntryIterator<'a> {
     self.current += 1;
     Some(entry)
   }
+}
+
+/// Reference to an open file or directory on disk
+pub struct FileReference {
+  dir_entry: DirectoryEntry,
 }

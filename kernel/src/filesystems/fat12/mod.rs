@@ -5,6 +5,7 @@ use super::FileSystemType;
 pub mod directory;
 pub mod disk;
 pub mod errors;
+pub mod fat;
 pub mod file;
 pub mod fs;
 
