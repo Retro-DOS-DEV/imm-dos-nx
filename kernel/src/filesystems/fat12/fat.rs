@@ -29,8 +29,20 @@ impl ClusterChain {
     }
   }
 
+  pub fn from_vec(v: Vec<Cluster>) -> ClusterChain {
+    ClusterChain {
+      clusters: Arc::new(v),
+    }
+  }
+
   pub fn sector_iter(&self, disk_config: &DiskConfig) -> ChainSectorIterator {
     ChainSectorIterator::new(Arc::clone(&self.clusters), disk_config)
+  }
+}
+
+impl core::fmt::Debug for ClusterChain {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    f.debug_list().entries(self.clusters.iter()).finish()
   }
 }
 
@@ -110,6 +122,13 @@ impl FatEntry {
       0xff7 => FatEntry::BadSector,
       0xff8..=0xfff => FatEntry::EndOfChain,
       _ => FatEntry::NextCluster(Cluster::new(value as usize)),
+    }
+  }
+
+  pub fn has_next(&self) -> bool {
+    match self {
+      FatEntry::NextCluster(_) => true,
+      _ => false,
     }
   }
 }

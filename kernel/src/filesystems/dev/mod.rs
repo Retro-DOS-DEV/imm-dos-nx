@@ -1,4 +1,7 @@
+use alloc::boxed::Box;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::any::Any;
 use crate::devices;
 use crate::files::{handle::{Handle, HandleAllocator, LocalHandle}, cursor::SeekMethod};
 use spin::RwLock;
@@ -109,8 +112,13 @@ impl FileSystem for DevFileSystem {
     }
   }
 
-  fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {
-    Err(())
+  fn ioctl(&self, handle: LocalHandle, command: u32, _arg: u32) -> Result<u32, ()> {
+    match command {
+      0 => { // Identify device number
+        self.get_device_for_handle(handle).map(|d| d as u32).ok_or(())
+      },
+      _ => Err(())
+    }
   }
 
   fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()> {

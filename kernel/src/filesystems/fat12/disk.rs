@@ -90,6 +90,10 @@ impl DiskConfig {
     self.bytes_per_sector
   }
 
+  pub fn get_sectors_per_fat(&self) -> usize {
+    self.sectors_per_fat
+  }
+
   pub fn get_root_directory_sectors(&self) -> SectorRange {
     let sector_count = self.get_root_directory_size() / self.bytes_per_sector;
     let first_sector = self.reserved_sectors + (self.fat_count * self.sectors_per_fat);
