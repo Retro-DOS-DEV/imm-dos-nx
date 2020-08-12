@@ -264,6 +264,8 @@ pub extern fn user_init() {
   }
   syscall::write_str(tty0, "DONE");
 
+  let file_handle = syscall::open("A:\\BOOT.BIN");
+
   /*
   let read_write: [u32; 2] = [0; 2];
   let _ = syscall::pipe(&read_write);

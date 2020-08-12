@@ -22,8 +22,5 @@ pub fn create_fs(device: &str) -> Result<Box<FileSystemType>, ()> {
   let mut fat_fs = fs::Fat12FileSystem::new(device_no, access_handle);
   fat_fs.init()?;
 
-  let clusters = fat_fs.get_cluster_chain(fat::Cluster::new(2)).unwrap();
-  crate::kprintln!("CL: {:?}", clusters);
-
   Ok(Box::new(fat_fs))
 }

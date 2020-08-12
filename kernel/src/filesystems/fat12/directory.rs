@@ -1,6 +1,6 @@
 use crate::memory::address::VirtualAddress;
 use super::fat::{Cluster, ClusterChain};
-use super::file::{FileDate, FileTime, FileType};
+use super::file::{FileDate, FileTime, FileType, name_character_matches};
 
 /// Directories are handled internally as chains of Clusters, so that the driver
 /// can easily iterate through the sections on disk.
@@ -18,6 +18,7 @@ impl Directory {
 
 /// On-disk representation of a file or subdirectory
 #[repr(C, packed)]
+#[derive(Copy, Clone)]
 pub struct DirectoryEntry {
   /// Short filename
   file_name: [u8; 8],
@@ -104,6 +105,20 @@ impl DirectoryEntry {
 
   pub fn get_byte_size(&self) -> usize {
     self.byte_size as usize
+  }
+
+  pub fn name_matches_search(&self, name: &[u8; 8], ext: &[u8; 3]) -> bool {
+    for i in 0..8 {
+      if !name_character_matches(self.file_name[i], name[i]) {
+        return false;
+      }
+    }
+    for i in 0..3 {
+      if !name_character_matches(self.ext[i], ext[i]) {
+        return false;
+      }
+    }
+    true
   }
 }
 
