@@ -17,6 +17,10 @@ static KNOWN_TIME: Mutex<TimestampHires> = Mutex::new(TimestampHires(0));
 /// Store an offset, regularly updated by the PIT
 static TIME_OFFSET: Mutex<TimestampHires> = Mutex::new(TimestampHires(0));
 
+/// Stores the number of clock ticks since the kernel began execution. This is
+/// used for relative time offsets within the various kernel internals.
+static SYSTEM_TICKS: Mutex<u32> = Mutex::new(0);
+
 /// Reset the known true reference point
 pub fn reset_known_time(time: u64) {
   let int_reenable = interrupts::is_interrupt_enabled();

@@ -52,8 +52,8 @@ pub enum RunState {
   Sleeping(usize),
   /// Paused because of a signal
   Paused,
-  /// Waiting for IPC messages
-  AwaitingIPC,
+  /// Waiting for IPC messages, with an optional timeout
+  AwaitingIPC(Option<usize>),
   /// Waiting for a child process to finish executing
   WaitingForChild(ProcessID),
   /// Just resumed from a waiting state. This is quickly replaced with a Running
