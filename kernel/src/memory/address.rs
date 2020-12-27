@@ -1,5 +1,6 @@
 use core::cmp;
 use core::fmt;
+use core::ops;
 
 #[derive(Copy, Clone, Eq)]
 #[repr(transparent)]
@@ -37,11 +38,29 @@ impl PartialEq for PhysicalAddress {
   }
 }
 
+impl ops::Add<usize> for PhysicalAddress {
+  type Output = Self;
+
+  fn add(self, other: usize) -> Self {
+    Self(self.0 + other)
+  }
+}
+
+impl ops::Sub<PhysicalAddress> for PhysicalAddress {
+  type Output = usize;
+
+  fn sub(self, other: Self) -> usize {
+    self.as_usize() - other.as_usize()
+  }
+}
+
 impl fmt::Debug for PhysicalAddress {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "PhysicalAddress({:#010x})", self.0)
   }
 }
+
+pub const PAGE_SIZE_IN_BYTES: usize = 0x1000;
 
 #[derive(Copy, Clone, Eq)]
 #[repr(transparent)]
@@ -71,6 +90,23 @@ impl VirtualAddress {
   pub fn offset(&self, delta: usize) -> VirtualAddress {
     VirtualAddress::new(self.0 + delta)
   }
+
+  pub fn is_page_aligned(&self) -> bool {
+    self.0 & 0xfff == 0
+  }
+
+  pub fn next_page_barrier(&self) -> VirtualAddress {
+    if self.0 & 0xfff == 0 {
+      VirtualAddress::new(self.0)
+    } else {
+      let next = self.0 + 0x1000;
+      VirtualAddress::new(next & 0xfffff000)
+    }
+  }
+
+  pub fn prev_page_barrier(&self) -> VirtualAddress {
+    VirtualAddress::new(self.0 & 0xfffff000)
+  }
 }
 
 impl cmp::Ord for VirtualAddress {
@@ -88,6 +124,30 @@ impl PartialOrd for VirtualAddress {
 impl PartialEq for VirtualAddress {
   fn eq(&self, other: &Self) -> bool {
     self.0 == other.0
+  }
+}
+
+impl ops::Add<usize> for VirtualAddress {
+  type Output = Self;
+
+  fn add(self, other: usize) -> Self {
+    Self(self.0 + other)
+  }
+}
+
+impl ops::Sub<VirtualAddress> for VirtualAddress {
+  type Output = usize;
+
+  fn sub(self, other: Self) -> usize {
+    self.as_usize() - other.as_usize()
+  }
+}
+
+impl ops::Sub<usize> for VirtualAddress {
+  type Output = VirtualAddress;
+
+  fn sub(self, other: usize) -> VirtualAddress {
+    VirtualAddress::new(self.as_usize() - other)
   }
 }
 

@@ -15,6 +15,7 @@ pub mod filesystems;
 pub mod memory;
 pub mod pipes;
 pub mod promise;
+pub mod task;
 pub mod time;
 
 #[cfg(not(test))]
