@@ -1,3 +1,4 @@
+use crate::memory::address::VirtualAddress;
 use super::id::ProcessID;
 use super::ipc::{IPCMessage, IPCPacket, IPCQueue};
 use super::memory::MemoryRegions;
@@ -147,11 +148,20 @@ impl Process {
       _ => (),
     }
   }
+
+  /// Increase the process heap by a specific number of bytes. The old heap
+  /// endpoint will be returned.
+  pub fn increase_heap(&mut self, increment: usize) -> VirtualAddress {
+    let start = self.memory.get_heap_start();
+    let prev_size = self.memory.get_heap_size();
+    self.memory.set_heap_size(prev_size + increment);
+    start + prev_size
+  }
 }
 
 #[cfg(test)]
 mod tests {
-  use super::Process;
+  use super::{Process, VirtualAddress};
 
   #[test]
   fn sleeping() {
@@ -163,5 +173,24 @@ mod tests {
     assert!(!p.can_resume());
     p.update_timeouts(700);
     assert!(p.can_resume());
+  }
+
+  #[test]
+  fn heap_modification() {
+    let mut p = Process::initial(0);
+    // just put the heap endpoint somewhere
+    p.increase_heap(0x250);
+    // simulate `brk`
+    {
+      let prev = p.increase_heap(0);
+      p.increase_heap(VirtualAddress::new(0x1200) - prev);
+      assert_eq!(p.memory.get_heap_start() + p.memory.get_heap_size(), VirtualAddress::new(0x1200));
+    }
+    // simulate `sbrk`
+    {
+      let prev = p.increase_heap(0);
+      assert_eq!(prev, p.increase_heap(0x430));
+      assert_eq!(prev + 0x430, p.memory.get_heap_start() + p.memory.get_heap_size());
+    }
   }
 }
