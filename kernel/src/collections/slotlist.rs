@@ -62,6 +62,14 @@ impl<T: Sized> SlotList<T> {
     let prev = entry.take();
     prev
   }
+
+  pub fn replace(&mut self, index: usize, item: T) -> Option<T> {
+    while self.slots.len() <= index {
+      self.slots.push(None);
+    }
+    let entry = self.slots.get_mut(index).unwrap();
+    entry.replace(item)
+  }
 }
 
 #[cfg(test)]
@@ -105,7 +113,7 @@ mod tests {
   }
 
   #[test]
-  fn replacing_items() {
+  fn replacing_emptied_items() {
     let mut list: SlotList<u32> = SlotList::new();
     list.insert(11);
     list.insert(22);
@@ -115,5 +123,18 @@ mod tests {
     assert_eq!(list.insert(44), 0);
     assert_eq!(list.insert(55), 1);
     assert_eq!(list.insert(66), 3);
+  }
+
+  #[test]
+  fn replacing_existing_entries() {
+    let mut list: SlotList<u32> = SlotList::new();
+    list.insert(1);
+    list.insert(3);
+    list.insert(5);
+    assert_eq!(list.replace(0, 10), Some(1));
+    assert_eq!(list.replace(4, 12), None);
+    assert_eq!(list.get(0), Some(&10));
+    assert_eq!(list.get(3), None);
+    assert_eq!(list.get(4), Some(&12));
   }
 }

@@ -1,3 +1,4 @@
+pub mod files;
 pub mod id;
 pub mod ipc;
 pub mod memory;

@@ -1,4 +1,6 @@
+use crate::files::handle::{FileHandle, Handle, LocalHandle};
 use crate::memory::address::VirtualAddress;
+use super::files::{DriveID, FileMap, OpenFile};
 use super::id::ProcessID;
 use super::ipc::{IPCMessage, IPCPacket, IPCQueue};
 use super::memory::MemoryRegions;
@@ -19,6 +21,8 @@ pub struct Process {
   start_ticks: u32,
   /// Stores IPC messages that have been sent to this process
   ipc_queue: IPCQueue,
+  /// Stores references to all currently open files
+  open_files: FileMap,
 }
 
 impl Process {
@@ -31,6 +35,7 @@ impl Process {
       state: RunState::Running,
       start_ticks: current_ticks,
       ipc_queue: IPCQueue::new(),
+      open_files: FileMap::with_capacity(3),
     }
   }
 
@@ -157,11 +162,48 @@ impl Process {
     self.memory.set_heap_size(prev_size + increment);
     start + prev_size
   }
+
+  /// When a file has been opened within a specific drive, it can be added to
+  /// this process. The index in the file map is returned as a FileHandle.
+  pub fn open_file(&mut self, drive: DriveID, local_handle: LocalHandle) -> FileHandle {
+    let file = OpenFile {
+      drive,
+      local_handle,
+    };
+    let index = self.open_files.insert(file);
+    FileHandle::new(index as u32)
+  }
+
+  /// Close an open file handle. If it represented a file within a drive, a
+  /// struct containing that drive's ID and its local handle will be returned.
+  pub fn close_file(&mut self, handle: FileHandle) -> Option<OpenFile> {
+    self.open_files.remove(handle.as_usize())
+  }
+
+  /// Duplicate an existing descriptor, possibly to a specific handle. It
+  /// returns the previous open file descriptor if one was overwritten, and the
+  /// file handle that was created.
+  pub fn duplicate_file_descriptor(&mut self, old: FileHandle, new: Option<FileHandle>) -> (Option<OpenFile>, Option<FileHandle>) {
+    let copied_entry = match self.open_files.get(old.as_usize()) {
+      Some(entry) => *entry,
+      None => return (None, None),
+    };
+    match new {
+      Some(new_handle) => {
+        let old_value = self.open_files.replace(new_handle.as_usize(), copied_entry);
+        (old_value, Some(new_handle))
+      },
+      None => {
+        let new_handle = FileHandle::new(self.open_files.insert(copied_entry) as u32);
+        (None, Some(new_handle))
+      },
+    }
+  }
 }
 
 #[cfg(test)]
 mod tests {
-  use super::{Process, VirtualAddress};
+  use super::{DriveID, FileHandle, Handle, LocalHandle, Process, VirtualAddress};
 
   #[test]
   fn sleeping() {
@@ -191,6 +233,36 @@ mod tests {
       let prev = p.increase_heap(0);
       assert_eq!(prev, p.increase_heap(0x430));
       assert_eq!(prev + 0x430, p.memory.get_heap_start() + p.memory.get_heap_size());
+    }
+  }
+
+  #[test]
+  fn file_handle_dup() {
+    let mut p = Process::initial(0);
+    let first = p.open_file(DriveID::new(0), LocalHandle::new(2));
+    let second = p.open_file(DriveID::new(1), LocalHandle::new(0));
+    let third = p.open_file(DriveID::new(0), LocalHandle::new(4));
+    {
+      // `dup` syscall
+      let (prev_entry, new_handle) = p.duplicate_file_descriptor(second, None);
+      assert!(prev_entry.is_none());
+      assert_eq!(new_handle, Some(FileHandle::new(3)));
+    }
+
+    {
+      // `dup2` to a new location
+      let (prev_entry, new_handle) = p.duplicate_file_descriptor(first, Some(FileHandle::new(6)));
+      assert!(prev_entry.is_none());
+      assert_eq!(new_handle, Some(FileHandle::new(6)));
+    }
+
+    {
+      // `dup2` override
+      let (prev_entry, new_handle) = p.duplicate_file_descriptor(third, Some(FileHandle::new(0)));
+      let open_file = prev_entry.unwrap();
+      assert_eq!(open_file.drive, DriveID::new(0));
+      assert_eq!(open_file.local_handle, LocalHandle::new(2));
+      assert_eq!(new_handle, Some(FileHandle::new(0)));
     }
   }
 }

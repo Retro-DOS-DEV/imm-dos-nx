@@ -45,7 +45,7 @@ impl PartialEq for LocalHandle {
 
 impl Eq for LocalHandle {}
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct FileHandle(u32);
 
 impl Handle for FileHandle {
