@@ -163,6 +163,20 @@ impl Process {
     start + prev_size
   }
 
+  /// Create a copy of this process and its memory space.
+  pub fn create_fork(&self, new_id: ProcessID, current_ticks: u32) -> Process {
+
+    Process {
+      id: new_id,
+      parent_id: self.id,
+      memory: self.memory.clone(),
+      state: RunState::Running,
+      start_ticks: current_ticks,
+      ipc_queue: IPCQueue::new(),
+      open_files: self.open_files.clone(),
+    }
+  }
+
   /// When a file has been opened within a specific drive, it can be added to
   /// this process. The index in the file map is returned as a FileHandle.
   pub fn open_file(&mut self, drive: DriveID, local_handle: LocalHandle) -> FileHandle {

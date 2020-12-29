@@ -72,6 +72,14 @@ impl<T: Sized> SlotList<T> {
   }
 }
 
+impl<T: Clone> Clone for SlotList<T> {
+  fn clone(&self) -> Self {
+    Self {
+      slots: self.slots.clone(),
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::SlotList;

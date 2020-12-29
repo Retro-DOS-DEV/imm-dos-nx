@@ -1,6 +1,7 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(llvm_asm)]
+#![feature(const_btree_new)]
 #![feature(const_fn)]
 #![feature(core_intrinsics)]
 #![feature(naked_functions)]
@@ -183,6 +184,14 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     }
     memory::physical::init_refcount();
 
+    // This context will become the idle task, and halt in a loop until other
+    // processes are ready
+    let idle_task = task::process::Process::initial(0);
+    let cur_esp: u32;
+    llvm_asm!("mov $0, esp" : "=r"(cur_esp) : : : "intel", "volatile");
+    kprintln!("Current $ESP: {:#0x}", cur_esp);
+
+    /*
     // Initialize hardware
     devices::init();
     tty::init_ttys();
@@ -197,8 +206,10 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     process::init();
     let init_process = process::all_processes_mut().spawn_first_process(heap_start);
     process::make_current(init_process);
+    */
   }
 
+  /*
   let current_time = time::system::get_system_time().to_timestamp().to_datetime();
   tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
 
@@ -230,6 +241,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       llvm_asm!("sti; hlt" : : : : "volatile");
     }
   }
+  */
+  loop {}
 }
 
 #[inline(never)]

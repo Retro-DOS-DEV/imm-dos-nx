@@ -35,6 +35,7 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::ops::Range;
 use crate::memory::address::{PAGE_SIZE_IN_BYTES, VirtualAddress};
+use spin::RwLock;
 
 pub const USER_KERNEL_BARRIER: usize = 0xc0000000;
 
@@ -132,10 +133,21 @@ impl ExecutionSegment {
   }
 }
 
+impl Clone for ExecutionSegment {
+  fn clone(&self) -> Self {
+    Self {
+      address: self.address,
+      size: self.size,
+      sections: self.sections.clone(),
+      can_write: self.can_write,
+    }
+  }
+}
+
 /// MMapRegion represents a section of memory allocated by the `mmap` syscall.
 /// `mmap` is used for allocating arbitrary memory, or mapping a region of
 /// memory to a specific area of physical memory space or a file.
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MMapRegion {
   pub address: VirtualAddress,
   pub size: usize,
@@ -190,7 +202,7 @@ pub struct MemoryRegions {
 }
 
 impl MemoryRegions {
-  pub fn new() -> Self {
+  pub const fn new() -> Self {
     Self {
       execution_segments: Vec::new(),
       heap_start: VirtualAddress::new(0),
@@ -417,6 +429,17 @@ impl MemoryRegions {
   }
 }
 
+impl Clone for MemoryRegions {
+  fn clone(&self) -> Self {
+    Self {
+      execution_segments: self.execution_segments.clone(),
+      heap_start: self.heap_start,
+      heap_size: self.heap_size,
+      mmap_regions: self.mmap_regions.clone(),
+    }
+  }
+}
+
 #[derive(Debug)]
 pub enum ProcessMemoryError {
   /// A segment was created outside of page alignment
@@ -440,6 +463,11 @@ pub fn ranges_overlap(a: &Range<VirtualAddress>, b: &Range<VirtualAddress>) -> b
   let b_length = b.end - b.start;
   (a_length + b_length) > (max - min)
 }
+
+/// Kernel-space memory is shared between all processes. Each process has its
+/// own stack, although they all exist in the same address space. Beyond this,
+/// all other memory (executable, heap, mmaps) are shared between all processes.
+pub static KERNEL_MEMORY: RwLock<MemoryRegions> = RwLock::new(MemoryRegions::new());
 
 #[cfg(test)]
 mod tests {
