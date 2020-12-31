@@ -64,7 +64,10 @@ pub extern "x86-interrupt" fn gpf(stack_frame: &StackFrame, error: u32) {
 pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
   let address: usize;
   unsafe {
-    llvm_asm!("mov $0, cr2" : "=r"(address) : : : "intel", "volatile");
+    asm!(
+      "mov {0}, cr2",
+      out(reg) address,
+    );
   }
   kprintln!("\nPage Fault at {:#010x} ({:x})", address, error);
   let current_proc = process::current_process().expect("Page fault outside a process");

@@ -46,7 +46,7 @@ pub struct IDGenerator(AtomicU32);
 
 impl IDGenerator {
   pub const fn new() -> Self {
-    Self(AtomicU32::new(0))
+    Self(AtomicU32::new(1))
   }
 
   pub fn next(&self) -> ProcessID {

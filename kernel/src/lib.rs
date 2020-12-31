@@ -1,5 +1,6 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
+#![feature(asm)]
 #![feature(llvm_asm)]
 #![feature(const_btree_new)]
 #![feature(const_fn)]
@@ -123,6 +124,7 @@ unsafe fn init_memory_new() {
 
   // move esp to the higher page, maintaining its relative location in the frame
   unsafe {
+    /*
     llvm_asm!(
       "mov eax, esp
       sub eax, $0
@@ -131,6 +133,17 @@ unsafe fn init_memory_new() {
       "r"(stack_start_address.as_u32()) :
       "eax", "esp" :
       "intel", "volatile"
+    );
+    */
+
+    asm!(
+      "mov {tmp}, esp
+      sub {tmp}, {offset}
+      add {tmp}, {stack_base}
+      mov esp, {tmp}",
+      offset = in(reg) stack_start_address.as_u32(),
+      tmp = out(reg) _,
+      stack_base = const task::stack::FIRST_STACK_TOP_PAGE,
     );
   }
 
@@ -186,10 +199,12 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
     // This context will become the idle task, and halt in a loop until other
     // processes are ready
-    let idle_task = task::process::Process::initial(0);
-    let cur_esp: u32;
-    llvm_asm!("mov $0, esp" : "=r"(cur_esp) : : : "intel", "volatile");
-    kprintln!("Current $ESP: {:#0x}", cur_esp);
+    task::switching::initialize();
+    let child = task::switching::kfork(kfork_test);
+    kprintln!("Created child: {:?}", child);
+    task::switching::switch_to(&task::id::ProcessID::new(1));
+
+    kprintln!("Returned to idle task!");
 
     /*
     // Initialize hardware
@@ -242,6 +257,23 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     }
   }
   */
+  loop {}
+}
+
+#[cfg(not(test))]
+#[inline(never)]
+pub extern fn kfork_test() {
+  kprintln!("KFORK SUCCESS");
+  {
+    let cur = task::switching::get_current_process();
+    match cur.try_write() {
+      Some(_) => kprintln!("Oh good, we can write"),
+      None => kprintln!("Access denied!"),
+    };
+  }
+  kprintln!("Heading back");
+  task::switching::switch_to(&task::id::ProcessID::new(0));
+
   loop {}
 }
 

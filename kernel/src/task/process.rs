@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use crate::files::handle::{FileHandle, Handle, LocalHandle};
 use crate::memory::address::VirtualAddress;
 use super::files::{DriveID, FileMap, OpenFile};
@@ -23,19 +24,35 @@ pub struct Process {
   ipc_queue: IPCQueue,
   /// Stores references to all currently open files
   open_files: FileMap,
+  /// A Box pointing to the kernel stack for this process. Each stack is page-
+  /// aligned, and exists in a reserved area of kernel memory space. The lowest
+  /// page of each stack is read/write protected, to act as a guard page.
+  /// The stack Box is wrapped in an Option so that we can replace it with None
+  /// before the struct is dropped. If any code attempts to drop the stack Box,
+  /// it will cause an error because the memory wasn't allocated on the heap.
+  pub kernel_stack: Option<Box<[u8]>>,
+  /// Stores the kernel stack pointer when the process is swapped out. When the
+  /// scheduler enters this process, this address will be placed in %esp and all
+  /// registers will be popped off the stack.
+  pub stack_pointer: usize,
 }
 
 impl Process {
-  /// Generate the init process
+  /// Generate the init process. This shouldn't be called more than once.
   pub fn initial(current_ticks: u32) -> Self {
+    super::stack::allocate_initial_stacks();
+    let kernel_stack = super::stack::stack_box_from_index(1);
+
     Self {
-      id: ProcessID::new(1),
-      parent_id: ProcessID::new(1),
+      id: ProcessID::new(0),
+      parent_id: ProcessID::new(0),
       memory: MemoryRegions::new(),
       state: RunState::Running,
       start_ticks: current_ticks,
       ipc_queue: IPCQueue::new(),
       open_files: FileMap::with_capacity(3),
+      kernel_stack: Some(kernel_stack),
+      stack_pointer: 0,
     }
   }
 
@@ -59,6 +76,65 @@ impl Process {
       RunState::Running | RunState::Resumed(_) => true,
       _ => false,
     }
+  }
+
+  /// Get a reference to the kernel stack
+  pub fn get_kernel_stack(&self) -> &Box<[u8]> {
+    match &self.kernel_stack {
+      Some(stack) => stack,
+      None => panic!("Process does not have a stack"),
+    }
+  }
+
+  pub fn get_kernel_stack_mut(&mut self) -> &mut Box<[u8]> {
+    match &mut self.kernel_stack {
+      Some(stack) => stack,
+      None => panic!("Process does not have a stack"),
+    }
+  }
+
+  /// Return the virtual address range for this process's stack
+  pub fn get_stack_range(&self) -> core::ops::Range<VirtualAddress> {
+    let (stack_start, len) = {
+      let stack = self.get_kernel_stack();
+      (stack.as_ptr() as usize, stack.len())
+    };
+    let start = VirtualAddress::new(stack_start);
+    let end = start + len;
+    start..end
+  }
+
+  pub fn stack_push_u8(&mut self, value: u8) {
+    self.stack_pointer -= 1;
+    let esp = self.stack_pointer;
+    let stack = self.get_kernel_stack_mut();
+    let start = stack.as_ptr() as usize;
+    let offset = esp - start;
+    stack[offset] = value;
+  }
+
+  pub fn stack_pop_u8(&mut self) -> u8 {
+    let value = {
+      let esp = self.stack_pointer;
+      let stack = self.get_kernel_stack_mut();
+      let start = stack.as_ptr() as usize;
+      let offset = esp - start;
+      stack[offset]
+    };
+    self.stack_pointer += 1;
+    value
+  }
+
+  pub fn stack_push_u32(&mut self, value: u32) {
+    self.stack_pointer -= 4;
+    let esp = self.stack_pointer;
+    let stack = self.get_kernel_stack_mut();
+    let start = stack.as_ptr() as usize;
+    let offset = esp - start;
+    stack[offset] = (value & 0xff) as u8;
+    stack[offset + 1] = ((value & 0xff00) >> 8) as u8;
+    stack[offset + 2] = ((value & 0xff0000) >> 16) as u8;
+    stack[offset + 3] = ((value & 0xff000000) >> 24) as u8;
   }
 
   /// End all execution of the process, and mark its resources for cleanup.
@@ -165,6 +241,8 @@ impl Process {
 
   /// Create a copy of this process and its memory space.
   pub fn create_fork(&self, new_id: ProcessID, current_ticks: u32) -> Process {
+    let new_stack = super::stack::allocate_stack();
+    let stack_top = (new_stack.as_ptr() as usize) + new_stack.len();
 
     Process {
       id: new_id,
@@ -174,6 +252,8 @@ impl Process {
       start_ticks: current_ticks,
       ipc_queue: IPCQueue::new(),
       open_files: self.open_files.clone(),
+      kernel_stack: Some(new_stack),
+      stack_pointer: stack_top,
     }
   }
 
@@ -211,6 +291,16 @@ impl Process {
         let new_handle = FileHandle::new(self.open_files.insert(copied_entry) as u32);
         (None, Some(new_handle))
       },
+    }
+  }
+}
+
+impl Drop for Process {
+  fn drop(&mut self) {
+    // Make sure it doesn't attempt to deallocate the stack Box
+    let stack = self.kernel_stack.take();
+    if let Some(b) = stack {
+      super::stack::free_stack(b);
     }
   }
 }
