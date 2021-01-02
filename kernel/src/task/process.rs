@@ -137,6 +137,21 @@ impl Process {
     stack[offset + 3] = ((value & 0xff000000) >> 24) as u8;
   }
 
+  /// Used to force a kernel process into usermode. This should only be used
+  /// for testing, and not in the real kernel.
+  pub fn set_usermode_entrypoint(&mut self, func: extern fn(), esp: u32) {
+    // Stack segment
+    self.stack_push_u32(0x23);
+    // Stack pointer
+    self.stack_push_u32(esp);
+    // eflags
+    self.stack_push_u32(0x200); // Interrupts enabled
+    // Code segment
+    self.stack_push_u32(0x1b);
+    // Instruction pointer
+    self.stack_push_u32(func as u32 & 0x3fffffff);
+  }
+
   /// End all execution of the process, and mark its resources for cleanup.
   pub fn terminate(&mut self) {
     self.state = RunState::Terminated;

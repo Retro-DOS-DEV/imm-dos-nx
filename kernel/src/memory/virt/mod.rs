@@ -55,6 +55,9 @@ pub fn map_kernel(directory_ref: PageTableReference, bounds: &KernelDataBounds) 
   let dir = PageTable::at_address(VirtualAddress::new(directory_ref.get_address().as_usize()));
   dir.get_mut(0).set_address(table_zero_frame.get_address());
   dir.get_mut(0).set_present();
+  // Used for access to testing methods in userspace. Can be removed when those
+  // no longer exist.
+  dir.get_mut(0).set_user_access();
   let table_zero = PageTable::at_address(VirtualAddress::new(table_zero_frame.get_address().as_usize()));
   for index in 0..1024 {
     table_zero.get_mut(index).set_address(PhysicalAddress::new(0x1000 * index));

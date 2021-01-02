@@ -202,7 +202,13 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     task::switching::initialize();
     let child = task::switching::kfork(kfork_test);
     kprintln!("Created child: {:?}", child);
-    task::switching::switch_to(&task::id::ProcessID::new(1));
+    {
+      let uproc_lock = task::switching::get_process(&child).unwrap();
+      let mut uproc = uproc_lock.write();
+      uproc.set_usermode_entrypoint(user_test, 0x1000);
+    }
+    task::switching::usermode_enter(&child);
+    //task::switching::switch_to(&task::id::ProcessID::new(1));
 
     kprintln!("Returned to idle task!");
 
@@ -274,6 +280,17 @@ pub extern fn kfork_test() {
   kprintln!("Heading back");
   task::switching::switch_to(&task::id::ProcessID::new(0));
 
+  loop {}
+}
+
+
+#[inline(never)]
+pub extern fn user_test() {
+  unsafe {
+    llvm_asm!("1:
+      jmp 1b");
+    llvm_asm!("movl $$0xfa, %eax");
+  }
   loop {}
 }
 
