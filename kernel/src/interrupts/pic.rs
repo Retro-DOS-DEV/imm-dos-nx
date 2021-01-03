@@ -1,10 +1,10 @@
-use crate::{devices, input, process, time, x86};
+use crate::{devices, input, task, time, x86};
 use super::stack;
 
 pub extern "x86-interrupt" fn pit(_frame: &stack::StackFrame) {
   time::system::increment_offset(time::system::HUNDRED_NS_PER_TICK);
-  process::send_tick();
-  
+  task::switching::update_timeouts(time::system::MS_PER_TICK);
+
   unsafe {
     devices::PIC.acknowledge_interrupt(0);
   }

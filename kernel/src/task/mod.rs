@@ -9,6 +9,14 @@ pub mod state;
 #[cfg(not(test))]
 pub mod switching;
 
-pub fn yield_coop() {
-  
+#[cfg(not(test))]
+pub use switching::yield_coop;
+#[cfg(test)]
+pub fn yield_coop() {}
+
+#[cfg(not(test))]
+pub fn sleep(duration: usize) {
+  let current_lock = switching::get_current_process();
+  current_lock.write().sleep(duration);
+  yield_coop();
 }

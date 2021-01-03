@@ -25,6 +25,7 @@ pub unsafe fn init() {
   PIC.init();
   PIT.set_divider(11932); // approximately 100Hz
 
+  /*
   {
     let mut drivers = DEV.write();
     drivers.register_driver("ZERO", Arc::new(Box::new(drivers::zero::ZeroDevice::new())));
@@ -43,6 +44,7 @@ pub unsafe fn init() {
 
     COM1.init();
   }
+  */
 }
 
 pub fn get_device_number_by_name(filename: &[u8; 8]) -> Option<usize> {

@@ -22,7 +22,11 @@ pub static CURRENT_ID: RwLock<ProcessID> = RwLock::new(ProcessID::new(0));
 
 /// Cooperatively yield, forcing the scheduler to switch to another process
 pub fn yield_coop() {
-
+  let next = find_next_running_process();
+  match next {
+    Some(id) => switch_to(&id),
+    None => (),
+  }
 }
 
 pub fn initialize() {
@@ -31,6 +35,33 @@ pub fn initialize() {
   let entry = Arc::new(RwLock::new(idle_task));
   let mut map = TASK_MAP.write();
   map.insert(id, entry);
+}
+
+/// Find another process to switch to. If non is available (eg, we are currently
+/// in the idle task and all other tasks are blocked), it will return None.
+/// For now, our switching algo is simple: find the first process whose ID comes
+/// after the current ID. If none is found, return the first runnable process we
+/// encountered in our first pass.
+pub fn find_next_running_process() -> Option<ProcessID> {
+  let current_id = *CURRENT_ID.read();
+  let mut first_runnable = None;
+  let task_map = TASK_MAP.read();
+  for (id, process) in task_map.iter() {
+    if *id == current_id {
+      continue;
+    }
+    if process.read().can_resume() {
+      if first_runnable.is_none() {
+        first_runnable.replace(*id);
+      }
+      if *id > current_id {
+        return Some(*id);
+      }
+    }
+  }
+  // If we hit the end of the list, loop back to the first running process
+  // we found. If there is none, we stay on the current process.
+  first_runnable
 }
 
 pub fn get_process(id: &ProcessID) -> Option<Arc<RwLock<Process>>> {
@@ -94,7 +125,7 @@ pub fn switch_to(id: &ProcessID) {
     next_ptr = Some(next.deref_mut() as *mut Process);
   }
   *CURRENT_ID.write() = *id;
-  crate::kprintln!("JUMP TO {:?}", *id);
+  //crate::kprintln!("JUMP TO {:?}", *id);
   unsafe {
     let current = &mut *current_ptr.unwrap();
     let next = &mut *next_ptr.unwrap();
@@ -147,4 +178,11 @@ unsafe fn usermode_enter_inner(current: &mut Process, next: &mut Process) {
     out(reg) (current.stack_pointer),
     in(reg) (next.stack_pointer),
   );
+}
+
+pub fn update_timeouts(delta_ms: usize) {
+  let task_map = TASK_MAP.read();
+  for (_, process) in task_map.iter() {
+    process.write().update_timeouts(delta_ms);
+  }
 }

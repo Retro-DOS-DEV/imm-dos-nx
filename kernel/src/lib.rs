@@ -200,23 +200,19 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     // This context will become the idle task, and halt in a loop until other
     // processes are ready
     task::switching::initialize();
-    let child = task::switching::kfork(kfork_test);
-    kprintln!("Created child: {:?}", child);
-    {
-      let uproc_lock = task::switching::get_process(&child).unwrap();
-      let mut uproc = uproc_lock.write();
-      uproc.set_usermode_entrypoint(user_test, 0x1000);
-    }
-    task::switching::usermode_enter(&child);
+    // Next, we spawn all the processes necessary for running the system.
+    // The init process loads the userspace init program, which in turn spawns
+    // most of the system daemons.
+    let init_process = task::switching::kfork(run_init);
+
+
     //task::switching::switch_to(&task::id::ProcessID::new(1));
 
-    kprintln!("Returned to idle task!");
-
-    /*
     // Initialize hardware
     devices::init();
-    tty::init_ttys();
     time::system::initialize_from_rtc();
+    /*
+    tty::init_ttys();
 
     filesystems::init_fs();
 
@@ -254,44 +250,24 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
   }
 
   process::enter_usermode(init_proc_id);
+  */
 
   loop {
     unsafe {
       llvm_asm!("cli" : : : : "volatile");
-      process::yield_coop();
+      task::yield_coop();
       llvm_asm!("sti; hlt" : : : : "volatile");
     }
   }
-  */
-  loop {}
 }
 
 #[cfg(not(test))]
 #[inline(never)]
-pub extern fn kfork_test() {
-  kprintln!("KFORK SUCCESS");
-  {
-    let cur = task::switching::get_current_process();
-    match cur.try_write() {
-      Some(_) => kprintln!("Oh good, we can write"),
-      None => kprintln!("Access denied!"),
-    };
+pub extern fn run_init() {
+  loop {
+    task::sleep(1000);
+    kprint!(".");
   }
-  kprintln!("Heading back");
-  task::switching::switch_to(&task::id::ProcessID::new(0));
-
-  loop {}
-}
-
-
-#[inline(never)]
-pub extern fn user_test() {
-  unsafe {
-    llvm_asm!("1:
-      jmp 1b");
-    llvm_asm!("movl $$0xfa, %eax");
-  }
-  loop {}
 }
 
 #[inline(never)]
