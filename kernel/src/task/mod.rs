@@ -1,5 +1,7 @@
 pub mod files;
 pub mod id;
+#[cfg(not(test))]
+pub mod io;
 pub mod ipc;
 pub mod memory;
 pub mod process;

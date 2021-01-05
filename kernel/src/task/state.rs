@@ -65,4 +65,6 @@ pub enum RunState {
   HandlingSignal(u32),
   /// Similar to handling a signal, allows user-mode handling of interrupts
   HandlingInterrupt(u32),
+  /// Blocked on a file IO operation, with an optional timeout
+  FileIO(Option<usize>),
 }

@@ -1,14 +1,6 @@
 use crate::collections::SlotList;
 use crate::files::handle::LocalHandle;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct DriveID(usize);
-
-impl DriveID {
-  pub fn new(id: usize) -> DriveID {
-    DriveID(id)
-  }
-}
+use crate::fs::drive::DriveID;
 
 /// An open file contains a reference to a drive, and the handle local to that
 /// drive that can be used to access the file.

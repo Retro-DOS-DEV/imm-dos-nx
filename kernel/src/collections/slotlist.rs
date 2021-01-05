@@ -57,6 +57,11 @@ impl<T: Sized> SlotList<T> {
     }
   }
 
+  pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+    let slot = self.slots.get_mut(index)?;
+    slot.as_mut()
+  }
+
   pub fn remove(&mut self, index: usize) -> Option<T> {
     let entry = self.slots.get_mut(index)?;
     let prev = entry.take();

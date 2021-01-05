@@ -14,6 +14,7 @@ pub mod buffers;
 pub mod collections;
 pub mod files;
 pub mod filesystems;
+pub mod fs;
 pub mod memory;
 pub mod pipes;
 pub mod promise;
@@ -50,8 +51,6 @@ pub mod syscalls;
 pub mod tty;
 #[cfg(not(test))]
 pub mod x86;
-
-use memory::address::PhysicalAddress;
 
 extern crate alloc;
 
@@ -105,6 +104,8 @@ unsafe fn init_tables() {
 
 #[cfg(not(test))]
 unsafe fn init_memory_new() {
+  use memory::address::PhysicalAddress;
+
   let allocator_location = &label_rw_physical_end as *const u8 as usize;
   memory::physical::init_allocator(allocator_location, 0x1000);
 
@@ -166,6 +167,8 @@ unsafe fn init_memory_new() {
 #[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
+  use memory::address::VirtualAddress;
+
   let initfs_start = unsafe {
     let boot_struct = &*boot_struct_ptr;
     boot_struct.initfs_start
@@ -187,12 +190,12 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       memory::physical::get_free_frame_count() * 4,
     );
 
-    let heap_start = memory::address::VirtualAddress::new(0xc0400000);
+    let heap_start = VirtualAddress::new(0xc0400000);
     {
       let heap_size_frames = memory::heap::INITIAL_HEAP_SIZE;
       memory::heap::map_allocator(heap_start, heap_size_frames);
       let heap_size = heap_size_frames * 0x1000;
-      kprintln!("Kernel heap at {:?}-{:?}", heap_start, memory::address::VirtualAddress::new(0xc0400000 + heap_size));
+      kprintln!("Kernel heap at {:?}-{:?}", heap_start, VirtualAddress::new(0xc0400000 + heap_size));
       memory::heap::init_allocator(heap_start, heap_size);
     }
     memory::physical::init_refcount();
@@ -203,14 +206,16 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     // Next, we spawn all the processes necessary for running the system.
     // The init process loads the userspace init program, which in turn spawns
     // most of the system daemons.
-    let init_process = task::switching::kfork(run_init);
-
+    {
+      let init_process = task::switching::kfork(run_init);
+    }
 
     //task::switching::switch_to(&task::id::ProcessID::new(1));
 
     // Initialize hardware
     devices::init();
     time::system::initialize_from_rtc();
+    fs::init_system_drives(VirtualAddress::new(initfs_start));
     /*
     tty::init_ttys();
 
@@ -264,6 +269,15 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[cfg(not(test))]
 #[inline(never)]
 pub extern fn run_init() {
+  let mut read_buffer: [u8; 10] = [0; 10];
+  let txt_file = task::io::open_path("INIT:\\test.txt").map_err(|_| "File not found.").unwrap();
+  task::io::read_file(txt_file, &mut read_buffer);
+  let message = unsafe {
+    core::str::from_utf8_unchecked(&read_buffer)
+  };
+  kprintln!("File intro: {}", message);
+  task::io::close_file(txt_file);
+
   loop {
     task::sleep(1000);
     kprint!(".");

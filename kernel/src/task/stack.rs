@@ -1,23 +1,23 @@
-/// Each process has its own Kernel Stack to handle operations whenever it drops
-/// into a syscall. Allocation and de-allocation of these stacks is handled here
-/// to guarantee that no two processes accidentally claim the same stack, and to
-/// ensure freed stacks can be re-used.
-/// Earlier versions of the kernel used page tables to give each process a
-/// unique stack at the same address location, but this created some challenges
-/// when trying to manipulate an unmapped process's stack. Some quick math
-/// showed that even with a generous stack size of four pages (including a guard
-/// page), there would be plenty of space for tens of thousands of processes in
-/// virtual memory. With that realization, we can share all stacks in the same
-/// address space and simplify kernel memory mapping. It's also simple to
-/// manipulate the stack of any process, making forking easier.
-/// A large area of memory (stack size * max process count) is reserved just
-/// below the top page directory (0xffc00000). When a stack is allocated, the
-/// corresponding pages will be mapped into all kernel page tables, and a
-/// pointer to the allocated stack pages will be attached to the process.
-/// These stacks could be allocated on the heap, but it wouldn't be possible to
-/// include a guard page to keep one stack from clobbering other heap objects.
-/// This method makes allocation and deallocation a bit hackier, but it lets us
-/// lean on memory management hardware to prevent any stack overflows.
+//! Each process has its own Kernel Stack to handle operations whenever it drops
+//! into a syscall. Allocation and de-allocation of these stacks is handled here
+//! to guarantee that no two processes accidentally claim the same stack, and to
+//! ensure freed stacks can be re-used.
+//! Earlier versions of the kernel used page tables to give each process a
+//! unique stack at the same address location, but this created some challenges
+//! when trying to manipulate an unmapped process's stack. Some quick math
+//! showed that even with a generous stack size of four pages (including a guard
+//! page), there would be plenty of space for tens of thousands of processes in
+//! virtual memory. With that realization, we can share all stacks in the same
+//! address space and simplify kernel memory mapping. It's also simple to
+//! manipulate the stack of any process, making forking easier.
+//! A large area of memory (stack size * max process count) is reserved just
+//! below the top page directory (0xffc00000). When a stack is allocated, the
+//! corresponding pages will be mapped into all kernel page tables, and a
+//! pointer to the allocated stack pages will be attached to the process.
+//! These stacks could be allocated on the heap, but it wouldn't be possible to
+//! include a guard page to keep one stack from clobbering other heap objects.
+//! This method makes allocation and deallocation a bit hackier, but it lets us
+//! lean on memory management hardware to prevent any stack overflows.
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;

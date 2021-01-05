@@ -1,7 +1,8 @@
 use alloc::boxed::Box;
 use crate::files::handle::{FileHandle, Handle, LocalHandle};
+use crate::fs::drive::DriveID;
 use crate::memory::address::VirtualAddress;
-use super::files::{DriveID, FileMap, OpenFile};
+use super::files::{FileMap, OpenFile};
 use super::id::ProcessID;
 use super::ipc::{IPCMessage, IPCPacket, IPCQueue};
 use super::memory::MemoryRegions;
@@ -283,6 +284,10 @@ impl Process {
     FileHandle::new(index as u32)
   }
 
+  pub fn get_open_file_info(&self, handle: FileHandle) -> Option<&OpenFile> {
+    self.open_files.get(handle.as_usize())
+  }
+
   /// Close an open file handle. If it represented a file within a drive, a
   /// struct containing that drive's ID and its local handle will be returned.
   pub fn close_file(&mut self, handle: FileHandle) -> Option<OpenFile> {
@@ -307,6 +312,11 @@ impl Process {
         (None, Some(new_handle))
       },
     }
+  }
+
+  /// Load an executable file from disk, map it into memory, and begin execution
+  pub fn exec(&mut self, path: &str) {
+
   }
 }
 

@@ -70,6 +70,10 @@ pub fn get_process(id: &ProcessID) -> Option<Arc<RwLock<Process>>> {
   Some(entry.clone())
 }
 
+pub fn get_current_id() -> ProcessID {
+  *CURRENT_ID.read()
+}
+
 pub fn get_current_process() -> Arc<RwLock<Process>> {
   let current_id: ProcessID = *CURRENT_ID.read();
   let map = TASK_MAP.read();
