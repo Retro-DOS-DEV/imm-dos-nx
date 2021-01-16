@@ -37,7 +37,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use crate::files::cursor::SeekMethod;
 use crate::files::handle::LocalHandle;
-use syscall::files::DirEntryInfo;
+use syscall::files::{DirEntryInfo, FileStatus};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum FileSystemCategory {
@@ -74,16 +74,27 @@ pub trait KernelFileSystem {
   /// On success, it returns the new cursor location.
   fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()>;
   
-  /// 
+  /// Create a new reference to a directory. Dir references contain their own
+  /// internal cursor as they are read, so successive calls to read_dir iterate
+  /// through the entries.
   fn open_dir(&self, path: &str) -> Result<LocalHandle, ()>;
 
-  /// 
-  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<(), ()>;
+  /// Read information about the next entry in an open directory. Fields are
+  /// copied into a DirEntryInfo struct. If the entry was copied, the method
+  /// resolves with `true`. If there are no more entries, the method resolves
+  /// with `false`. Any errors while fetching the entry will return an Err
+  /// value instead.
+  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<bool, ()>;
 
-  ///
+  /// Perform a unique FS operation on a file. IOCTL command numbers depend on
+  /// the device and FS.label_ro_physical_start
   fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {
     Err(())
   }
+
+  /// Fetch status information about an open file. If successful, the data will
+  /// be copied into a FileStatus struct.
+  fn stat(&self, handle: LocalHandle, status: &mut FileStatus) -> Result<(), ()>;
 }
 
 pub type FileSystemType = dyn KernelFileSystem + Send + Sync;

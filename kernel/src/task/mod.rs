@@ -1,3 +1,5 @@
+#[cfg(not(test))]
+pub mod exec;
 pub mod files;
 pub mod id;
 #[cfg(not(test))]

@@ -15,6 +15,7 @@ pub mod collections;
 pub mod files;
 pub mod filesystems;
 pub mod fs;
+pub mod loaders;
 pub mod memory;
 pub mod pipes;
 pub mod promise;
@@ -269,6 +270,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[cfg(not(test))]
 #[inline(never)]
 pub extern fn run_init() {
+  /*
   let mut read_buffer: [u8; 10] = [0; 10];
   let txt_file = task::io::open_path("INIT:\\test.txt").map_err(|_| "File not found.").unwrap();
   task::io::read_file(txt_file, &mut read_buffer);
@@ -281,6 +283,14 @@ pub extern fn run_init() {
   loop {
     task::sleep(1000);
     kprint!(".");
+  }
+  */
+
+  // Testing exec
+  task::exec::exec("INIT:\\test.bin", loaders::InterpretationMode::Native);
+
+  loop {
+    task::sleep(1000);
   }
 }
 

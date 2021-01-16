@@ -29,3 +29,16 @@ impl DirEntryInfo {
     }
   }
 }
+
+#[repr(C, packed)]
+pub struct FileStatus {
+  pub byte_size: usize,
+}
+
+impl FileStatus {
+  pub fn empty() -> Self {
+    Self {
+      byte_size: 0,
+    }
+  }
+}

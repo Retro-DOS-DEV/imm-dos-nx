@@ -8,12 +8,13 @@ use crate::files::{cursor::SeekMethod, handle::{Handle, LocalHandle}};
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
 use crate::fs::KernelFileSystem;
-use syscall::files::DirEntryInfo;
+use syscall::files::{DirEntryInfo, FileStatus};
 
 struct OpenFile {
   pub cursor: usize,
   pub length: usize,
-  pub start: usize,
+  pub header_start: usize,
+  pub file_start: usize,
 }
 
 pub struct InitFileSystem {
@@ -45,7 +46,8 @@ impl KernelFileSystem for InitFileSystem {
     for entry in iter {
       if entry.get_filename_str() == local_path {
         let open_file = OpenFile {
-          start: entry.get_content_ptr() as usize,
+          header_start: entry as *const CpioHeader as usize,
+          file_start: entry.get_content_ptr() as usize,
           length: entry.get_file_size(),
           cursor: 0,
         };
@@ -67,7 +69,7 @@ impl KernelFileSystem for InitFileSystem {
         }
         let prev_cursor = open_file.cursor;
         open_file.cursor += to_read;
-        Ok((open_file.start + prev_cursor, to_read))
+        Ok((open_file.file_start + prev_cursor, to_read))
       },
       None => Err(()),
     }?;
@@ -113,8 +115,18 @@ impl KernelFileSystem for InitFileSystem {
     Err(())
   }
 
-  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<(), ()> {
+  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<bool, ()> {
     Err(())
+  }
+
+  fn stat(&self, handle: LocalHandle, status: &mut FileStatus) -> Result<(), ()> {
+    let start = match self.open_files.read().get(handle.as_usize()) {
+      Some(open_file) => Ok(open_file.header_start),
+      None => Err(()),
+    }?;
+    let header: &CpioHeader = unsafe { &*(start as *const CpioHeader) };
+    status.byte_size = header.get_file_size();
+    Ok(())
   }
 }
 

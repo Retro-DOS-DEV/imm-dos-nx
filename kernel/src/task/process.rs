@@ -1,11 +1,12 @@
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use crate::files::handle::{FileHandle, Handle, LocalHandle};
 use crate::fs::drive::DriveID;
 use crate::memory::address::VirtualAddress;
 use super::files::{FileMap, OpenFile};
 use super::id::ProcessID;
 use super::ipc::{IPCMessage, IPCPacket, IPCQueue};
-use super::memory::MemoryRegions;
+use super::memory::{ExecutionSegment, MemoryRegions};
 use super::state::RunState;
 
 pub struct Process {
@@ -36,6 +37,8 @@ pub struct Process {
   /// scheduler enters this process, this address will be placed in %esp and all
   /// registers will be popped off the stack.
   pub stack_pointer: usize,
+  /// Reference to the open file being executed by this process
+  exec_file: Option<(DriveID, LocalHandle)>,
 }
 
 impl Process {
@@ -54,6 +57,7 @@ impl Process {
       open_files: FileMap::with_capacity(3),
       kernel_stack: Some(kernel_stack),
       stack_pointer: 0,
+      exec_file: None,
     }
   }
 
@@ -92,6 +96,11 @@ impl Process {
       Some(stack) => stack,
       None => panic!("Process does not have a stack"),
     }
+  }
+
+  pub fn reset_stack_pointer(&mut self) {
+    let stack_end = self.get_stack_range().end;
+    self.stack_pointer = stack_end.as_usize() - 4;
   }
 
   /// Return the virtual address range for this process's stack
@@ -255,6 +264,21 @@ impl Process {
     start + prev_size
   }
 
+  /// Prepare for an exec syscall by removing the current execution segments and
+  /// mmap mappings, and replacing them with a new set of segments.
+  pub fn prepare_exec_mapping(&mut self, exec: Vec<ExecutionSegment>) -> Vec<ExecutionSegment> {
+    let previous_exec = self.memory.reset_execution_segments(exec);
+    // TODO: remove all mmap entries
+    previous_exec
+  }
+
+  /// Change the reference to the executable file being run in this process.
+  /// When a page fault occurs within an executable section, the fault handler
+  /// will use this to look up the file and fill the missing page.
+  pub fn set_exec_file(&mut self, drive_id: DriveID, handle: LocalHandle) -> Option<(DriveID, LocalHandle)> {
+    self.exec_file.replace((drive_id, handle))
+  }
+
   /// Create a copy of this process and its memory space.
   pub fn create_fork(&self, new_id: ProcessID, current_ticks: u32) -> Process {
     let new_stack = super::stack::allocate_stack();
@@ -270,6 +294,7 @@ impl Process {
       open_files: self.open_files.clone(),
       kernel_stack: Some(new_stack),
       stack_pointer: stack_top,
+      exec_file: None, // TODO: dup this
     }
   }
 
@@ -312,11 +337,6 @@ impl Process {
         (None, Some(new_handle))
       },
     }
-  }
-
-  /// Load an executable file from disk, map it into memory, and begin execution
-  pub fn exec(&mut self, path: &str) {
-
   }
 }
 

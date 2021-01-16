@@ -9,3 +9,21 @@ pub struct SavedRegisters {
   ecx: u32,
   eax: u32,
 }
+
+#[repr(C, packed)]
+pub struct EnvironmentRegisters {
+  pub eax: u32,
+  pub ecx: u32,
+  pub edx: u32,
+  pub ebx: u32,
+  pub ebp: u32,
+  pub esi: u32,
+  pub edi: u32,
+
+  // Registers that get popped by IRETD
+  pub eip: u32,
+  pub cs: u32,
+  pub flags: u32,
+  pub esp: u32,
+  pub ss: u32,
+}

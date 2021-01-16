@@ -131,6 +131,10 @@ impl ExecutionSegment {
   pub fn get_starting_address(&self) -> VirtualAddress {
     self.address
   }
+
+  pub fn get_size(&self) -> usize {
+    self.size
+  }
 }
 
 impl Clone for ExecutionSegment {
@@ -225,6 +229,20 @@ impl MemoryRegions {
     low
   }
 
+  pub fn get_execution_segments_end(&self) -> VirtualAddress {
+    if self.execution_segments.is_empty() {
+      return VirtualAddress::new(0);
+    }
+    let mut high = VirtualAddress::new(0);
+    for segment in self.execution_segments.iter() {
+      let end = segment.get_starting_address().offset(segment.get_size());
+      if end > high {
+        high = end;
+      }
+    }
+    high
+  }
+
   /// Return a reference to an execution segment if it contains the requested
   /// address. This is useful for handling a page fault.
   pub fn get_execution_segment_containing_address(&self, addr: &VirtualAddress) -> Option<&ExecutionSegment> {
@@ -234,6 +252,17 @@ impl MemoryRegions {
       }
     }
     None
+  }
+
+  /// Replace any existing execution segments with a new set, resetting the heap
+  /// in the process. Returns the previous set of segments so that it can be
+  /// unmapped from the page table.
+  pub fn reset_execution_segments(&mut self, segments: Vec<ExecutionSegment>) -> Vec<ExecutionSegment> {
+    let old = core::mem::replace(&mut self.execution_segments, segments);
+    let heap_start = self.get_execution_segments_end();
+    self.heap_start = heap_start;
+    self.heap_size = 0;
+    old
   }
 
   pub fn get_heap_start(&self) -> VirtualAddress {
