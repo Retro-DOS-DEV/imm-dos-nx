@@ -348,6 +348,13 @@ pub fn map_frame_to_temporary_page(frame: Frame) {
   invalidate_page(get_temporary_page_address());
 }
 
+/// Get the second-to-last entry in the self-mapped page directory. This is the
+/// table containing most of the kernel stacks, and the scratch space for
+/// unmapped pages.
+pub fn get_last_page_table() -> &'static mut PageTable {
+  PageTable::at_address(VirtualAddress::new(0xffffe000))
+}
+
 // For testing:
 #[cfg(test)]
 static mut MOCK_CR3: u32 = 0;

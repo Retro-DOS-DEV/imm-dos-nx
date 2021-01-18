@@ -21,6 +21,9 @@
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicU32, Ordering};
+use core::ops::Range;
+use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use spin::RwLock;
 
 pub static ALLOCATED_KERNEL_STACKS: RwLock<Vec<u8>> = RwLock::new(Vec::new());
@@ -28,7 +31,12 @@ pub static ALLOCATED_KERNEL_STACKS: RwLock<Vec<u8>> = RwLock::new(Vec::new());
 pub const STACKS_TOP: usize = 0xffc00000;
 pub const STACK_SIZE: usize = 0x4000;
 pub const STACK_GUARD_SIZE: usize = 0x1000;
+pub const STACK_SIZE_IN_PAGES: usize = STACK_SIZE / 0x1000;
 pub const FIRST_STACK_TOP_PAGE: usize = STACKS_TOP - STACK_SIZE - 0x1000;
+
+pub fn temporary_paging_range() -> Range<VirtualAddress> {
+  VirtualAddress::new(STACKS_TOP - STACK_SIZE)..VirtualAddress::new(STACKS_TOP)
+}
 
 /// Initialize the stack allocation bitmap. The first "stack" area is actually
 /// used for temporary paging, and should not be allocated. The second stack is
@@ -102,9 +110,75 @@ pub fn duplicate_stack(from: &Box<[u8]>, to: &mut Box<[u8]>) {
   to[0x1000..].copy_from_slice(&from[0x1000..]);
 }
 
+static SCRATCH_PAGES: AtomicU32 = AtomicU32::new(0);
+
+/// We use the top "stack" as scratch space for editing pages that aren't mapped
+/// into the current memory space. This is typically used for creating page
+/// tables for other processes.
+/// To use these pages, we allocate UnmappedPage structs which mark a scratch
+/// page as occupied, and release it when dropped.
+pub struct UnmappedPage {
+  address: PhysicalAddress,
+  scratch_index: usize,
+}
+
+impl UnmappedPage {
+  pub fn map(address: PhysicalAddress) -> UnmappedPage {
+    let mut mask: u32 = 1;
+    for i in 0..STACK_SIZE_IN_PAGES {
+      let prev = SCRATCH_PAGES.fetch_or(mask, Ordering::SeqCst);
+      if prev & mask == 0 {
+        #[cfg(not(test))]
+        {
+          // write to the stack
+          use crate::memory::virt;
+          let top_table = virt::page_directory::get_last_page_table();
+          // The highest entries in top_table are the scratch pages.
+          // SCRATCH_PAGES[0] refers to entry 1023, [1] refers to entry 1022,
+          // and so on.
+          let entry = 1023 - i;
+          top_table.get_mut(entry).set_address(address);
+          top_table.get_mut(entry).set_present();
+          let virtual_addr = VirtualAddress::new(STACKS_TOP - ((i + 1) * 0x1000));
+          virt::page_directory::invalidate_page(virtual_addr);
+        }
+        return UnmappedPage {
+          address,
+          scratch_index: i,
+        };
+      }
+      mask <<= 1;
+    }
+    panic!("There are no free unmapped page scratch pages");
+  }
+
+  pub fn virtual_address(&self) -> VirtualAddress {
+    VirtualAddress::new(STACKS_TOP - ((self.scratch_index + 1) * 0x1000))
+  }
+}
+
+impl Drop for UnmappedPage {
+  fn drop(&mut self) {
+    let mask = !(1 << self.scratch_index);
+    // Mark the page as unoccupied again
+    SCRATCH_PAGES.fetch_and(mask, Ordering::SeqCst);
+  }
+}
+
 #[cfg(test)]
 mod tests {
-  use super::{RwLock, Vec, find_free_space, free_index};
+  use super::{
+    Ordering,
+    PhysicalAddress,
+    RwLock,
+    Vec,
+    VirtualAddress,
+    find_free_space,
+    free_index,
+    SCRATCH_PAGES,
+    STACK_SIZE_IN_PAGES,
+    UnmappedPage,
+  };
 
   #[test]
   fn create_stack() {
@@ -131,5 +205,32 @@ mod tests {
     assert_eq!(find_free_space(&stacks), 3);
     free_index(&stacks, 1);
     assert_eq!(find_free_space(&stacks), 1);
+  }
+
+  #[test]
+  fn unmapped_page() {
+    // reset the map
+    SCRATCH_PAGES.swap(0, Ordering::SeqCst);
+
+    let p0 = UnmappedPage::map(PhysicalAddress::new(0x3000));
+    assert_eq!(SCRATCH_PAGES.load(Ordering::SeqCst), 1);
+    assert_eq!(p0.virtual_address(), VirtualAddress::new(0xffbff000));
+    {
+      let p1 = UnmappedPage::map(PhysicalAddress::new(0x5000));
+      assert_eq!(SCRATCH_PAGES.load(Ordering::SeqCst), 3);
+      assert_eq!(p1.virtual_address(), VirtualAddress::new(0xffbfe000));
+      let p2 = UnmappedPage::map(PhysicalAddress::new(0x6000));
+      assert_eq!(SCRATCH_PAGES.load(Ordering::SeqCst), 7);
+      assert_eq!(p2.virtual_address(), VirtualAddress::new(0xffbfd000));
+    }
+    assert_eq!(SCRATCH_PAGES.load(Ordering::SeqCst), 1);
+    {
+      let p1 = UnmappedPage::map(PhysicalAddress::new(0x5000));
+      assert_eq!(SCRATCH_PAGES.load(Ordering::SeqCst), 3);
+      assert_eq!(p1.virtual_address(), VirtualAddress::new(0xffbfe000));
+      let p2 = UnmappedPage::map(PhysicalAddress::new(0x6000));
+      assert_eq!(SCRATCH_PAGES.load(Ordering::SeqCst), 7);
+      assert_eq!(p2.virtual_address(), VirtualAddress::new(0xffbfd000));
+    }
   }
 }

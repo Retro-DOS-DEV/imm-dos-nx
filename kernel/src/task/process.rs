@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use crate::files::handle::{FileHandle, Handle, LocalHandle};
 use crate::fs::drive::DriveID;
 use crate::memory::address::VirtualAddress;
+use crate::memory::virt::page_table::PageTableReference;
 use super::files::{FileMap, OpenFile};
 use super::id::ProcessID;
 use super::ipc::{IPCMessage, IPCPacket, IPCQueue};
@@ -37,6 +38,9 @@ pub struct Process {
   /// scheduler enters this process, this address will be placed in %esp and all
   /// registers will be popped off the stack.
   pub stack_pointer: usize,
+  /// A struct containing the physical address of this process's page directory.
+  /// When switching to this process, the address will be written to CR3.
+  pub page_directory: PageTableReference,
   /// Reference to the open file being executed by this process
   exec_file: Option<(DriveID, LocalHandle)>,
 }
@@ -57,6 +61,7 @@ impl Process {
       open_files: FileMap::with_capacity(3),
       kernel_stack: Some(kernel_stack),
       stack_pointer: 0,
+      page_directory: PageTableReference::current(),
       exec_file: None,
     }
   }
@@ -294,6 +299,7 @@ impl Process {
       open_files: self.open_files.clone(),
       kernel_stack: Some(new_stack),
       stack_pointer: stack_top,
+      page_directory: self.page_directory.clone(),
       exec_file: None, // TODO: dup this
     }
   }

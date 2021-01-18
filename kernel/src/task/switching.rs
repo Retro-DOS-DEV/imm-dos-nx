@@ -1,10 +1,13 @@
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::ops::DerefMut;
+use crate::memory::address::VirtualAddress;
 use crate::memory::virt::map_kernel_stack;
+use crate::memory::virt::page_table::PageTableReference;
 use spin::RwLock;
 use super::id::{IDGenerator, ProcessID};
 use super::process::Process;
+use super::stack::UnmappedPage;
 
 /// The task map allows fetching process information by ID. It's also used for
 /// scheduling, to determine which process should run next.
@@ -90,11 +93,12 @@ pub fn get_current_process() -> Arc<RwLock<Process>> {
 pub fn fork(current_ticks: u32) -> ProcessID {
   let current_process = get_current_process();
   let next_id = NEXT_ID.next();
-  let child = {
+  let mut child = {
     let parent = current_process.read();
     parent.create_fork(next_id, current_ticks)
   };
   map_kernel_stack(child.get_stack_range());
+  child.page_directory = fork_page_directory();
   {
     let mut map = TASK_MAP.write();
     map.insert(next_id, Arc::new(RwLock::new(child)));
@@ -143,8 +147,10 @@ pub fn switch_to(id: &ProcessID) {
 #[inline(never)]
 unsafe fn switch_inner(current: &mut Process, next: &mut Process) {
   asm!(
-    "mov {0}, esp
-    mov esp, {1}",
+    "mov cr3, {0}
+    mov {1}, esp
+    mov esp, {2}",
+    in(reg) (next.page_directory.get_address().as_usize()),
     out(reg) (current.stack_pointer),
     in(reg) (next.stack_pointer),
   );
@@ -189,4 +195,29 @@ pub fn update_timeouts(delta_ms: usize) {
   for (_, process) in task_map.iter() {
     process.write().update_timeouts(delta_ms);
   }
+}
+
+pub fn fork_page_directory() -> PageTableReference {
+  use crate::memory::physical;
+  use crate::memory::virt::page_table;
+
+  // Create a new page directory
+  let directory_frame = physical::allocate_frame().unwrap();
+  let directory_scratch_space = UnmappedPage::map(directory_frame.get_address());
+  let directory_table = page_table::PageTable::at_address(directory_scratch_space.virtual_address());
+  directory_table.zero();
+  // Set the top entry to itself
+  directory_table.get_mut(1023).set_address(directory_frame.get_address());
+  directory_table.get_mut(1023).set_present();
+  // Copy all other kernel-space entries from the current table
+  let current_directory = page_table::PageTable::at_address(VirtualAddress::new(0xfffff000));
+  for entry in 0x300..0x3ff {
+    if current_directory.get(entry).is_present() {
+      let table_address = current_directory.get(entry).get_address();
+      directory_table.get_mut(entry).set_address(table_address);
+      directory_table.get_mut(entry).set_present();
+    }
+  }
+
+  PageTableReference::new(directory_frame.get_address())
 }

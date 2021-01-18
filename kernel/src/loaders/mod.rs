@@ -116,7 +116,6 @@ pub fn load_executable(
   let format = determine_format(drive_id, local_handle, interp_mode)?;
   let env = match format {
     ExecutableFormat::BIN => {
-      crate::kprintln!("ITS A BIN");
       bin::build_environment(drive_id, local_handle)
     },
     ExecutableFormat::COM => {
