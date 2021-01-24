@@ -77,7 +77,6 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
       // Permission error - access attempt came from Ring 3
       // This should segfault the process
       kprintln!("Attempt to access kernel memory ({:#010x}) from userspace (IP {:#010x})", address, stack_frame.eip);
-      loop {}
     }
     if error & 1 == 0 {
       // Page was not present
@@ -93,10 +92,7 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
       let current_pagedir = CurrentPageDirectory::get();
       let current_process_lock = crate::task::switching::get_current_process();
       if crate::task::paging::page_on_demand(current_process_lock, vaddr) {
-        unsafe { 
-          llvm_asm!("1:
-            jmp 1b");
-        }
+        // Return back to the failed instruction
         return;
       }
     }
