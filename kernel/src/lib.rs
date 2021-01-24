@@ -287,7 +287,7 @@ pub extern fn run_init() {
   */
 
   // Testing exec
-  task::exec::exec("INIT:\\test.bin", loaders::InterpretationMode::Native);
+  task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
 
   loop {
     task::sleep(1000);

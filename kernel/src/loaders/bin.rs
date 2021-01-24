@@ -21,7 +21,7 @@ pub fn build_environment(
     stat.byte_size
   };
   // A BIN file just has one segment and one section
-  let segments = build_single_section_environment(file_size)?;
+  let segments = build_single_section_environment(file_size, 0)?;
 
   Ok(
     ExecutionEnvironment {
@@ -30,12 +30,12 @@ pub fn build_environment(
         eax: Some(0),
 
         eip: Some(0),
-        esp: Some(0),
+        esp: Some(0xbffffffc),
 
-        cs: None,
+        cs: Some(0x1b),
         ds: None,
         es: None,
-        ss: None,
+        ss: Some(0x23),
       },
       require_vm: false,
     }
@@ -44,9 +44,10 @@ pub fn build_environment(
 
 pub fn build_single_section_environment(
   file_size: usize,
+  offset: usize,
 ) -> Result<Vec<ExecutionSegment>, LoaderError> {
   let section = ExecutionSection {
-    segment_offset: 0,
+    segment_offset: offset,
     executable_offset: Some(0),
     size: file_size,
   };

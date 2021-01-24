@@ -24,7 +24,6 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
     },
     None => (),
   }
-  crate::kprintln!("SETUP TIME");
   // Set up the environment to run the new program
   // Merge the previous register state with the requested state
 
@@ -32,21 +31,26 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
   // process makes a syscall, the stack should be fresh
   get_current_process().write().reset_stack_pointer();
 
+  let mut flags = 0x200;
+  if env.require_vm {
+    flags |= 0x20000;
+  }
+
   // Prepare the return to userspace
   let regs = EnvironmentRegisters {
-    flags: 0x200,
-    edi: 0xd1,
-    esi: 0x51,
-    ebp: 0xb9,
+    flags,
+    edi: 0,
+    esi: 0,
+    ebp: 0,
     esp: 0xbffffffc,
-    ebx: 0xbb,
-    edx: 0xdd,
-    ecx: 0xcc,
-    eax: 0xaa,
+    ebx: 0,
+    edx: 0,
+    ecx: 0,
+    eax: 0,
 
-    ss: 0x23,
-    cs: 0x1b,
-    eip: 0,
+    ss: env.registers.ss.unwrap_or(0),
+    cs: env.registers.cs.unwrap_or(0),
+    eip: env.registers.eip.unwrap_or(0),
   };
   // IRETD requires that we push
   //   Stack Segment

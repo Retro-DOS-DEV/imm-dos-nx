@@ -18,7 +18,7 @@ pub fn build_environment(
     stat.byte_size
   };
   // Same memory segmentation setup as BIN
-  let segments = super::bin::build_single_section_environment(file_size)?;
+  let segments = super::bin::build_single_section_environment(file_size, 0x100)?;
 
   // When running a COM file, the DOS shell is supposed to interpret the first
   // two command-line arguments and determine if they represent files.
@@ -36,10 +36,10 @@ pub fn build_environment(
         eip: Some(0x100),
         esp: Some(0xfffe),
 
-        cs: None,
-        ds: None,
-        es: None,
-        ss: None,
+        cs: Some(0),
+        ds: Some(0),
+        es: Some(0),
+        ss: Some(0),
       },
       require_vm: true,
     }
