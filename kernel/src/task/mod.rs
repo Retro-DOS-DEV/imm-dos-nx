@@ -6,6 +6,8 @@ pub mod id;
 pub mod io;
 pub mod ipc;
 pub mod memory;
+#[cfg(not(test))]
+pub mod paging;
 pub mod process;
 pub mod regs;
 pub mod stack;

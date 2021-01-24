@@ -47,7 +47,7 @@ pub const USER_KERNEL_BARRIER: usize = 0xc0000000;
 /// The ExecutionSection structure is the core of this mapping. When a frame of
 /// virtual memory needs to be initialized, this mapping can determine which
 /// bytes to load from the source file.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ExecutionSection {
   /// Where in the memory segment does this get copied to?
   pub segment_offset: usize,
@@ -65,6 +65,26 @@ impl ExecutionSection {
     let start = segment_start + self.segment_offset;
     let end = start + self.size;
     start..end
+  }
+
+  pub fn clip_to(&self, range: Range<usize>) -> ExecutionSection {
+    let (start, offset) = if self.segment_offset < range.start {
+      let delta = range.start - self.segment_offset;
+      (range.start, self.executable_offset.map(|off| off + delta))
+    } else {
+      (self.segment_offset, self.executable_offset)
+    };
+    let end = range.end.min(self.segment_offset + self.size);
+    let size = if end > start { end - start } else { 0 };
+    ExecutionSection {
+      segment_offset: start,
+      executable_offset: offset,
+      size,
+    }
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.size == 0
   }
 }
 
@@ -134,6 +154,10 @@ impl ExecutionSegment {
 
   pub fn get_size(&self) -> usize {
     self.size
+  }
+
+  pub fn sections_iter(&self) -> impl Iterator<Item = &ExecutionSection> {
+    self.sections.iter()
   }
 }
 
@@ -638,6 +662,45 @@ mod tests {
     assert_eq!(
       regions.mmap(None, 0x2000, MMapBacking::Anonymous).unwrap(),
       VirtualAddress::new(0xbfff9000),
+    );
+  }
+
+  #[test]
+  fn clipping_sections() {
+    assert_eq!(
+      (ExecutionSection { segment_offset: 0x1000, executable_offset: None, size: 0x2400 })
+        .clip_to(0x500..0x4000),
+      (ExecutionSection { segment_offset: 0x1000, executable_offset: None, size: 0x2400 })
+    );
+    assert_eq!(
+      (ExecutionSection { segment_offset: 0x1000, executable_offset: None, size: 0x2400 })
+        .clip_to(0x1200..0x4000),
+      (ExecutionSection { segment_offset: 0x1200, executable_offset: None, size: 0x2200 })
+    );
+    assert_eq!(
+      (ExecutionSection { segment_offset: 0x1000, executable_offset: None, size: 0x2400 })
+        .clip_to(0x800..0x2300),
+      (ExecutionSection { segment_offset: 0x1000, executable_offset: None, size: 0x1300 })
+    );
+    assert_eq!(
+      (ExecutionSection { segment_offset: 0x1000, executable_offset: None, size: 0x2400 })
+        .clip_to(0x2500..0x2900),
+      (ExecutionSection { segment_offset: 0x2500, executable_offset: None, size: 0x400 })
+    );
+    assert_eq!(
+      (ExecutionSection { segment_offset: 0x1000, executable_offset: None, size: 0x2400 })
+        .clip_to(0x3400..0x4000),
+      (ExecutionSection { segment_offset: 0x3400, executable_offset: None, size: 0 })
+    );
+    assert_eq!(
+      (ExecutionSection { segment_offset: 0x1000, executable_offset: None, size: 0x2400 })
+        .clip_to(0x4000..0x5000),
+      (ExecutionSection { segment_offset: 0x4000, executable_offset: None, size: 0 })
+    );
+    assert_eq!(
+      (ExecutionSection { segment_offset: 0, executable_offset: Some(0x350), size: 0x500 })
+        .clip_to(0x200..0x4000),
+      (ExecutionSection { segment_offset: 0x200, executable_offset: Some(0x550), size: 0x300 })
     );
   }
 }

@@ -18,7 +18,7 @@ pub struct Process {
   /// Stores the details of all addresses mapped into the process's memory.
   /// When a page fault occurs, this information is used to determine how
   /// content is paged into memory, or if it's a crash-causing fault.
-  memory: MemoryRegions,
+  pub memory: MemoryRegions,
   /// Represents the current execution state of the process
   state: RunState,
   /// The number of system ticks when this process was started
@@ -72,6 +72,10 @@ impl Process {
 
   pub fn get_parent_id(&self) -> &ProcessID {
     &self.parent_id
+  }
+
+  pub fn get_exec_file(&self) -> Option<(DriveID, LocalHandle)> {
+    self.exec_file
   }
 
   /// Based on the current system time in ticks, how long has this process been

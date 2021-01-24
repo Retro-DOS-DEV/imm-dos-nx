@@ -10,6 +10,7 @@ use crate::memory::{
   },
 };
 use crate::process;
+use crate::task;
 use super::stack::StackFrame;
 use super::syscall_legacy::{DosApiRegisters, dos_api, VM8086Frame};
 
@@ -70,6 +71,45 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
     );
   }
   kprintln!("\nPage Fault at {:#010x} ({:x})", address, error);
+
+  if address >= 0xc0000000 { // Kernel region
+    if error & 4 == 4 {
+      // Permission error - access attempt came from Ring 3
+      // This should segfault the process
+      kprintln!("Attempt to access kernel memory ({:#010x}) from userspace (IP {:#010x})", address, stack_frame.eip);
+      loop {}
+    }
+    if error & 1 == 0 {
+      // Page was not present
+      // If it is in the heap region, map a new physical frame and extend the
+      // region
+
+    }
+  } else { // User space
+    if error & 1 == 0 {
+      // Page was not present
+      // Query the current task to determine
+      let vaddr = VirtualAddress::new(address);
+      let current_pagedir = CurrentPageDirectory::get();
+      let current_process_lock = crate::task::switching::get_current_process();
+      if crate::task::paging::page_on_demand(current_process_lock, vaddr) {
+        unsafe { 
+          llvm_asm!("1:
+            jmp 1b");
+        }
+        return;
+      }
+    }
+
+    // All other cases (accessing an unmapped section, writing a read-only
+    // segment, etc) should cause a segfault.
+
+    kprintln!("SEGFAULT");
+
+    loop {}
+  }
+
+  /*
   let current_proc = process::current_process().expect("Page fault outside a process");
   if address >= 0xc0000000 {
     // Kernel region
@@ -209,4 +249,5 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
   kprintln!("Failed to map address: {:#101x}", address);
   kprintln!("{:?}", stack_frame);
   loop {}
+  */
 }

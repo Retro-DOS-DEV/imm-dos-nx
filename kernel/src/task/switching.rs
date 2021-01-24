@@ -137,6 +137,9 @@ pub fn switch_to(id: &ProcessID) {
   unsafe {
     let current = &mut *current_ptr.unwrap();
     let next = &mut *next_ptr.unwrap();
+    unsafe {
+      crate::gdt::set_tss_stack_pointer(next.get_stack_range().end.as_u32() - 4);
+    }
     llvm_asm!("push eax; push ecx; push edx; push ebx; push ebp; push esi; push edi" : : : "esp" : "intel", "volatile");
     switch_inner(current, next);
     llvm_asm!("pop edi; pop esi; pop ebp; pop ebx; pop edx; pop ecx; pop eax" : : : "esp" : "intel", "volatile");
