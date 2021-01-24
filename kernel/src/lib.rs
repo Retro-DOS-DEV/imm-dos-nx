@@ -12,6 +12,7 @@
 // Test-safe modules
 pub mod buffers;
 pub mod collections;
+pub mod dos;
 pub mod files;
 pub mod filesystems;
 pub mod fs;

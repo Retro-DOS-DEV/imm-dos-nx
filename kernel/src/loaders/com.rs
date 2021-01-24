@@ -1,6 +1,13 @@
 //! Parsing and loading for DOS COM binaries
 //! Similar to BIN, there isn't any parsing or loading to do. The file is mapped
-//! to 0x0000, and initial registers are set up according to DOS convention.
+//! to a fixed location, and initial registers are set up according to DOS
+//! convention.
+//! 
+//! DOS processes run at an elevated location beyond 0x0000 because they need to
+//! preserve space at low memory to stores values that are supposed to be in the
+//! internals of the DOS kernel.
+//! Multiple DOS API methods are expected to return absolute pointers to structs
+//! in the "kernel," so we keep a static map of these structs accessible.
 
 use crate::files::handle::LocalHandle;
 use crate::fs::{drive::DriveID, DRIVES};
@@ -17,8 +24,15 @@ pub fn build_environment(
     let _ = instance.stat(local_handle, &mut stat).map_err(|_| LoaderError::FileNotFound)?;
     stat.byte_size
   };
+
+  // Set the segment and IP based on the current environment and expected PSP
+  // location
+  let segment: u32 = 0;
+  let ip = 0x100;
+  let offset = (segment << 4) + ip;
+
   // Same memory segmentation setup as BIN
-  let segments = super::bin::build_single_section_environment(file_size, 0x100)?;
+  let segments = super::bin::build_single_section_environment(file_size, offset as usize)?;
 
   // When running a COM file, the DOS shell is supposed to interpret the first
   // two command-line arguments and determine if they represent files.
@@ -33,13 +47,13 @@ pub fn build_environment(
         /// Obviously this still needs to be implemented, or handled elsewhere
         eax: Some(0),
 
-        eip: Some(0x100),
+        eip: Some(ip),
         esp: Some(0xfffe),
 
-        cs: Some(0),
-        ds: Some(0),
-        es: Some(0),
-        ss: Some(0),
+        cs: Some(segment),
+        ds: Some(segment),
+        es: Some(segment),
+        ss: Some(segment),
       },
       require_vm: true,
     }

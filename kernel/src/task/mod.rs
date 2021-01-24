@@ -14,6 +14,7 @@ pub mod stack;
 pub mod state;
 #[cfg(not(test))]
 pub mod switching;
+pub mod vm;
 
 #[cfg(not(test))]
 pub use switching::yield_coop;
