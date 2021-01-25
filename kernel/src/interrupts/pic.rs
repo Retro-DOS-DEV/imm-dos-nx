@@ -17,7 +17,6 @@ pub extern "x86-interrupt" fn keyboard(_frame: &stack::StackFrame) {
     let mut data: [u8; 1] = [0; 1];
     data[0] = KEYBOARD_PORT.read_u8();
     input::INPUT_EVENTS.write(&data);
-    input::wake_thread();
 
     devices::PIC.acknowledge_interrupt(1);
   }

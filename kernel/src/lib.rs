@@ -16,6 +16,7 @@ pub mod dos;
 pub mod files;
 pub mod filesystems;
 pub mod fs;
+pub mod input;
 pub mod loaders;
 pub mod memory;
 pub mod pipes;
@@ -39,8 +40,6 @@ pub mod hardware;
 pub mod idt;
 #[cfg(not(test))]
 pub mod init;
-#[cfg(not(test))]
-pub mod input;
 #[cfg(not(test))]
 pub mod interrupts;
 #[cfg(not(test))]
@@ -210,6 +209,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     // most of the system daemons.
     {
       let init_process = task::switching::kfork(run_init);
+      let input_process = task::switching::kfork(input::run_input);
     }
 
     //task::switching::switch_to(&task::id::ProcessID::new(1));
@@ -288,7 +288,16 @@ pub extern fn run_init() {
   */
 
   // Testing exec
-  task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
+  //task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
+
+  let mut buffer: [u8; 4] = [0; 4];
+  let slot = input::device::open();
+  loop {
+    input::device::read(slot, &mut buffer);
+
+    kprint!(".");
+    //task::sleep(1000);
+  }
 
   loop {
     task::sleep(1000);

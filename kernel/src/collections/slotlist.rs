@@ -75,6 +75,10 @@ impl<T: Sized> SlotList<T> {
     let entry = self.slots.get_mut(index).unwrap();
     entry.replace(item)
   }
+
+  pub fn iter(&self) -> impl Iterator<Item = &T> {
+    self.slots.iter().filter_map(|i| i.as_ref())
+  }
 }
 
 impl<T: Clone> Clone for SlotList<T> {
@@ -149,5 +153,24 @@ mod tests {
     assert_eq!(list.get(0), Some(&10));
     assert_eq!(list.get(3), None);
     assert_eq!(list.get(4), Some(&12));
+  }
+
+  #[test]
+  fn iterator() {
+    let mut list: SlotList<u32> = SlotList::new();
+    list.insert(1);
+    list.insert(2);
+    list.insert(1);
+    list.insert(3);
+    list.insert(1);
+
+    list.remove(1);
+    list.remove(3);
+    let mut count = 0;
+    for x in list.iter() {
+      count += 1;
+      assert_eq!(*x, 1);
+    }
+    assert_eq!(count, 3);
   }
 }

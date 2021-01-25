@@ -348,6 +348,21 @@ impl Process {
       },
     }
   }
+
+  /// Mark a process as blocked on file IO
+  pub fn io_block(&mut self, timeout: Option<usize>) {
+    self.state = RunState::FileIO(timeout);
+  }
+
+  /// If a process is blocked on file IO, wake it up
+  pub fn io_resume(&mut self) {
+    match self.state {
+      RunState::FileIO(_) => {
+        self.state = RunState::Running;
+      },
+      _ => (),
+    }
+  }
 }
 
 impl Drop for Process {
