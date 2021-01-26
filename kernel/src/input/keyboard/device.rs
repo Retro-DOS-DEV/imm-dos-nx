@@ -1,9 +1,12 @@
+//! Device driver implementation for the keyboard
+//! DEV:/KBD is a multi-reader device, which means that any incoming bytes will
+//! be sent in parallel to all active readers.
 
 use alloc::sync::Arc;
 use crate::collections::SlotList;
 use crate::task::switching::{get_current_id, get_current_process, yield_coop};
 use spin::RwLock;
-use super::buffers::InputBuffer;
+use super::super::buffers::InputBuffer;
 
 /// Buffers for each of the processes reading the 
 static KEYBOARD_READERS: RwLock<SlotList<Arc<InputBuffer>>> = RwLock::new(SlotList::new());

@@ -290,12 +290,12 @@ pub extern fn run_init() {
   // Testing exec
   //task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
 
-  let mut buffer: [u8; 4] = [0; 4];
-  let slot = input::device::open();
+  let mut buffer: [u8; 1] = [0; 1];
+  let slot = input::com::get_device(0).open();
   loop {
-    input::device::read(slot, &mut buffer);
+    input::com::get_device(0).read(slot, &mut buffer);
 
-    kprint!(".");
+    kprint!("{:#02x} ", buffer[0]);
     //task::sleep(1000);
   }
 

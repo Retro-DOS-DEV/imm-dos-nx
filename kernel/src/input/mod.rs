@@ -8,7 +8,7 @@ use crate::buffers::RingBuffer;
 
 pub mod buffers;
 #[cfg(not(test))]
-pub mod device;
+pub mod com;
 #[cfg(not(test))]
 pub mod keyboard;
 
@@ -40,7 +40,7 @@ pub extern fn run_input() {
       // If an action occurs, send it to all readers
       match result {
         Some(action) => {
-          device::write_all(action.to_raw());
+          keyboard::device::write_all(action.to_raw());
         },
         None => (),
       }

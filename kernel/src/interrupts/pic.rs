@@ -24,7 +24,8 @@ pub extern "x86-interrupt" fn keyboard(_frame: &stack::StackFrame) {
 
 pub extern "x86-interrupt" fn com1(_frame: &stack::StackFrame) {
   unsafe {
-    devices::COM1.handle_interrupt();
+    input::com::handle_interrupt(0);
+    //devices::COM1.handle_interrupt();
     devices::PIC.acknowledge_interrupt(4);
   }
 }

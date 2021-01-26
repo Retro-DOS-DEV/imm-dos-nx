@@ -25,6 +25,8 @@ pub unsafe fn init() {
   PIC.init();
   PIT.set_divider(11932); // approximately 100Hz
 
+  crate::input::com::init();
+
   /*
   {
     let mut drivers = DEV.write();

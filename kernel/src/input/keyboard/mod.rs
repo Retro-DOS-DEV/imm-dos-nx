@@ -1,6 +1,7 @@
 use crate::x86::io::Port;
 
 pub mod codes;
+pub mod device;
 
 use codes::KeyCode;
 
