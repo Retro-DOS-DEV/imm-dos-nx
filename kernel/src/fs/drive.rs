@@ -46,11 +46,11 @@ impl DriveMap {
     DriveID::new(id)
   }
 
-  pub fn mount_drive(&self, name: &str, category: FileSystemCategory, instance: Box<FileSystemType>) -> DriveID {
+  pub fn mount_drive(&self, name: &str, category: FileSystemCategory, instance: Arc<Box<FileSystemType>>) -> DriveID {
     let entry = FileSystemInstance {
       category,
       name: Box::from(name),
-      instance: Arc::new(instance),
+      instance,
     };
     let id = self.next_drive_id();
     self.drives.write().insert(id, entry);

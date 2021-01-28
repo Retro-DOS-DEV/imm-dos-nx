@@ -12,8 +12,8 @@ pub extern "C" fn floppy_driver() {
 
   floppy::init_dma();
 
-  let fat_fs = filesystems::fat12::create_fs("FD0").unwrap();
-  filesystems::VFS.register_fs("A", fat_fs).expect("Failed to register A:");
+  //let fat_fs = filesystems::fat12::create_fs("FD0").unwrap();
+  //filesystems::VFS.register_fs("A", fat_fs).expect("Failed to register A:");
 
   process::send_signal(process::id::ProcessID::new(1), syscall::signals::CONTINUE);
 

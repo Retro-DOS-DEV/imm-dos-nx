@@ -210,6 +210,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     {
       let init_process = task::switching::kfork(run_init);
       let input_process = task::switching::kfork(input::run_input);
+
+      task::switching::kfork(run_init);
     }
 
     //task::switching::switch_to(&task::id::ProcessID::new(1));
@@ -271,6 +273,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[cfg(not(test))]
 #[inline(never)]
 pub extern fn run_init() {
+  let id = task::switching::get_current_id();
   /*
   let mut read_buffer: [u8; 10] = [0; 10];
   let txt_file = task::io::open_path("INIT:\\test.txt").map_err(|_| "File not found.").unwrap();
@@ -290,12 +293,14 @@ pub extern fn run_init() {
   // Testing exec
   //task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
 
-  let mut buffer: [u8; 1] = [0; 1];
-  let slot = input::com::get_device(0).open();
+  let mut buffer: [u8; 2] = [0; 2];
+  //let slot = input::com::get_device(0).open();
+  let handle = task::io::open_path("DEV:\\KBD").map_err(|_| ()).unwrap();
+  //let slot = devices::get_driver_for_device(1).unwrap().open().unwrap();
   loop {
-    input::com::get_device(0).read(slot, &mut buffer);
-
-    kprint!("{:#02x} ", buffer[0]);
+    //devices::get_driver_for_device(1).unwrap().read(slot, &mut buffer);
+    task::io::read_file(handle, &mut buffer);
+    kprint!("{}:{:#02x} ", id.as_u32(), buffer[0]);
     //task::sleep(1000);
   }
 

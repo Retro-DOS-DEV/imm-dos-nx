@@ -4,6 +4,8 @@
 
 use alloc::sync::Arc;
 use crate::collections::SlotList;
+use crate::devices::driver::DeviceDriver;
+use crate::files::cursor::SeekMethod;
 use crate::task::switching::{get_current_id, get_current_process, yield_coop};
 use spin::RwLock;
 use super::super::buffers::InputBuffer;
@@ -11,30 +13,43 @@ use super::super::buffers::InputBuffer;
 /// Buffers for each of the processes reading the 
 static KEYBOARD_READERS: RwLock<SlotList<Arc<InputBuffer>>> = RwLock::new(SlotList::new());
 
-pub fn open() -> usize {
-  let id = get_current_id();
-  let buffer = InputBuffer::for_process(id);
-  KEYBOARD_READERS.write().insert(Arc::new(buffer))
-}
+pub struct KeyboardDriver {}
 
-pub fn read(slot: usize, dest: &mut [u8]) -> Result<usize, ()> {
-  let buffer = match KEYBOARD_READERS.read().get(slot) {
-    Some(entry) => entry.clone(),
-    None => return Err(()),
-  };
-  let mut written = 0;
-  while written < dest.len() {
-    get_current_process().write().io_block(None);
-    buffer.start_read();
-    yield_coop();
-    let partial_read = buffer.read_to_buffer(&mut dest[written..]);
-    written += partial_read;
+impl DeviceDriver for KeyboardDriver {
+  fn open(&self) -> Result<usize, ()> {
+    let id = get_current_id();
+    let buffer = InputBuffer::for_process(id);
+    Ok(KEYBOARD_READERS.write().insert(Arc::new(buffer)))
   }
-  Ok(written)
-}
 
-pub fn close(slot: usize) {
-  KEYBOARD_READERS.write().remove(slot);
+  fn read(&self, slot: usize, dest: &mut [u8]) -> Result<usize, ()> {
+    let buffer = match KEYBOARD_READERS.read().get(slot) {
+      Some(entry) => entry.clone(),
+      None => return Err(()),
+    };
+    let mut written = 0;
+    while written < dest.len() {
+      get_current_process().write().io_block(None);
+      buffer.start_read();
+      yield_coop();
+      let partial_read = buffer.read_to_buffer(&mut dest[written..]);
+      written += partial_read;
+    }
+    Ok(written)
+  }
+
+  fn write(&self, slot: usize, dest: &[u8]) -> Result<usize, ()> {
+    Err(())
+  }
+
+  fn close(&self, slot: usize) -> Result<(), ()> {
+    KEYBOARD_READERS.write().remove(slot);
+    Ok(())
+  }
+
+  fn seek(&self, index: usize, offset: SeekMethod) -> Result<usize, ()> {
+    Err(())
+  }
 }
 
 pub fn write_all(pair: [u8; 2]) {

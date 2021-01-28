@@ -3,12 +3,12 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::RwLock;
 
-#[cfg(not(test))]
-pub mod dev;
+//#[cfg(not(test))]
+//pub mod dev;
 #[cfg(not(test))]
 pub mod init;
 
-pub mod fat12;
+//pub mod fat12;
 pub mod filesystem;
 
 pub type FileSystemType = dyn filesystem::FileSystem + Send + Sync;
@@ -88,12 +88,12 @@ pub fn get_fs(index: usize) -> Option<Arc<Box<FileSystemType>>> {
 
 #[cfg(not(test))]
 pub fn init_fs() {
-  let dev_fs = dev::DevFileSystem::new();
-  let dev_number = VFS.register_fs("DEV", Box::new(dev_fs)).expect("Failed to register DEV FS");
+  //let dev_fs = dev::DevFileSystem::new();
+  //let dev_number = VFS.register_fs("DEV", Box::new(dev_fs)).expect("Failed to register DEV FS");
   let pipe_fs = crate::pipes::create_fs();
   let pipe_number = VFS.register_fs("PIPE", pipe_fs).expect("Failed to register PIPE FS");
   unsafe {
     PIPE_FS = pipe_number;
-    DEV_FS = dev_number;
+    //DEV_FS = dev_number;
   }
 }
