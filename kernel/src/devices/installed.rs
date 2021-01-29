@@ -11,7 +11,6 @@ pub struct DeviceNumberByName {
 
 impl DeviceNumberByName {
   pub fn matches_name(&self, name: &str) -> bool {
-    crate::kprintln!("MATCH {} {} {}", self.name, name, *self.name == *name);
     *self.name == *name
   }
 }
@@ -53,7 +52,6 @@ impl InstalledDevices {
   pub fn register_driver(&mut self, name: &str, driver: Arc<Box<DeviceDriverType>>) -> usize {
     self.drivers.push(driver);
     let number = self.drivers.len();
-    crate::kprintln!("REGISTER");
     self.device_names.push(
       DeviceNumberByName {
         name: alloc::string::String::from(name).into_boxed_str(),

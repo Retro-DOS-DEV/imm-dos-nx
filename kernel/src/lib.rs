@@ -293,11 +293,11 @@ pub extern fn run_init() {
   // Testing exec
   //task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
 
-  let mut buffer: [u8; 2] = [0; 2];
+  let mut buffer: [u8; 2] = [5; 2];
   //let slot = input::com::get_device(0).open();
-  let handle = task::io::open_path("DEV:\\KBD").map_err(|_| ()).unwrap();
+  let handle = task::io::open_path("DEV:\\ZERO").map_err(|_| ()).unwrap();
   //let slot = devices::get_driver_for_device(1).unwrap().open().unwrap();
-  loop {
+   {
     //devices::get_driver_for_device(1).unwrap().read(slot, &mut buffer);
     task::io::read_file(handle, &mut buffer);
     kprint!("{}:{:#02x} ", id.as_u32(), buffer[0]);

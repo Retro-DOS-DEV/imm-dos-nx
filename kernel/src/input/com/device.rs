@@ -8,26 +8,27 @@
 use alloc::collections::VecDeque;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use crate::collections::SlotList;
+use crate::devices::driver::DeviceDriver;
 use crate::task::id::ProcessID;
 use crate::task::switching::{get_current_id, get_current_process, get_process, yield_coop};
 use super::serial::SerialPort;
 use spin::RwLock;
 
-pub static mut COM_DEVICES: [Option<ComDriver>; 2] = [None, None];
+pub static mut COM_DEVICES: [Option<ComDevice>; 2] = [None, None];
 
 struct Handle {
   pub process: ProcessID,
   pub handle_id: usize,
 }
 
-pub struct ComDriver {
+pub struct ComDevice {
   com: SerialPort,
   next_handle: AtomicUsize,
   open_handles: RwLock<SlotList<Handle>>,
   readers: RwLock<VecDeque<usize>>,
 }
 
-impl ComDriver {
+impl ComDevice {
   pub fn new(first_port: u16) -> Self {
     Self {
       com: SerialPort::new(first_port),
@@ -111,5 +112,64 @@ impl ComDriver {
     self.readers.write().pop_front();
     self.wake_front();
     written
+  }
+
+  pub fn close(&self, handle: usize) {
+    let mut handles = self.open_handles.write();
+    let handle_index = handles
+      .iter()
+      .enumerate()
+      .find_map(|(i, h)| if h.handle_id == handle { Some(i) } else { None });
+    match handle_index {
+      Some(index) => {
+        handles.remove(index);
+      },
+      None => (),
+    }
+  }
+}
+
+pub struct ComDriver {
+  com_number: usize,
+}
+
+impl ComDriver {
+  pub fn new(com_number: usize) -> Self {
+    Self {
+      com_number,
+    }
+  }
+
+  pub fn get_device(&self) -> Result<&ComDevice, ()> {
+    unsafe {
+      if self.com_number >= COM_DEVICES.len() {
+        return Err(());
+      }
+      match &COM_DEVICES[self.com_number] {
+        Some(dev) => Ok(dev),
+        None => Err(()),
+      }
+    }
+  }
+}
+
+impl DeviceDriver for ComDriver {
+  fn open(&self) -> Result<usize, ()> {
+    let device = self.get_device()?;
+    Ok(device.open())
+  }
+
+  fn read(&self, index: usize, buffer: &mut [u8]) -> Result<usize, ()> {
+    let device = self.get_device()?;
+    Ok(device.read(index, buffer))
+  }
+
+  fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()> {
+    Err(())
+  }
+
+  fn close(&self, index: usize) -> Result<(), ()> {
+    let device = self.get_device()?;
+    Ok(device.close(index))
   }
 }

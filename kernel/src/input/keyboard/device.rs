@@ -46,10 +46,6 @@ impl DeviceDriver for KeyboardDriver {
     KEYBOARD_READERS.write().remove(slot);
     Ok(())
   }
-
-  fn seek(&self, index: usize, offset: SeekMethod) -> Result<usize, ()> {
-    Err(())
-  }
 }
 
 pub fn write_all(pair: [u8; 2]) {

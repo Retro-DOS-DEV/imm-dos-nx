@@ -7,6 +7,8 @@ use spin::RwLock;
 
 pub mod driver;
 pub mod installed;
+pub mod null;
+pub mod zero;
 
 use installed::InstalledDevices;
 
@@ -48,7 +50,11 @@ pub fn init() {
     let mut all_devices = DEVICES.write();
     all_devices.register_driver("KBD", Arc::new(Box::new(crate::input::keyboard::device::KeyboardDriver {})));
     crate::input::com::init();
+    all_devices.register_driver("COM1", Arc::new(Box::new(crate::input::com::device::ComDriver::new(0))));
+    all_devices.register_driver("COM2", Arc::new(Box::new(crate::input::com::device::ComDriver::new(0))));
+    all_devices.register_driver("NULL", Arc::new(Box::new(null::NullDriver::new())));
+    all_devices.register_driver("ZERO", Arc::new(Box::new(zero::ZeroDriver::new())));
 
-    // ZERO, NULL, COM, TTY, FD0
+    // TTY, FD1
   }
 }

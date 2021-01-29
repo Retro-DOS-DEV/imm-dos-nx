@@ -25,14 +25,6 @@ static KEYBOARD: spin::RwLock<keyboard::Keyboard> = spin::RwLock::new(keyboard::
 #[cfg(not(test))]
 #[inline(never)]
 pub extern fn run_input() {
-  {
-    use alloc::boxed::Box;
-    use alloc::sync::Arc;
-
-    let mut devices = crate::devices::DEVICES.write();
-    devices.register_driver("KBD", Arc::new(Box::new(keyboard::device::KeyboardDriver {})));
-  }
-
   crate::kprintln!("Input process ready");
 
   let mut read_buffer: [u8; 1] = [0; 1];
