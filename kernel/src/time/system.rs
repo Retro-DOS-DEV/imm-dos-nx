@@ -1,7 +1,7 @@
 /// Utilities for managing system time
 
 use spin::Mutex;
-
+use core::sync::atomic::{AtomicU32, Ordering};
 use crate::devices;
 use crate::interrupts;
 use super::timestamp::{Timestamp, TimestampHires};
@@ -19,7 +19,7 @@ static TIME_OFFSET: Mutex<TimestampHires> = Mutex::new(TimestampHires(0));
 
 /// Stores the number of clock ticks since the kernel began execution. This is
 /// used for relative time offsets within the various kernel internals.
-static SYSTEM_TICKS: Mutex<u32> = Mutex::new(0);
+static SYSTEM_TICKS: AtomicU32 = AtomicU32::new(0);
 
 /// Reset the known true reference point
 pub fn reset_known_time(time: u64) {
@@ -79,6 +79,15 @@ pub fn increment_offset(delta: u64) {
   if int_reenable {
     interrupts::sti();
   }
+}
+
+pub fn tick() {
+  SYSTEM_TICKS.fetch_add(1, Ordering::SeqCst);
+  increment_offset(HUNDRED_NS_PER_TICK);
+}
+
+pub fn get_system_ticks() -> u32 {
+  SYSTEM_TICKS.load(Ordering::SeqCst)
 }
 
 /// Process 

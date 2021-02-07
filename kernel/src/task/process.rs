@@ -211,7 +211,8 @@ impl Process {
 
   /// Attempt to read an IPC message. If none is available, the process will
   /// block until a message is received or the optional timeout argument
-  /// expires.
+  /// expires. When the process unblocks, it should re-issue a call to this
+  /// method.
   /// Because entries in the IPC queue are only expired when it is read or
   /// written, the current time needs to be passed to this method to clean up
   /// any items that are due for removal.
@@ -222,11 +223,7 @@ impl Process {
     }
     // Nothing in the queue, block the process until something arrives
     self.state = RunState::AwaitingIPC(timeout);
-    super::yield_coop();
-    // At this point, either a message was enqueued or the timeout expired
-    // `current_ticks` will be outdated, but we don't care because if there is
-    // an entry, it hasn't expired.
-    self.ipc_queue.read(current_ticks)
+    (None, false)
   }
 
   /// Send an IPC message to this process. If the process is currently blocked

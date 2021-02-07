@@ -9,6 +9,7 @@ use filesystem::{FileSystemCategory, KernelFileSystem};
 
 pub static DRIVES: drive::DriveMap = drive::DriveMap::new();
 
+#[cfg(not(test))]
 pub fn init_system_drives(initfs_location: VirtualAddress) {
   let initfs = drivers::initfs::InitFileSystem::new(initfs_location);
   DRIVES.mount_drive("INIT", FileSystemCategory::KernelSync, Arc::new(Box::new(initfs)));
