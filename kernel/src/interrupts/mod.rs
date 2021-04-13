@@ -1,4 +1,6 @@
 pub mod exceptions;
+pub mod handlers;
+pub mod idt;
 pub mod pic;
 pub mod stack;
 pub mod syscall;

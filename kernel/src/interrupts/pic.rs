@@ -10,12 +10,11 @@ pub extern "x86-interrupt" fn pit(_frame: &stack::StackFrame) {
   }
 }
 
-static KEYBOARD_PORT: x86::io::Port = x86::io::Port::new(0x60);
-
 pub extern "x86-interrupt" fn keyboard(_frame: &stack::StackFrame) {
   unsafe {
     let mut data: [u8; 1] = [0; 1];
-    data[0] = KEYBOARD_PORT.read_u8();
+    let port = x86::io::Port::new(0x60);
+    data[0] = port.read_u8();
     input::INPUT_EVENTS.write(&data);
 
     devices::PIC.acknowledge_interrupt(1);

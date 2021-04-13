@@ -12,16 +12,6 @@ pub struct DosApiRegisters {
   pub bp: u32,
 }
 
-#[repr(C, packed)]
-pub struct VM8086Frame {
-  pub sp: u32,
-  pub ss: u32,
-  pub es: u32,
-  pub ds: u32,
-  pub fs: u32,
-  pub gs: u32,
-}
-
 impl DosApiRegisters {
   pub fn empty() -> DosApiRegisters {
     DosApiRegisters {
@@ -37,10 +27,22 @@ impl DosApiRegisters {
   }
 }
 
+/// When an interrupt occurs in VM86 mode, the stack pointer and segment
+/// registers are pushed onto the stack before the typical stack frame.
+#[repr(C, packed)]
+pub struct VM86Frame {
+  pub sp: u32,
+  pub ss: u32,
+  pub es: u32,
+  pub ds: u32,
+  pub fs: u32,
+  pub gs: u32,
+}
+
 /**
  * Interrupts to support legacy DOS API calls
  */
-pub fn dos_api(regs: &mut DosApiRegisters, frame: &mut VM8086Frame) {
+pub fn dos_api(regs: &mut DosApiRegisters, frame: &mut VM86Frame) {
   match (regs.ax & 0xff00) >> 8 {
     0 => { // Terminate
       // Assumes PSP is located at %cs

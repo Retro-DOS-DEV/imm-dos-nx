@@ -1,28 +1,53 @@
-use crate::filesystems;
+use core::mem;
 use crate::kprintln;
 use crate::memory::{
-  self,
   address::{VirtualAddress},
-  physical,
-  virt::{
-    page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags},
-    region::{MemoryRegionType, Permissions},
-  },
+  virt::page_directory::CurrentPageDirectory,
 };
-use crate::process;
-use crate::task;
 use super::stack::StackFrame;
-use super::syscall_legacy::{DosApiRegisters, dos_api, VM8086Frame};
+use super::syscall_legacy::{DosApiRegisters, dos_api, VM86Frame};
 
 #[no_mangle]
 pub extern "x86-interrupt" fn divide_by_zero(stack_frame: &StackFrame) {
   kprintln!("\nERR: Divide By Zero\n{:?}", stack_frame);
+  // Send a floating-point exception signal to the current process, and return
+  // to execution.
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn double_fault(stack_frame: &StackFrame) {
+pub extern "x86-interrupt" fn breakpoint(stack_frame: &StackFrame) {
+  // Send a Trap signal to the current process
+  loop {}
+}
+
+#[no_mangle]
+pub extern "x86-interrupt" fn invalid_opcode(stack_frame: &StackFrame) {
+  kprintln!("Invalid opcode at {:#010x}", stack_frame.eip);
+  loop {}
+}
+
+#[no_mangle]
+pub extern "x86-interrupt" fn double_fault(stack_frame: &StackFrame, _error: u32) {
   //kprintln!("\nERR: Double Fault\n{:?}", stack_frame);
+  loop {}
+}
+
+#[no_mangle]
+pub extern "x86-interrupt" fn invalid_tss(stack_frame: &StackFrame, error: u32) {
+  kprintln!("\nERR: Invalid TSS. Segment {:?}", error);
+  loop {}
+}
+
+#[no_mangle]
+pub extern "x86-interrupt" fn segment_not_present(stack_frame: &StackFrame, error: u32) {
+  kprintln!("\nERR: Segment not present: {:?}", error);
+  loop {}
+}
+
+#[no_mangle]
+pub extern "x86-interrupt" fn stack_segment_fault(stack_frame: &StackFrame, error: u32) {
+  kprintln!("\nERR: Stack segment fault: {:?}", error);
   loop {}
 }
 
@@ -33,9 +58,9 @@ pub extern "x86-interrupt" fn gpf(stack_frame: &StackFrame, error: u32) {
     llvm_asm!("" : "={ebp}"(reg_ptr) ::: "volatile");
   }
   if stack_frame.eflags & 0x20000 != 0 {
-    // VM 8086
+    // VM86 Mode
     let stack_frame_ptr = stack_frame as *const StackFrame as usize;
-    let vm_frame_ptr = (stack_frame_ptr + 12) as *mut VM8086Frame;
+    let vm_frame_ptr = (stack_frame_ptr + mem::size_of::<StackFrame>()) as *mut VM86Frame;
     unsafe {
       let regs = &mut *((reg_ptr - 6 * 4) as *mut DosApiRegisters);
       let vm_frame = &mut *vm_frame_ptr;

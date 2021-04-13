@@ -4,6 +4,7 @@
 #![feature(llvm_asm)]
 #![feature(const_btree_new)]
 #![feature(const_fn)]
+#![feature(const_raw_ptr_to_usize_cast)]
 #![feature(core_intrinsics)]
 #![feature(naked_functions)]
 
@@ -36,8 +37,8 @@ pub mod drivers;
 pub mod gdt;
 #[cfg(not(test))]
 pub mod hardware;
-#[cfg(not(test))]
-pub mod idt;
+//#[cfg(not(test))]
+//pub mod idt;
 #[cfg(not(test))]
 pub mod init;
 #[cfg(not(test))]
@@ -99,7 +100,7 @@ unsafe fn zero_bss() {
 
 #[cfg(not(test))]
 unsafe fn init_tables() {
-  idt::init();
+  interrupts::idt::init();
   gdt::init();
 }
 
@@ -295,13 +296,13 @@ pub extern fn run_init() {
 
   let mut buffer: [u8; 2] = [5; 2];
   //let slot = input::com::get_device(0).open();
-  let handle = task::io::open_path("DEV:\\ZERO").map_err(|_| ()).unwrap();
+  let handle = task::io::open_path("DEV:\\KBD").map_err(|_| ()).unwrap();
   //let slot = devices::get_driver_for_device(1).unwrap().open().unwrap();
-   {
+  loop {
     //devices::get_driver_for_device(1).unwrap().read(slot, &mut buffer);
     task::io::read_file(handle, &mut buffer);
     kprint!("{}:{:#02x} ", id.as_u32(), buffer[0]);
-    //task::sleep(1000);
+    task::sleep(1000);
   }
 
   loop {

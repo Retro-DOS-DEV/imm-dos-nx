@@ -1,5 +1,7 @@
 use core::fmt;
 
+/// Each interrupt and exception places this structure on the stack, so that the
+/// previously running code can be re-entered when the interrupt ends.
 #[repr(C, packed)]
 pub struct StackFrame {
   pub eip: u32,
