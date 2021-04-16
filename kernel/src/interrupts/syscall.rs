@@ -214,6 +214,16 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     0x33 => { // unmount
     },
 
+    0x40 => { // install interrupt handler
+      let irq = registers.ebx;
+      let address = registers.ecx;
+      let result = match exec::install_interrupt_handler(irq, address) {
+        Ok(_) => 0,
+        Err(_) => 0xff,
+      };
+      registers.eax = result;
+    },
+
     // misc
     0xffff => { // debug
       kprintln!("SYSCALL!");
