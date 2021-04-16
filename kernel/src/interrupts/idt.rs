@@ -1,6 +1,6 @@
 use core::mem;
 use crate::x86::segments::SegmentSelector;
-use super::{exceptions, pic, stack};
+use super::{exceptions, handlers, pic, stack};
 
 // To maintain full control of the stack when entering / exiting a syscall, we
 // use a bit of statically-linked assembly code to handle this interrupt
@@ -221,7 +221,7 @@ pub unsafe fn init() {
   // The rest of the PIC IRQs are a mix of standard connections and ISA
   // interrupts. When PCI devices are available, their interrupts are exposed on
   // unused lines using the Programmable Interrupt Router.
-  //IDT[0x33].set_handler(pic::com2, GateType::Interrupt);
+  IDT[0x33].set_handler(irq_3, GateType::Interrupt);
   IDT[0x34].set_handler(pic::com1, GateType::Interrupt);
   //IDT[0x35].set_handler(irq_5, GateType::Interrupt);
   IDT[0x36].set_handler(pic::floppy, GateType::Interrupt);
@@ -237,4 +237,12 @@ pub unsafe fn init() {
 
   // With the table initialized, tell the CPU where it is
   lidt(&IDTR);
+}
+
+pub extern "x86-interrupt" fn irq_3(_frame: &stack::StackFrame) {
+  let handler = match handlers::try_get_installed_handler(3) {
+    Some(handler) => handler,
+    None => return,
+  };
+  handlers::enter_handler(handler);
 }
