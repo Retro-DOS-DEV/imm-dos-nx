@@ -14,6 +14,20 @@ pub struct SavedRegisters {
   eax: u32,
 }
 
+impl core::fmt::Debug for SavedRegisters {
+  fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    f.debug_struct("Saved Registers")
+      .field("eax", &format_args!("{:#010x}", self.eax))
+      .field("ebx", &format_args!("{:#010x}", self.ebx))
+      .field("ecx", &format_args!("{:#010x}", self.ecx))
+      .field("edx", &format_args!("{:#010x}", self.edx))
+      .field("ebp", &format_args!("{:#010x}", self.ebp))
+      .field("esi", &format_args!("{:#010x}", self.esi))
+      .field("edi", &format_args!("{:#010x}", self.edi))
+      .finish()
+  }
+}
+
 #[no_mangle]
 #[inline(never)]
 pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &mut SavedRegisters) {

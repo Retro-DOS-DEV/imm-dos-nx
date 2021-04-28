@@ -9,6 +9,11 @@ extern "x86-interrupt" {
   fn syscall_handler(frame: &stack::StackFrame) -> ();
 }
 
+#[link(name="libirq", kind="static")]
+extern "x86-interrupt" {
+  fn irq_3(frame: &stack::StackFrame) -> ();
+}
+
 // Flags used in IDT entries
 pub const IDT_PRESENT: u8 = 1 << 7;
 pub const IDT_DESCRIPTOR_RING_0: u8 = 0;
@@ -239,7 +244,15 @@ pub unsafe fn init() {
   lidt(&IDTR);
 }
 
-pub extern "x86-interrupt" fn irq_3(_frame: &stack::StackFrame) {
+#[no_mangle]
+#[inline(never)]
+pub extern "C" fn _irq_inner(registers: super::handlers::SavedProgramState, irq: usize) {
+  crate::kprintln!("IRQ #{:x}", irq);
+  crate::kprintln!("{:?}", registers);
+  loop {}
+}
+
+pub extern "x86-interrupt" fn irq_3_old(_frame: &stack::StackFrame) {
   let handler = match handlers::try_get_installed_handler(3) {
     Some(handler) => handler,
     None => return,

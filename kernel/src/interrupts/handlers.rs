@@ -117,3 +117,30 @@ pub fn return_from_handler(irq: usize) {
 
   loop {}
 }
+
+#[repr(C, packed)]
+pub struct SavedProgramState {
+  esp: u32,
+  edi: u32,
+  esi: u32,
+  ebp: u32,
+  ebx: u32,
+  edx: u32,
+  ecx: u32,
+  eax: u32,
+}
+
+impl core::fmt::Debug for SavedProgramState {
+  fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    f.debug_struct("Saved Registers")
+      .field("eax", &format_args!("{:#010x}", self.eax))
+      .field("ebx", &format_args!("{:#010x}", self.ebx))
+      .field("ecx", &format_args!("{:#010x}", self.ecx))
+      .field("edx", &format_args!("{:#010x}", self.edx))
+      .field("ebp", &format_args!("{:#010x}", self.ebp))
+      .field("esi", &format_args!("{:#010x}", self.esi))
+      .field("edi", &format_args!("{:#010x}", self.edi))
+      .field("esp", &format_args!("{:#010x}", self.esp))
+      .finish()
+  }
+}

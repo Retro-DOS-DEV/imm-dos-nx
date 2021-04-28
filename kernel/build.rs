@@ -10,5 +10,11 @@ fn main() {
       .flag("-march=i386")
       .file("src/asm/syscall.s")
       .compile("libsyscall");
+    
+    cc::Build::new()
+      .flag("-m32")
+      .flag("-march=i386")
+      .file("src/asm/irq.s")
+      .compile("libirq");
   }
 }
