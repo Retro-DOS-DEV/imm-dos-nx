@@ -244,5 +244,5 @@ pub extern "x86-interrupt" fn irq_3(_frame: &stack::StackFrame) {
     Some(handler) => handler,
     None => return,
   };
-  handlers::enter_handler(handler);
+  handlers::enter_handler(handler, 3);
 }

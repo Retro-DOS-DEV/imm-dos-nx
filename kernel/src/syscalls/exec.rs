@@ -71,13 +71,14 @@ pub fn brk(method: u32, offset: u32) -> Result<u32, ()> {
   }
 }
 
-pub fn install_interrupt_handler(irq: u32, address: u32) -> Result<(), ()> {
+pub fn install_interrupt_handler(irq: u32, address: u32, stack_top: u32) -> Result<(), ()> {
   let cur_id = task::switching::get_current_id();
   crate::kprintln!("INSTALL HANDLER AT {}:{:#010x} to IRQ {}", cur_id.as_u32(), address, irq);
   crate::interrupts::handlers::install_handler(
     irq as usize,
     cur_id,
     VirtualAddress::new(address as usize),
+    VirtualAddress::new(stack_top as usize),
   );
   Ok(())
 }

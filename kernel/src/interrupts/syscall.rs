@@ -217,7 +217,8 @@ pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &m
     0x40 => { // install interrupt handler
       let irq = registers.ebx;
       let address = registers.ecx;
-      let result = match exec::install_interrupt_handler(irq, address) {
+      let stack_top = registers.edx;
+      let result = match exec::install_interrupt_handler(irq, address, stack_top) {
         Ok(_) => 0,
         Err(_) => 0xff,
       };

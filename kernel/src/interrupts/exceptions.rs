@@ -101,7 +101,19 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
     if error & 4 == 4 {
       // Permission error - access attempt came from Ring 3
       // This should segfault the process
-      kprintln!("Attempt to access kernel memory ({:#010x}) from userspace (IP {:#010x})", address, stack_frame.eip);
+      let eip = stack_frame.eip as usize;
+      kprintln!("Attempt to access kernel memory ({:#010x}) from userspace (IP {:#010x})", address, eip);
+
+      if eip == address && eip > 0xc0000000 && eip < 0xc0000010 {
+        // Userspace attempted to return to an "IRQ marker"
+        // This is our way of creating a simple developer experience for
+        // userspace interrupt handlers -- all a program needs to do is return
+        // to the fake calling address placed on its stack.
+        let irq = eip - 0xc0000000;
+        super::handlers::return_from_handler(irq);
+      }
+
+      loop {}
     }
     if error & 1 == 0 {
       // Page was not present
