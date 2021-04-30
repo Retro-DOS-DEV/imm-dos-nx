@@ -1,4 +1,5 @@
 use core::fmt;
+use crate::task::regs::SavedState;
 
 /// Each interrupt and exception places this structure on the stack, so that the
 /// previously running code can be re-entered when the interrupt ends.
@@ -21,5 +22,42 @@ impl fmt::Debug for StackFrame {
       cs,
       eflags,
     )
+  }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C, packed)]
+pub struct FullStackFrame {
+  pub eip: usize,
+  pub cs: usize,
+  pub eflags: usize,
+  pub esp: usize,
+  pub ss: usize,
+}
+
+impl FullStackFrame {
+  pub fn empty() -> Self {
+    Self {
+      eip: 0,
+      cs: 0,
+      eflags: 0,
+      esp: 0,
+      ss: 0,
+    }
+  }
+}
+
+#[repr(C, packed)]
+pub struct RestorationStack {
+  pub regs: SavedState,
+  pub frame: FullStackFrame,
+}
+
+impl RestorationStack {
+  pub fn empty() -> Self {
+    Self {
+      regs: SavedState::empty(),
+      frame: FullStackFrame::empty(),
+    }
   }
 }

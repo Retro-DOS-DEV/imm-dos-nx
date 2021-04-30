@@ -8,6 +8,7 @@ use super::files::{FileMap, OpenFile};
 use super::id::ProcessID;
 use super::ipc::{IPCMessage, IPCPacket, IPCQueue};
 use super::memory::{ExecutionSegment, MemoryRegions};
+use super::regs::SavedState;
 use super::state::RunState;
 
 pub struct Process {
@@ -38,6 +39,8 @@ pub struct Process {
   /// scheduler enters this process, this address will be placed in %esp and all
   /// registers will be popped off the stack.
   pub stack_pointer: usize,
+  /// Store the register state when the process is interrupted
+  pub saved_state: SavedState,
   /// A struct containing the physical address of this process's page directory.
   /// When switching to this process, the address will be written to CR3.
   pub page_directory: PageTableReference,
@@ -61,6 +64,7 @@ impl Process {
       open_files: FileMap::with_capacity(3),
       kernel_stack: Some(kernel_stack),
       stack_pointer: 0,
+      saved_state: SavedState::empty(),
       page_directory: PageTableReference::current(),
       exec_file: None,
     }
@@ -300,6 +304,7 @@ impl Process {
       open_files: self.open_files.clone(),
       kernel_stack: Some(new_stack),
       stack_pointer: stack_top,
+      saved_state: SavedState::empty(),
       page_directory: self.page_directory.clone(),
       exec_file: None, // TODO: dup this
     }
@@ -359,6 +364,16 @@ impl Process {
       },
       _ => (),
     }
+  }
+
+  /// Save a set of stashed registers from a memory location
+  pub fn save_state(&mut self, state: &SavedState) {
+    self.saved_state = *state;
+  }
+
+  /// Restore the last saved set of registers to a memory location
+  pub fn restore_state(&self, state: &mut SavedState) {
+    *state = self.saved_state;
   }
 }
 

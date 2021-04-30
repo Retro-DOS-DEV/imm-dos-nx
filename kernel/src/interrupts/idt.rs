@@ -1,4 +1,5 @@
 use core::mem;
+use crate::task::regs::SavedState;
 use crate::x86::segments::SegmentSelector;
 use super::{exceptions, handlers, pic, stack};
 
@@ -246,16 +247,15 @@ pub unsafe fn init() {
 
 #[no_mangle]
 #[inline(never)]
-pub extern "C" fn _irq_inner(registers: super::handlers::SavedProgramState, irq: usize) {
+pub extern "C" fn _irq_inner(registers: SavedState, irq: usize, frame: stack::FullStackFrame) {
   crate::kprintln!("IRQ #{:x}", irq);
   crate::kprintln!("{:?}", registers);
-  loop {}
-}
 
-pub extern "x86-interrupt" fn irq_3_old(_frame: &stack::StackFrame) {
-  let handler = match handlers::try_get_installed_handler(3) {
+  let handler = match handlers::try_get_installed_handler(irq) {
     Some(handler) => handler,
     None => return,
   };
-  handlers::enter_handler(handler, 3);
+  handlers::enter_handler(handler, irq, &registers, &frame);
+  
+  unreachable!("Should not return from inner IRQ function if a handler was found");
 }

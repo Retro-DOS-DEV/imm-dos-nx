@@ -1,13 +1,58 @@
+/// SavedState stashes the running state of a task when it is interrupted.
+/// Restoring these would allow the CPU to return to its pre-interrupt state
+/// without the task ever knowing.
+/// When an interrupt actually occurs, the handler immediately pushes these
+/// values onto the kernel stack. However, we can't keep them there. If a task
+/// were to execute a custom interrupt handler and, during that, encounter an
+/// exception, the original values on the stack would be clobbered.
+/// To ensure that we always have a safe set of values to return to, each
+/// interrupt handler copies the stack-stored values to a SavedState on the
+/// task's state object.
+#[derive(Copy, Clone)]
 #[repr(C, packed)]
-pub struct SavedRegisters {
-  flags: u32,
-  edi: u32,
-  esi: u32,
-  ebp: u32,
-  ebx: u32,
-  edx: u32,
-  ecx: u32,
-  eax: u32,
+pub struct SavedState {
+  edi: usize,
+  esi: usize,
+  ebp: usize,
+  ebx: usize,
+  edx: usize,
+  ecx: usize,
+  eax: usize,
+}
+
+impl SavedState {
+  pub const fn empty() -> Self {
+    Self {
+      edi: 0,
+      esi: 0,
+      ebp: 0,
+      ebx: 0,
+      edx: 0,
+      ecx: 0,
+      eax: 0,
+    }
+  }
+}
+
+impl core::fmt::Debug for SavedState {
+  fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    let eax = self.eax;
+    let ebx = self.ebx;
+    let ecx = self.ecx;
+    let edx = self.edx;
+    let ebp = self.ebp;
+    let esi = self.esi;
+    let edi = self.edi;
+    f.debug_struct("Saved Registers")
+      .field("eax", &format_args!("{:#010x}", eax))
+      .field("ebx", &format_args!("{:#010x}", ebx))
+      .field("ecx", &format_args!("{:#010x}", ecx))
+      .field("edx", &format_args!("{:#010x}", edx))
+      .field("ebp", &format_args!("{:#010x}", ebp))
+      .field("esi", &format_args!("{:#010x}", esi))
+      .field("edi", &format_args!("{:#010x}", edi))
+      .finish()
+  }
 }
 
 #[repr(C, packed)]

@@ -1,6 +1,7 @@
 use crate::memory::address::VirtualAddress;
-use crate::task::id::ProcessID;
+use crate::task::{id::ProcessID, regs::SavedState};
 use spin::RwLock;
+use super::stack::{FullStackFrame, RestorationStack};
 
 #[derive(Copy, Clone)]
 pub struct InterruptHandler {
@@ -30,6 +31,10 @@ pub static INSTALLED: [RwLock<Option<InterruptHandler>>; 16] = [
   RwLock::new(None),
 ];
 
+/// Install a user-mode handler for a hardware interrupt.
+/// At this point only one interrupt handler can be installed for each IRQ
+/// number. That's all that should be necessary to implement drivers --
+/// conflicting handlers would need to interop with each other anyways.
 pub fn install_handler(irq: usize, process: ProcessID, function: VirtualAddress, stack_top: VirtualAddress) -> Result<(), ()> {
   if irq >= 16 {
     return Err(());
@@ -57,6 +62,9 @@ pub fn install_handler(irq: usize, process: ProcessID, function: VirtualAddress,
   Ok(())
 }
 
+/// Attempt to fetch an installed handler function for an IRQ number.
+/// If the fetch fails (the data structure is locked?) or no handler is
+/// installed, it will return None.
 pub fn try_get_installed_handler(irq: usize) -> Option<InterruptHandler> {
   match INSTALLED[irq].try_read() {
     Some(inner) => *inner,
@@ -64,14 +72,65 @@ pub fn try_get_installed_handler(irq: usize) -> Option<InterruptHandler> {
   }
 }
 
-pub fn enter_handler(handler: InterruptHandler, irq: usize) {
-  let process_lock = match crate::task::switching::get_process(&handler.process) {
-    Some(p) => p,
-    None => return,
+/// InterruptReturnPoint tells the kernel how to resume execution at the point
+/// where the interrupt occurred. It tells us which process was executing, and
+/// where the instruction and stack pointer were located.
+/// Using this information, the kernel can look up the saved registers that need
+/// to be restored, and set up the stack for an IRET instruction.
+#[derive(Clone, Copy)]
+pub struct InterruptReturnPoint {
+  pub process: ProcessID,
+  pub frame: FullStackFrame,
+}
+
+/// Stores the return info for the interrupt currently being executed. It should
+/// only be written when an interrupt occurs, and read when that interrupt ends.
+/// Since hardware interrupts are exclusive, this should never block.
+pub static CURRENT_INTERRUPT: RwLock<Option<InterruptReturnPoint>> = RwLock::new(None);
+
+/// Instruct the kernel to temporarily enter a userspace interrupt handler. When
+/// that handler returns, the kernel will be able to properly restore execution
+/// state to the point before the interrupt occurred.
+pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedState, frame: &FullStackFrame) {
+  let current_id: ProcessID = {
+    // Store the stack-saved registers in the current process, so that they can
+    // be restored when the interrupt ends. As long as all process access is
+    // marked as interrupt-unsafe, this shouldn't block.
+    let current_proc_lock = crate::task::switching::get_current_process();
+    let mut current_proc = current_proc_lock.write();
+    current_proc.save_state(registers);
+    *current_proc.get_id()
   };
 
   crate::kprintln!("GOT HANDLER");
-  // Switch to the process
+
+  let mut interrupt_frame = FullStackFrame::empty();
+  interrupt_frame.eip = frame.eip;
+  interrupt_frame.cs = frame.cs;
+  interrupt_frame.eflags = frame.eflags;
+  if interrupt_frame.cs & 3 != 0 {
+    // Came from a different CPL, need to also store the ESP and SS
+    // It should be safe to assume that these exist / are on the stack
+    interrupt_frame.esp = frame.esp;
+    interrupt_frame.ss = frame.ss;
+  }
+
+  crate::kprintln!("When we're done, return to {:x}:{:#010x}", interrupt_frame.cs, interrupt_frame.eip);
+
+  match CURRENT_INTERRUPT.try_write() {
+    Some(mut inner) => {
+      inner.replace(
+        InterruptReturnPoint {
+          process: current_id,
+          frame: interrupt_frame,
+        }
+      );
+    },
+    None => return,
+  }
+  
+  // Switch to the handling process
+  // TODO!
 
   // Modify the interrupt stack to enable returning from the handler
   // For now, we require interrupt and signal handlers to register an explicit
@@ -81,6 +140,8 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize) {
   let mut sp = handler.stack_top.as_usize();
   unsafe {
     sp -= 4;
+    // The magic number for execution on return is 0xC000000X, where X is the
+    // IRQ number.
     (sp as *mut usize).write(0xc0000000 + irq);
   }
 
@@ -100,47 +161,60 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize) {
     );
   }
 
-  // We return to this spot
+  unreachable!("End of enter_handler");
 }
 
 pub fn return_from_handler(irq: usize) {
   crate::kprintln!("Return from IRQ {}", irq);
 
-  // We need to unwind whatever happened when the original hardware interrupt
-  // occurred. At the very least, we need to be able to restore all registers
-  // and return to the instruction / permission level that was interrupted.
-  // This could be accommodated by ALWAYS storing ALL registers on the kernel
-  // stack when entering an interrupt. The interrupt itself will push
-  // IP/CS/FLAGS/SP/SS/etc... After that, we can push all registers, and store
-  // the stack pointer in a value on the task state. To restore, we only need to
-  // update the stack pointer to that value, pop the registers, and call IRETD. 
+  // In order to unwind to the original interrupt entry point, we return to the
+  // process that was interrupted. Then, we update the stack pointer to the
+  // values that were pushed when the irq_core handler called into Rust.
 
-  loop {}
-}
+  let return_point: InterruptReturnPoint = match CURRENT_INTERRUPT.try_read() {
+    Some(inner) => match *inner {
+      Some(point) => point,
+      None => panic!("Attempted to return from an IRQ, but none was running"),
+    },
+    None => panic!("Attempted to return from an IRQ, but return info was locked"),
+  };
 
-#[repr(C, packed)]
-pub struct SavedProgramState {
-  esp: u32,
-  edi: u32,
-  esi: u32,
-  ebp: u32,
-  ebx: u32,
-  edx: u32,
-  ecx: u32,
-  eax: u32,
-}
+  // Return to the memory space of the originating process
+  // TODO!
 
-impl core::fmt::Debug for SavedProgramState {
-  fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-    f.debug_struct("Saved Registers")
-      .field("eax", &format_args!("{:#010x}", self.eax))
-      .field("ebx", &format_args!("{:#010x}", self.ebx))
-      .field("ecx", &format_args!("{:#010x}", self.ecx))
-      .field("edx", &format_args!("{:#010x}", self.edx))
-      .field("ebp", &format_args!("{:#010x}", self.ebp))
-      .field("esi", &format_args!("{:#010x}", self.esi))
-      .field("edi", &format_args!("{:#010x}", self.edi))
-      .field("esp", &format_args!("{:#010x}", self.esp))
-      .finish()
+  // Set up the stack to restore register state and return to the originating
+  // instruction.
+
+  let mut restoration_stack = RestorationStack::empty();
+  {
+    // TODO: should this cleanly handle a process that was cleaned up while the
+    // interrupt was running? Is that even possible?
+    let proc_lock = crate::task::switching::get_process(&return_point.process)
+      .expect("Tried to return from interrupt into an unknown process");
+    let proc = proc_lock.read();
+    proc.restore_state(&mut restoration_stack.regs);
   }
+  restoration_stack.frame = return_point.frame;
+
+  // Set the stack pointer to the bottom of restoration stack. After this, we'll
+  // pop all registers and attempt an IRET.
+  let esp = &restoration_stack as *const RestorationStack as usize;
+  
+  unsafe {
+    asm!(
+      "mov esp, {esp}
+      pop edi
+      pop esi
+      pop ebp
+      pop ebx
+      pop edx
+      pop ecx
+      pop eax
+      iretd",
+
+      esp = in(reg) esp,
+    );
+  }
+
+  unreachable!();
 }

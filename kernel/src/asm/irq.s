@@ -72,12 +72,12 @@ irq_core:
   push ebp
   push esi
   push edi
-  mov ebx, esp
-  push ebx
 
+  # enter rust code to check for an installed interrupt handler
   call _irq_inner
 
-  add esp, 4
+  # if no interrupt handler is installed at the kernel level, it will return
+  # here, where we restore all state
   pop edi
   pop esi
   pop ebp
@@ -86,6 +86,4 @@ irq_core:
   pop ecx
   pop eax
   add esp, 4 # clear the irq number
-irq_loop:
-  jmp irq_loop
   iretd
