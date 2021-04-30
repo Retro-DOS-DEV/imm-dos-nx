@@ -39,8 +39,9 @@ pub fn install_handler(irq: usize, process: ProcessID, function: VirtualAddress,
   if irq >= 16 {
     return Err(());
   }
-  if stack_top.as_usize() < core::mem::size_of::<usize>() {
-    // Need enough space on the stack to push the return address
+  if process.as_u32() != 0 && stack_top.as_usize() < core::mem::size_of::<usize>() {
+    // For usermode interrupts, we need enough space on the stack to push the
+    // return address
     return Err(());
   }
   match INSTALLED[irq].try_write() {
@@ -128,6 +129,22 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
     },
     None => return,
   }
+
+  if handler.process.as_u32() == 0 {
+    // There is no process zero -- this is an indication of a kernel-mode
+    // interrupt handler.
+    // In this case, we don't need to do any fancy stack modification. We only
+    // need to jump to the address.
+
+    crate::kprintln!("KERNEL MODE INT");
+
+    unsafe {
+      asm!(
+        "jmp {addr}",
+        addr = in(reg) handler.function.as_usize(),
+      );
+    }
+  }
   
   // Switch to the handling process
   // TODO!
@@ -195,6 +212,26 @@ pub fn return_from_handler(irq: usize) {
     proc.restore_state(&mut restoration_stack.regs);
   }
   restoration_stack.frame = return_point.frame;
+
+  // Acknowledge the PIC interrupt
+  unsafe {
+    if irq < 8 {
+      asm!(
+        "push eax
+        mov al, 0x20
+        out 0x20, al
+        pop eax"
+      );
+    } else {
+      asm!(
+        "push eax
+        mov al, 0x20
+        out 0xa0, al
+        out 0x20, al
+        pop eax"
+      );
+    }
+  }
 
   // Set the stack pointer to the bottom of restoration stack. After this, we'll
   // pop all registers and attempt an IRET.

@@ -13,6 +13,11 @@ extern "x86-interrupt" {
 #[link(name="libirq", kind="static")]
 extern "x86-interrupt" {
   fn irq_3(frame: &stack::StackFrame) -> ();
+  fn irq_4(frame: &stack::StackFrame) -> ();
+  fn irq_5(frame: &stack::StackFrame) -> ();
+  fn irq_9(frame: &stack::StackFrame) -> ();
+  fn irq_10(frame: &stack::StackFrame) -> ();
+  fn irq_11(frame: &stack::StackFrame) -> ();
 }
 
 // Flags used in IDT entries
@@ -228,14 +233,14 @@ pub unsafe fn init() {
   // interrupts. When PCI devices are available, their interrupts are exposed on
   // unused lines using the Programmable Interrupt Router.
   IDT[0x33].set_handler(irq_3, GateType::Interrupt);
-  IDT[0x34].set_handler(pic::com1, GateType::Interrupt);
-  //IDT[0x35].set_handler(irq_5, GateType::Interrupt);
+  IDT[0x34].set_handler(irq_4, GateType::Interrupt);
+  IDT[0x35].set_handler(irq_5, GateType::Interrupt);
   IDT[0x36].set_handler(pic::floppy, GateType::Interrupt);
   //IDT[0x37].set_handler(pic::lpt, GateType::Interrupt);
   //IDT[0x38].set_handler(pic::rtc, GateType::Interrupt);
-  //IDT[0x39].set_handler(irq_9, GateType::Interrupt);
-  //IDT[0x3a].set_handler(irq_10, GateType::Interrupt);
-  //IDT[0x3b].set_handler(irq_11, GateType::Interrupt);
+  IDT[0x39].set_handler(irq_9, GateType::Interrupt);
+  IDT[0x3a].set_handler(irq_10, GateType::Interrupt);
+  IDT[0x3b].set_handler(irq_11, GateType::Interrupt);
   //IDT[0x3c].set_handler(pic::mouse, GateType::Interrupt);
   //IDT[0x3d].set_handler(pic::fpu, GateType::Interrupt);
   //IDT[0x3e].set_handler(pic::ata_primary, GateType::Interrupt);

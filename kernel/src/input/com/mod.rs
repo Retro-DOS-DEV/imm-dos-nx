@@ -1,6 +1,9 @@
 pub mod device;
 pub mod serial;
 
+use crate::memory::address::VirtualAddress;
+use crate::task::id::ProcessID;
+
 pub fn init() {
   let com1 = device::ComDevice::new(0x3f8);
   com1.init();
@@ -10,6 +13,25 @@ pub fn init() {
     device::COM_DEVICES[0] = Some(com1);
     device::COM_DEVICES[1] = Some(com2);
   }
+
+  crate::kprintln!("Install COM handlers");
+
+  crate::interrupts::handlers::install_handler(
+    4,
+    ProcessID::new(0),
+    VirtualAddress::new(int_com1 as *const fn () -> () as usize),
+    VirtualAddress::new(0),
+  );
+}
+
+pub extern "C" fn int_com1() {
+  handle_interrupt(0);
+  crate::interrupts::handlers::return_from_handler(4);
+}
+
+pub extern "C" fn int_com2() {
+  handle_interrupt(1);
+  crate::interrupts::handlers::return_from_handler(3);
 }
 
 pub fn handle_interrupt(index: usize) {

@@ -294,11 +294,11 @@ pub extern fn run_init() {
   // Testing exec
   //task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
 
-  task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
+  //task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
 
-  let mut buffer: [u8; 2] = [5; 2];
+  let mut buffer: [u8; 1] = [0; 1];
   //let slot = input::com::get_device(0).open();
-  let handle = task::io::open_path("DEV:\\KBD").map_err(|_| ()).unwrap();
+  let handle = task::io::open_path("DEV:\\COM1").map_err(|_| ()).unwrap();
   //let slot = devices::get_driver_for_device(1).unwrap().open().unwrap();
   loop {
     //devices::get_driver_for_device(1).unwrap().read(slot, &mut buffer);
