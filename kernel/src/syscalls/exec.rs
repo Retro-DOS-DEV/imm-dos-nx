@@ -6,7 +6,7 @@ use crate::task;
 use syscall::result::SystemError;
 
 pub fn yield_coop() {
-  process::yield_coop();
+  task::yield_coop();
 }
 
 pub fn sleep(ms: u32) {

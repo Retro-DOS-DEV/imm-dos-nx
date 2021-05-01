@@ -136,8 +136,6 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
     // In this case, we don't need to do any fancy stack modification. We only
     // need to jump to the address.
 
-    crate::kprintln!("KERNEL MODE INT");
-
     unsafe {
       asm!(
         "jmp {addr}",
@@ -145,9 +143,29 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
       );
     }
   }
-  
-  // Switch to the handling process
-  // TODO!
+
+  // If necessary, switch to the handling process
+  if handler.process != current_id {
+    crate::kprintln!("SWITCH NECESSARY {:?} => {:?}", current_id, handler.process);
+    *crate::task::switching::CURRENT_ID.write() = handler.process;
+    // update the currently mapped userspace to the handler process
+    let cr3 = {
+      let proc_lock = match crate::task::switching::get_process(&handler.process) {
+        Some(lock) => lock,
+        None => return,
+      };
+      let proc = proc_lock.read();
+      proc.page_directory.get_address().as_usize()
+    };
+    unsafe {
+      asm!(
+        "mov cr3, {0}",
+        in(reg) cr3,
+      );
+    }
+    // This should probably also update the TSS so any exceptions will use the
+    // right stack
+  }
 
   // Modify the interrupt stack to enable returning from the handler
   // For now, we require interrupt and signal handlers to register an explicit
@@ -197,11 +215,30 @@ pub fn return_from_handler(irq: usize) {
   };
 
   // Return to the memory space of the originating process
-  // TODO!
+  let current_id = crate::task::switching::get_current_id();
+  if return_point.process != current_id {
+    crate::kprintln!("SWITCH BACK {:?} => {:?}", current_id, return_point.process);
+    *crate::task::switching::CURRENT_ID.write() = return_point.process;
+    // update the currently mapped userspace to the handler process
+    let cr3 = {
+      let proc_lock = match crate::task::switching::get_process(&return_point.process) {
+        Some(lock) => lock,
+        None => return,
+      };
+      let proc = proc_lock.read();
+      proc.page_directory.get_address().as_usize()
+    };
+    unsafe {
+      asm!(
+        "mov cr3, {0}",
+        in(reg) cr3,
+      );
+    }
+    // If we update the TSS above, we need to restore it here too
+  }
 
   // Set up the stack to restore register state and return to the originating
   // instruction.
-
   let mut restoration_stack = RestorationStack::empty();
   {
     // TODO: should this cleanly handle a process that was cleaned up while the

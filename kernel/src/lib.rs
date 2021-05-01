@@ -212,7 +212,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       let init_process = task::switching::kfork(run_init);
       let input_process = task::switching::kfork(input::run_input);
 
-      task::switching::kfork(run_init);
+      // this is extra, for testing
+      task::switching::kfork(run_reader);
     }
 
     //task::switching::switch_to(&task::id::ProcessID::new(1));
@@ -274,6 +275,12 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[cfg(not(test))]
 #[inline(never)]
 pub extern fn run_init() {
+  task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
+}
+
+#[cfg(not(test))]
+#[inline(never)]
+pub extern fn run_reader() {
   let id = task::switching::get_current_id();
   /*
   let mut read_buffer: [u8; 10] = [0; 10];
