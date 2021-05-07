@@ -86,4 +86,7 @@ irq_core:
   pop ecx
   pop eax
   add esp, 4 # clear the irq number
+
+  # need to ack interrupt via port 0x20
+
   iretd

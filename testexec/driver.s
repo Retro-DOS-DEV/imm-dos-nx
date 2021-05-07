@@ -17,6 +17,9 @@ start:
   mov esp, 0xfc
 
 wait:
+  # yield
+  mov eax, 0x06
+  int 0x2b
   jmp wait
 
 handler:
