@@ -1,0 +1,1 @@
+"C:\Program Files\qemu\qemu-system-i386.exe" -m 8M -fda build\bootdisk.img -serial stdio

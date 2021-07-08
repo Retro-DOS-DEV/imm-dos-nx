@@ -16,12 +16,15 @@ pub fn init() {
 
   crate::kprintln!("Install COM handlers");
 
-  crate::interrupts::handlers::install_handler(
+  let install_result = crate::interrupts::handlers::install_handler(
     4,
     ProcessID::new(0),
     VirtualAddress::new(int_com1 as *const fn () -> () as usize),
     VirtualAddress::new(0),
   );
+  if let Err(_) = install_result {
+    crate::kprintln!("Failed to install IRQ4");
+  }
 }
 
 pub extern "C" fn int_com1() {

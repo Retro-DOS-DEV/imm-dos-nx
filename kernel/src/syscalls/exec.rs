@@ -17,7 +17,7 @@ pub fn fork() -> u32 {
   process::fork()
 }
 
-pub fn exec_path(path_str: &'static str, arg_str: &'static str, raw_interp_mode: u32) -> Result<(), SystemError> {
+pub fn exec_path(path_str: &'static str, _arg_str: &'static str, raw_interp_mode: u32) -> Result<(), SystemError> {
   let (drive, path) = filename::string_to_drive_and_path(path_str);
   let number = filesystems::get_fs_number(drive).ok_or(SystemError::NoSuchDrive)?;
   let fs = filesystems::get_fs(number).ok_or(SystemError::NoSuchFileSystem)?;
@@ -79,6 +79,5 @@ pub fn install_interrupt_handler(irq: u32, address: u32, stack_top: u32) -> Resu
     cur_id,
     VirtualAddress::new(address as usize),
     VirtualAddress::new(stack_top as usize),
-  );
-  Ok(())
+  )
 }

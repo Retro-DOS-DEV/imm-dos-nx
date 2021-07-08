@@ -46,9 +46,7 @@ impl TTYReadWriteBuffers {
 
 impl Drop for TTYReadWriteBuffers {
   fn drop(&mut self) {
-    unsafe {
-      Box::from(self.output_raw_ptr);
-      Box::from(self.input_raw_ptr);
-    }
+    Box::from(self.output_raw_ptr);
+    Box::from(self.input_raw_ptr);
   }
 }

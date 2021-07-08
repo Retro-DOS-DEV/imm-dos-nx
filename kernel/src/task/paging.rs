@@ -84,8 +84,9 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
       };
       match section.2 {
         Some(offset) => {
-          drive_instance.seek(exec_file_info.1, SeekMethod::Absolute(0));
-          drive_instance.read(exec_file_info.1, buffer);
+          // should really do something with these potential errors
+          let _ = drive_instance.seek(exec_file_info.1, SeekMethod::Absolute(0));
+          let _ = drive_instance.read(exec_file_info.1, buffer);
         },
         None => {
           // Fill with zeroes

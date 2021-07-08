@@ -3,7 +3,7 @@
 #![feature(asm)]
 #![feature(llvm_asm)]
 #![feature(const_btree_new)]
-#![feature(const_fn)]
+#![feature(const_fn_trait_bound)]
 #![feature(const_raw_ptr_to_usize_cast)]
 #![feature(core_intrinsics)]
 #![feature(naked_functions)]
@@ -76,17 +76,16 @@ extern {
   static label_stack_start: u8;
 }
 
-// Used to pass data from the bootloader to the kernel
+/// Used to pass data from the bootloader to the kernel
 #[repr(C, packed)]
 pub struct BootStruct {
   initfs_start: usize,
   initfs_size: usize,
 }
 
-/**
- * Clear the .bss section. Since we copied bytes from disk to memory, there's a
- * chance it contains the symbol table.
- */
+
+/// Clear the .bss section. Since we copied bytes from disk to memory, there's a
+/// chance it contains the symbol table.
 #[cfg(not(test))]
 unsafe fn zero_bss() {
   let mut bss_iter = &label_bss_start as *const u8 as usize;
@@ -98,14 +97,19 @@ unsafe fn zero_bss() {
   }
 }
 
+/// Initialize the GDT and IDT, necessary for kernel execution
 #[cfg(not(test))]
 unsafe fn init_tables() {
   interrupts::idt::init();
   gdt::init();
 }
 
+/// Initialize system memory, enabling virtual memory and page tables.
+/// Once virtual memory has been enabled, all references to kernel addresses
+/// need to be or-ed with 0xc0000000 so that they can correctly point to the
+/// kernel in all processes.
 #[cfg(not(test))]
-unsafe fn init_memory_new() {
+unsafe fn init_memory() {
   use memory::address::PhysicalAddress;
 
   let allocator_location = &label_rw_physical_end as *const u8 as usize;
@@ -126,29 +130,15 @@ unsafe fn init_memory_new() {
   memory::physical::move_allocator_reference_to_highmem();
 
   // move esp to the higher page, maintaining its relative location in the frame
-  unsafe {
-    /*
-    llvm_asm!(
-      "mov eax, esp
-      sub eax, $0
-      add eax, 0xffbfe000
-      mov esp, eax" : :
-      "r"(stack_start_address.as_u32()) :
-      "eax", "esp" :
-      "intel", "volatile"
-    );
-    */
-
-    asm!(
-      "mov {tmp}, esp
-      sub {tmp}, {offset}
-      add {tmp}, {stack_base}
-      mov esp, {tmp}",
-      offset = in(reg) stack_start_address.as_u32(),
-      tmp = out(reg) _,
-      stack_base = const task::stack::FIRST_STACK_TOP_PAGE,
-    );
-  }
+  asm!(
+    "mov {tmp}, esp
+    sub {tmp}, {offset}
+    add {tmp}, {stack_base}
+    mov esp, {tmp}",
+    offset = in(reg) stack_start_address.as_u32(),
+    tmp = out(reg) _,
+    stack_base = const task::stack::FIRST_STACK_TOP_PAGE,
+  );
 
   memory::high_jump();
   // CLOWNTOWN: ebx points to the PLT, and is initialized based on a relative
@@ -158,14 +148,17 @@ unsafe fn init_memory_new() {
   // kernel.
   // If we had a bootloader that initialized a page table and mapped us into
   // highmem before entering the kernel, this wouldn't be necessary...
-  llvm_asm!("or ebx, 0xc0000000" : : : : "intel", "volatile");
+  asm!("or ebx, 0xc0000000");
 
   kprintln!("\nKernel range: {:?}-{:?}", kernel_data_bounds.ro_start, kernel_data_bounds.rw_end);
 }
 
-/**
- * Entry point of the kernel
- */
+/// Entry point of the kernel.
+/// The bootloader jumps here, passing some useful information from BIOS.
+/// To initialize, the kernel sets up memory and key tables, a heap for
+/// allocation, and the initial task hierarchy.
+/// It starts core processes, including the init process, before jumping into
+/// an infinite idle loop that will be used when no tasks are running.
 #[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
@@ -177,13 +170,12 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
   } | 0xc0000000;
 
   unsafe {
-    let boot_struct = &*boot_struct_ptr;
     zero_bss();
-    init_memory_new();
+    init_memory();
     init_tables();
   }
 
-  unsafe {
+  {
     kprintln!("\nEntering the Kernel...");
 
     kprintln!(
@@ -265,17 +257,27 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 
   loop {
     unsafe {
-      llvm_asm!("cli" : : : : "volatile");
+      asm!("cli");
+      //llvm_asm!("cli" : : : : "volatile");
       task::yield_coop();
-      llvm_asm!("sti; hlt" : : : : "volatile");
+      asm!(
+        "sti
+        hlt"
+      );
+      //llvm_asm!("sti; hlt" : : : : "volatile");
     }
   }
 }
 
+/// Load the init process, which will spawn all other system and user processes.
 #[cfg(not(test))]
 #[inline(never)]
 pub extern fn run_init() {
-  task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
+  let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
+  if let Err(_) = r {
+    kprintln!("Failed to run init process");
+    loop {}
+  }
 }
 
 #[cfg(not(test))]
@@ -309,18 +311,15 @@ pub extern fn run_reader() {
   //let slot = devices::get_driver_for_device(1).unwrap().open().unwrap();
   loop {
     //devices::get_driver_for_device(1).unwrap().read(slot, &mut buffer);
-    task::io::read_file(handle, &mut buffer);
+    let _ = task::io::read_file(handle, &mut buffer);
     kprint!("{}:{:#02x} ", id.as_u32(), buffer[0]);
-    task::sleep(1000);
-  }
-
-  loop {
     task::sleep(1000);
   }
 }
 
 #[inline(never)]
 pub extern fn user_init() {
+  /*
   let tty0 = syscall::open("DEV:\\TTY0");
   syscall::write_str(tty0, "Initializing devices...\n");
   let pid = syscall::get_pid() as u8;
@@ -353,6 +352,7 @@ pub extern fn user_init() {
   syscall::write_str(tty0, "DONE");
 
   let file_handle = syscall::open("A:\\BOOT.BIN");
+  */
 
   /*
   let read_write: [u32; 2] = [0; 2];

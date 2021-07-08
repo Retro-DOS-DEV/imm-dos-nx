@@ -287,8 +287,7 @@ pub fn return_from_handler(irq: usize) {
       iretd",
 
       esp = in(reg) esp,
+      options(noreturn),
     );
   }
-
-  unreachable!();
 }

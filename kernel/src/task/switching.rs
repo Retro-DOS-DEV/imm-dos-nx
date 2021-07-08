@@ -121,8 +121,8 @@ pub fn kfork(dest: extern "C" fn() -> ()) -> ProcessID {
 /// Execute a context switch to another process. If that process does not exist,
 /// the method will panic.
 pub fn switch_to(id: &ProcessID) {
-  let mut current_ptr = None;
-  let mut next_ptr = None;
+  let current_ptr;
+  let next_ptr;
   {
     // Nasty deref_mut hacks to get around the locks
     let current_lock = get_current_process();
@@ -137,59 +137,31 @@ pub fn switch_to(id: &ProcessID) {
   unsafe {
     let current = &mut *current_ptr.unwrap();
     let next = &mut *next_ptr.unwrap();
-    unsafe {
-      crate::gdt::set_tss_stack_pointer(next.get_stack_range().end.as_u32() - 4);
+    crate::gdt::set_tss_stack_pointer(next.get_stack_range().end.as_u32() - 4);
+    llvm_asm!("push eax; push ecx; push edx; push ebx; push ebp; push esi; push edi" : : : "esp" : "intel", "volatile");
+    {
+      let pagedir_addr = next.page_directory.get_address().as_usize();
+      let current_sp_addr = &mut current.stack_pointer as *mut usize as usize;
+      let next_sp = next.stack_pointer;
+      switch_inner(pagedir_addr, current_sp_addr, next_sp);
     }
-    llvm_asm!("push eax; push ecx; push edx; push ebx; push ebp; push esi; push edi" : : : "esp" : "intel", "volatile");
-    switch_inner(current, next);
     llvm_asm!("pop edi; pop esi; pop ebp; pop ebx; pop edx; pop ecx; pop eax" : : : "esp" : "intel", "volatile");
   }
 }
 
 #[naked]
 #[inline(never)]
-unsafe fn switch_inner(current: &mut Process, next: &mut Process) {
+unsafe extern "cdecl" fn switch_inner(_pagedir_addr: usize, _current_sp_addr: usize, _next_sp: usize) {
   asm!(
-    "mov cr3, {0}
-    mov {1}, esp
-    mov esp, {2}",
-    in(reg) (next.page_directory.get_address().as_usize()),
-    out(reg) (current.stack_pointer),
-    in(reg) (next.stack_pointer),
-  );
-}
-
-/// Jump to a process and force it to enter usermode.
-pub fn usermode_enter(id: &ProcessID) {
-  let mut current_ptr = None;
-  let mut next_ptr = None;
-  {
-    let current_lock = get_current_process();
-    let mut current = current_lock.write();
-    current_ptr = Some(current.deref_mut() as *mut Process);
-    let next_lock = get_process(id).unwrap();
-    let mut next = next_lock.write();
-    next_ptr = Some(next.deref_mut() as *mut Process);
-  }
-  *CURRENT_ID.write() = *id;
-  unsafe {
-    let current = &mut *current_ptr.unwrap();
-    let next = &mut *next_ptr.unwrap();
-    llvm_asm!("push eax; push ecx; push edx; push ebx; push ebp; push esi; push edi" : : : "esp" : "intel", "volatile");
-    usermode_enter_inner(current, next);
-    llvm_asm!("pop edi; pop esi; pop ebp; pop ebx; pop edx; pop ecx; pop eax" : : : "esp" : "intel", "volatile");
-  }
-}
-
-#[naked]
-#[inline(never)]
-unsafe fn usermode_enter_inner(current: &mut Process, next: &mut Process) {
-  asm!(
-    "mov {0}, esp
-    mov esp, {1}
-    iretd",
-    out(reg) (current.stack_pointer),
-    in(reg) (next.stack_pointer),
+    "mov eax, [esp + {arg_size}]
+    mov ecx, [esp + 2 * {arg_size}]
+    mov edx, [esp + 3 * {arg_size}]
+    mov cr3, eax
+    mov [ecx], esp
+    mov esp, edx
+    ret",
+    arg_size = const core::mem::size_of::<usize>(),
+    options(noreturn),
   );
 }
 

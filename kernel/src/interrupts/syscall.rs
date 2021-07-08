@@ -16,14 +16,21 @@ pub struct SavedRegisters {
 
 impl core::fmt::Debug for SavedRegisters {
   fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    let eax = self.eax;
+    let ebx = self.ebx;
+    let ecx = self.ecx;
+    let edx = self.edx;
+    let ebp = self.ebp;
+    let esi = self.esi;
+    let edi = self.edi;
     f.debug_struct("Saved Registers")
-      .field("eax", &format_args!("{:#010x}", self.eax))
-      .field("ebx", &format_args!("{:#010x}", self.ebx))
-      .field("ecx", &format_args!("{:#010x}", self.ecx))
-      .field("edx", &format_args!("{:#010x}", self.edx))
-      .field("ebp", &format_args!("{:#010x}", self.ebp))
-      .field("esi", &format_args!("{:#010x}", self.esi))
-      .field("edi", &format_args!("{:#010x}", self.edi))
+      .field("eax", &format_args!("{:#010x}", eax))
+      .field("ebx", &format_args!("{:#010x}", ebx))
+      .field("ecx", &format_args!("{:#010x}", ecx))
+      .field("edx", &format_args!("{:#010x}", edx))
+      .field("ebp", &format_args!("{:#010x}", ebp))
+      .field("esi", &format_args!("{:#010x}", esi))
+      .field("edi", &format_args!("{:#010x}", edi))
       .finish()
   }
 }

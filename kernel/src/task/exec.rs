@@ -65,6 +65,7 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
       mov ecx, ({regs_size} / 4)
       mov edi, esp
       sub edi, 4 + {regs_size}
+      mov esi, eax
       rep
       movsd
       sub esp, 4 + {regs_size}
@@ -77,10 +78,9 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
       pop edi
       iretd",
       regs_size = const core::mem::size_of::<EnvironmentRegisters>(),
-      in("esi") (&regs as *const EnvironmentRegisters as usize),
+      // can't directly use esi as an input because LLVM
+      in("eax") (&regs as *const EnvironmentRegisters as usize),
       options(noreturn),
     );
   }
-
-  Ok(())
 }

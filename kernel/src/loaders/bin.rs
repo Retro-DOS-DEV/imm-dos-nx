@@ -57,7 +57,7 @@ pub fn build_single_section_environment(
   }
   let mut segment = ExecutionSegment::at_address(VirtualAddress::new(0), page_count).map_err(|_| LoaderError::InternalError)?;
   segment.set_user_can_write(true);
-  segment.add_section(section);
+  segment.add_section(section).map_err(|_| LoaderError::InternalError)?;
   let mut segments = Vec::with_capacity(1);
   segments.push(segment);
   Ok(segments)

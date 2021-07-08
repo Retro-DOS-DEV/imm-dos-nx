@@ -23,7 +23,8 @@ pub extern "x86-interrupt" fn breakpoint(stack_frame: &StackFrame) {
 
 #[no_mangle]
 pub extern "x86-interrupt" fn invalid_opcode(stack_frame: &StackFrame) {
-  kprintln!("Invalid opcode at {:#010x}", stack_frame.eip);
+  let eip = stack_frame.eip;
+  kprintln!("Invalid opcode at {:#010x}", eip);
   loop {}
 }
 

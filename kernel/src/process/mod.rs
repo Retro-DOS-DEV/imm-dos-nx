@@ -101,7 +101,6 @@ pub fn enter_usermode(pid: id::ProcessID) {
   }
 }
 
-#[naked]
 #[inline(never)]
 unsafe fn switch_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_proc_esp: *const RwLock<usize>) {
   llvm_asm!("mov cr3, $0" : : "r"(pagedir) : : "intel", "volatile");
@@ -112,7 +111,6 @@ unsafe fn switch_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_p
   llvm_asm!("mov esp, $0" : : "r"(next_esp) : : "intel", "volatile");
 }
 
-#[naked]
 #[inline(never)]
 unsafe fn enter_inner(pagedir: usize, old_proc_esp: *const RwLock<usize>, new_proc_esp: *const RwLock<usize>) {
   llvm_asm!("mov cr3, $0" : : "r"(pagedir) : : "intel", "volatile");
@@ -173,7 +171,6 @@ pub extern "C" fn fork() -> u32 {
   }
 }
 
-#[naked]
 #[inline(never)]
 unsafe fn fork_inner(new_proc_esp: *const RwLock<usize>) {
   let cur_esp;

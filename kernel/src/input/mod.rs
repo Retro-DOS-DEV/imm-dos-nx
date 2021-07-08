@@ -47,6 +47,4 @@ pub extern fn run_input() {
     }
     crate::task::yield_coop();
   }
-
-  panic!("Input process exited");
 }
