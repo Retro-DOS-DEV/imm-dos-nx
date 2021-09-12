@@ -214,8 +214,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     devices::init();
     time::system::initialize_from_rtc();
     fs::init_system_drives(VirtualAddress::new(initfs_start));
-    /*
     tty::init_ttys();
+    /*
 
     filesystems::init_fs();
 

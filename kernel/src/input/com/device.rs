@@ -56,10 +56,8 @@ impl ComDevice {
   pub fn wake_front(&self) {
     let next: Option<usize> = self.readers.read().front().copied();
     let next_lock = next
-      .map(|handle| self.get_id_for_handle(handle))
-      .flatten()
-      .map(|id| get_process(&id))
-      .flatten();
+      .and_then(|handle| self.get_id_for_handle(handle))
+      .and_then(|id| get_process(&id));
     if let Some(lock) = next_lock {
       lock.write().io_resume();
     }

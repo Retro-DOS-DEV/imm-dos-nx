@@ -1,4 +1,4 @@
-use crate::drivers::keyboard::{KeyAction, codes::{KeyCode, US_LAYOUT}};
+use crate::input::keyboard::{KeyAction, codes::{KeyCode, US_LAYOUT}};
 
 pub struct KeyState {
   pub alt: bool,

@@ -5,7 +5,8 @@ pub mod router;
 pub mod tty;
 
 use core::fmt::Write;
-use crate::process::yield_coop;
+use crate::input::keyboard::KeyAction;
+use crate::task::yield_coop;
 use spin::RwLock;
 
 pub static mut ROUTER: Option<RwLock<router::TTYRouter>> = None;
@@ -21,6 +22,13 @@ pub fn get_router() -> &'static RwLock<router::TTYRouter> {
   match unsafe {&ROUTER} {
     Some(r) => &r,
     None => panic!("TTYs have not been initialized"),
+  }
+}
+
+pub fn process_key_action(action: KeyAction) {
+  match unsafe {&ROUTER} {
+    Some(r) => r.write().send_key_action(action),
+    None => (), // do nothing
   }
 }
 

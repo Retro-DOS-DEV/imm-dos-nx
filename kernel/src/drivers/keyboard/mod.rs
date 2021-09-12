@@ -36,7 +36,7 @@ impl Keyboard {
     match self.generate_action_from_scan_code(data) {
       Some(action) => {
         self.process_action(action);
-        tty::get_router().write().send_key_action(action);
+        //tty::get_router().write().send_key_action(action);
       },
       None => (),
     }

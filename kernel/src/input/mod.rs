@@ -5,6 +5,7 @@
 //! data onto the relevant device driver.
 
 use crate::buffers::RingBuffer;
+use crate::tty;
 
 pub mod buffers;
 #[cfg(not(test))]
@@ -41,6 +42,7 @@ pub extern fn run_input() {
       match result {
         Some(action) => {
           keyboard::device::write_all(action.to_raw());
+          tty::process_key_action(action);
         },
         None => (),
       }

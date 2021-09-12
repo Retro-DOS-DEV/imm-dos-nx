@@ -4,6 +4,7 @@ use crate::hardware::vga::text_mode::{TextMode};
 use crate::memory::address::VirtualAddress;
 
 const BACK_BUFFER_SIZE: usize = 80 * 25 * 2;
+const VGA_TEXT_LOCATION: usize = 0xc00b8000;
 
 #[derive(Copy, Clone)]
 pub enum ParseState {
@@ -220,7 +221,7 @@ impl TTY {
   /// Copy the back buffer to VRAM, and make the text buffer point to VRAM.
   pub unsafe fn swap_in(&mut self) {
     let count = BACK_BUFFER_SIZE as isize / 4;
-    let dest = 0xb8000;
+    let dest = 0xc00b8000;
     let dest_ptr = dest as *mut u32;
     self.text_buffer.set_buffer_pointer(dest);
     let src_ptr = self.back_buffer.as_ptr() as *mut u32;

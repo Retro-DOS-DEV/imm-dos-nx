@@ -1,6 +1,6 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use crate::drivers::keyboard::{KeyAction, codes::KeyCode};
+use crate::input::keyboard::{KeyAction, codes::KeyCode};
 use spin::RwLock;
 
 use super::buffers::TTYReadWriteBuffers;
@@ -88,6 +88,9 @@ impl TTYRouter {
 
   pub fn set_active_tty(&mut self, index: usize) {
     if self.tty_set.read().len() <= index {
+      return;
+    }
+    if self.active_tty == index {
       return;
     }
     if let Some(tty) = self.get_active_tty() {
