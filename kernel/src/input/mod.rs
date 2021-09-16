@@ -5,6 +5,7 @@
 //! data onto the relevant device driver.
 
 use crate::buffers::RingBuffer;
+#[cfg(not(test))]
 use crate::tty;
 
 pub mod buffers;

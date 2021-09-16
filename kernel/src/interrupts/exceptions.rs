@@ -1,11 +1,12 @@
 use core::mem;
+use crate::dos::registers::{DosApiRegisters, VM86Frame};
 use crate::kprintln;
 use crate::memory::{
   address::{VirtualAddress},
   virt::page_directory::CurrentPageDirectory,
 };
 use super::stack::StackFrame;
-use super::syscall_legacy::{DosApiRegisters, dos_api, VM86Frame};
+use super::syscall_legacy::dos_api;
 
 #[no_mangle]
 pub extern "x86-interrupt" fn divide_by_zero(stack_frame: &StackFrame) {
@@ -72,7 +73,7 @@ pub extern "x86-interrupt" fn gpf(stack_frame: &StackFrame, error: u32) {
         match *op_ptr.offset(1) {
           0x21 => {
             // DOS API
-            dos_api(regs, vm_frame);
+            dos_api(regs, vm_frame, mut_stack_frame);
           },
           _ => (),
         }

@@ -1,53 +1,19 @@
+use crate::dos::{
+  execution,
+  registers::{DosApiRegisters, VM86Frame}
+};
 use crate::kprintln;
-
-#[repr(C, packed)]
-pub struct DosApiRegisters {
-  pub ax: u32,
-  pub bx: u32,
-  pub cx: u32,
-  pub dx: u32,
-
-  pub si: u32,
-  pub di: u32,
-  pub bp: u32,
-}
-
-impl DosApiRegisters {
-  pub fn empty() -> DosApiRegisters {
-    DosApiRegisters {
-      ax: 0,
-      bx: 0,
-      cx: 0,
-      dx: 0,
-
-      si: 0,
-      di: 0,
-      bp: 0,
-    }
-  }
-}
-
-/// When an interrupt occurs in VM86 mode, the stack pointer and segment
-/// registers are pushed onto the stack before the typical stack frame.
-#[repr(C, packed)]
-pub struct VM86Frame {
-  pub sp: u32,
-  pub ss: u32,
-  pub es: u32,
-  pub ds: u32,
-  pub fs: u32,
-  pub gs: u32,
-}
+use super::stack::StackFrame;
 
 /**
  * Interrupts to support legacy DOS API calls
  */
-pub fn dos_api(regs: &mut DosApiRegisters, frame: &mut VM86Frame) {
+pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame: &mut StackFrame) {
   match (regs.ax & 0xff00) >> 8 {
     0 => { // Terminate
-      // Assumes PSP is located at %cs
-      // Pulls the termination address (jump back to parent) from the PSP
-      // If this PSP has no parent, we kill the process
+      let new_address = execution::terminate(stack_frame.cs as u16);
+      stack_frame.eip = new_address.offset as u32;
+      stack_frame.cs = new_address.segment as u32;
     },
     1 => { // Keyboard input with Echo
       // Blocks until a key input occurs on STDIN, copies it to STDOUT
