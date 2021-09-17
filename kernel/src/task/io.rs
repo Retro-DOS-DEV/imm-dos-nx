@@ -27,6 +27,20 @@ pub fn read_file(handle: FileHandle, buffer: &mut [u8]) -> Result<usize, SystemE
   instance.read(open_file_info.local_handle, buffer).map_err(|_| SystemError::IOError)
 }
 
+pub fn write_file(handle: FileHandle, buffer: &[u8]) -> Result<usize, SystemError> {
+  let open_file_info = {
+    let process_lock = get_current_process();
+    let process = process_lock.read();
+    let info = process
+      .get_open_file_info(handle)
+      .ok_or(SystemError::BadFileDescriptor)?;
+    *info
+  };
+
+  let (_, instance) = DRIVES.get_drive_instance(&open_file_info.drive).ok_or(SystemError::NoSuchFileSystem)?;
+  instance.write(open_file_info.local_handle, buffer).map_err(|_| SystemError::IOError)
+}
+
 pub fn close_file(handle: FileHandle) -> Result<(), SystemError> {
   let open_file_info = {
     let process_lock = get_current_process();

@@ -76,7 +76,12 @@ impl KernelFileSystem for DevFileSystem {
   }
 
   fn write(&self, handle: LocalHandle, buffer: &[u8]) -> Result<usize, ()> {
-    Ok(0)
+    let device_handle = self.get_device_handle(handle).ok_or(())?;
+
+    self.run_device_operation(
+      device_handle.device_number,
+      |driver| driver.write(device_handle.local_index, buffer),
+    )
   }
 
   fn close(&self, handle: LocalHandle) -> Result<(), ()> {

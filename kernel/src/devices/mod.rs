@@ -58,3 +58,9 @@ pub fn init() {
     // TTY, FD1
   }
 }
+
+pub fn create_tty(index: usize) {
+  let mut all_devices = DEVICES.write();
+  let name: alloc::string::String = alloc::format!("TTY{}", index);
+  all_devices.register_driver(&name, Arc::new(Box::new(crate::tty::device::TTYDevice::for_tty(index))));
+}

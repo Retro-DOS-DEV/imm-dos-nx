@@ -13,6 +13,9 @@ pub static mut ROUTER: Option<RwLock<router::TTYRouter>> = None;
 
 pub fn init_ttys() {
   let global_router = router::TTYRouter::new();
+  for tty in 0..global_router.tty_count() {
+    crate::devices::create_tty(tty);
+  }
   unsafe {
     ROUTER = Some(RwLock::new(global_router));
   }

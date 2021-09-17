@@ -1,5 +1,4 @@
-use crate::drivers::driver::DeviceDriver;
-use crate::files::handle::LocalHandle;
+use crate::devices::driver::DeviceDriver;
 
 /// Device driver representing a TTY, so a shell program can open up DEV:/TTY1
 /// and listen to console input / publish to the terminal.
@@ -16,17 +15,22 @@ impl TTYDevice {
 }
 
 impl DeviceDriver for TTYDevice {
-  fn open(&self, _handle: LocalHandle) -> Result<(), ()> {
+  fn open(&self) -> Result<usize, ()> {
+    let router = super::get_router().read();
+    let next = router.open_device(self.tty_id);
+    match next {
+      Some(id) => Ok(id),
+      None => Err(()),
+    }
+  }
 
+  fn close(&self, index: usize) -> Result<(), ()> {
+    let router = super::get_router().read();
+    router.close_device(self.tty_id);
     Ok(())
   }
 
-  fn close(&self, _handle: LocalHandle) -> Result<(), ()> {
-    
-    Ok(())
-  }
-
-  fn read(&self, _handle: LocalHandle, buffer: &mut [u8]) -> Result<usize, ()> {
+  fn read(&self, index: usize, buffer: &mut [u8]) -> Result<usize, ()> {
     let router = super::get_router().read();
     let buffers = router.get_tty_buffers(self.tty_id);
     match buffers {
@@ -38,7 +42,7 @@ impl DeviceDriver for TTYDevice {
     }
   }
 
-  fn write(&self, _handle: LocalHandle, buffer: &[u8]) -> Result<usize, ()> {
+  fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()> {
     let router = super::get_router().read();
     let buffers = router.get_tty_buffers(self.tty_id);
     match buffers {

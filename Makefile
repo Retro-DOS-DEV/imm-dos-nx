@@ -20,6 +20,7 @@ native_linker_elf := dos-native-elf.ld
 testexec := initfs/test.bin
 testcom := initfs/test.com
 testdriver := initfs/driver.bin
+testecho := initfs/echo.bin
 
 .PHONY: all, clean, test
 
@@ -84,7 +85,7 @@ $(libkernel_testing): $(kernel_deps)
 	cargo xbuild --lib --target i386-kernel.json --release --features "testing"
 	@cp kernel/target/i386-kernel/release/libkernel.a $(libkernel_testing)
 
-$(initfs): $(testexec) $(testcom) $(testdriver)
+$(initfs): $(testexec) $(testcom) $(testdriver) $(testecho)
 	@ls initfs/ | cpio -D initfs -H bin -o > $(initfs)
 
 # System programs:
@@ -99,3 +100,7 @@ $(testcom): testexec/com.s
 $(testdriver): testexec/driver.s
 	@as --32 -march=i386 -o build/testdriver.o testexec/driver.s
 	@ld -o $(testdriver) --oformat binary -e start -m elf_i386 -Ttext 0 build/testdriver.o
+
+$(testecho): testexec/echo.s
+	@as --32 -march=i386 -o build/testecho.o testexec/echo.s
+	@ld -o $(testecho) --oformat binary -e start -m elf_i386 -Ttext 0 build/testecho.o

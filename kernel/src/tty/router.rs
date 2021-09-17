@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicUsize, Ordering};
 use crate::input::keyboard::{KeyAction, codes::KeyCode};
 use spin::RwLock;
 
@@ -11,6 +12,7 @@ use super::tty::TTY;
 /// write to the VGA buffer, with a device file that can be written and read by
 /// other processes.
 pub struct TTYData {
+  open_count: AtomicUsize,
   tty: Arc<RwLock<TTY>>,
   buffers: Arc<TTYReadWriteBuffers>,
 }
@@ -18,9 +20,18 @@ pub struct TTYData {
 impl TTYData {
   pub fn new(tty: TTY) -> TTYData {
     TTYData {
+      open_count: AtomicUsize::new(0),
       tty: Arc::new(RwLock::new(tty)),
       buffers: Arc::new(TTYReadWriteBuffers::new()),
     }
+  }
+
+  pub fn open(&self) -> usize {
+    self.open_count.fetch_add(1, Ordering::SeqCst)
+  }
+
+  pub fn close(&self) {
+    self.open_count.fetch_sub(1, Ordering::SeqCst);
   }
 
   pub fn get_tty(&self) -> Arc<RwLock<TTY>> {
@@ -68,12 +79,33 @@ impl TTYRouter {
     index
   }
 
+  pub fn tty_count(&self) -> usize {
+    self.tty_set.read().len()
+  }
+
   pub fn get_tty_buffers(&self, index: usize) -> Option<Arc<TTYReadWriteBuffers>> {
     let set = self.tty_set.read();
     let data = set.get(index);
     match data {
       Some(tty) => Some(tty.get_buffers()),
       None => None
+    }
+  }
+
+  pub fn open_device(&self, index: usize) -> Option<usize> {
+    let set = self.tty_set.read();
+    let data = set.get(index);
+    match data {
+      Some(tty) => Some(tty.open()),
+      None => None,
+    }
+  }
+
+  pub fn close_device(&self, index: usize) {
+    let set = self.tty_set.read();
+    let data = set.get(index);
+    if let Some(tty) = data {
+      tty.close();
     }
   }
 

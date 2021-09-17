@@ -203,6 +203,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     {
       let init_process = task::switching::kfork(run_init);
       let input_process = task::switching::kfork(input::run_input);
+      task::switching::kfork(tty::ttys_process);
 
       // this is extra, for testing
       task::switching::kfork(run_reader);
@@ -273,7 +274,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[cfg(not(test))]
 #[inline(never)]
 pub extern fn run_init() {
-  let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
+  //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
+  let r = task::exec::exec("INIT:\\echo.bin", loaders::InterpretationMode::Native);
   if let Err(_) = r {
     kprintln!("Failed to run init process");
     loop {}

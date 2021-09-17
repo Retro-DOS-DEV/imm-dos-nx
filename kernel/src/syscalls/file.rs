@@ -8,14 +8,19 @@ use syscall::files::{DirEntryInfo, DirEntryType};
 use syscall::result::SystemError;
 
 pub fn open_path(path_str: &'static str) -> Result<u32, SystemError> {
+  crate::task::io::open_path(path_str).map(|handle| handle.as_u32())
+  /*
   let (drive, path) = filename::string_to_drive_and_path(path_str);
   let number = filesystems::get_fs_number(drive).ok_or(SystemError::NoSuchDrive)?;
   let fs = filesystems::get_fs(number).ok_or(SystemError::NoSuchFileSystem)?;
   let local_handle = fs.open(path).map_err(|_| SystemError::NoSuchEntity)?;
   Ok(current_process().open_file(number, local_handle).as_u32())
+  */
 }
 
 pub fn close(handle: u32) -> Result<(), SystemError> {
+  crate::task::io::close_file(FileHandle::new(handle))
+  /*
   let pair_to_close = {
     let cur = current_process();
     let prev = cur.close_file(FileHandle::new(handle));
@@ -35,9 +40,13 @@ pub fn close(handle: u32) -> Result<(), SystemError> {
     Some(fs) => fs.close(pair.1).map_err(|_| SystemError::IOError),
     None => Err(SystemError::NoSuchFileSystem),
   }
+  */
 }
 
 pub unsafe fn read(handle: u32, dest: *mut u8, length: usize) -> Result<usize, SystemError> {
+  let buffer = core::slice::from_raw_parts_mut(dest, length);
+  crate::task::io::read_file(FileHandle::new(handle), buffer)
+  /*
   let drive_and_handle = current_process()
     .get_open_file_info(FileHandle::new(handle))
     .ok_or(SystemError::BadFileDescriptor)?;
@@ -45,9 +54,13 @@ pub unsafe fn read(handle: u32, dest: *mut u8, length: usize) -> Result<usize, S
   let fs = filesystems::get_fs(drive_and_handle.0).ok_or(SystemError::NoSuchFileSystem)?;
   let buffer = core::slice::from_raw_parts_mut(dest, length);
   fs.read(drive_and_handle.1, buffer).map_err(|_| SystemError::IOError)
+  */
 }
 
 pub unsafe fn write(handle: u32, src: *const u8, length: usize) -> Result<usize, SystemError> {
+  let buffer = core::slice::from_raw_parts(src, length);
+  crate::task::io::write_file(FileHandle::new(handle), buffer)
+  /*
   let drive_and_handle = current_process()
     .get_open_file_info(FileHandle::new(handle))
     .ok_or(SystemError::BadFileDescriptor)?;
@@ -55,6 +68,7 @@ pub unsafe fn write(handle: u32, src: *const u8, length: usize) -> Result<usize,
   let fs = filesystems::get_fs(drive_and_handle.0).ok_or(SystemError::NoSuchFileSystem)?;
   let buffer = core::slice::from_raw_parts(src, length);
   fs.write(drive_and_handle.1, buffer).map_err(|_| SystemError::IOError)
+  */
 }
 
 pub fn ioctl(handle: u32, command: u32, arg: u32) -> Result<u32, SystemError> {
