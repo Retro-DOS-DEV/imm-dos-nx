@@ -82,7 +82,6 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
         }
         // Compiler will try to optimize out a write to the StackFrame
         stack_frame.set_eip(stack_frame.eip + 2);
-        kprintln!("RETURN TO {:X}", stack_frame.eip);
         return;
       }
     }

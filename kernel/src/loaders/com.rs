@@ -9,9 +9,12 @@
 //! Multiple DOS API methods are expected to return absolute pointers to structs
 //! in the "kernel," so we keep a static map of these structs accessible.
 
+use alloc::vec::Vec;
 use crate::dos::execution::PSP;
 use crate::files::handle::LocalHandle;
 use crate::fs::{drive::DriveID, DRIVES};
+use crate::memory::address::VirtualAddress;
+use crate::task::memory::{ExecutionSection, ExecutionSegment};
 use super::LoaderError;
 use super::environment::{ExecutionEnvironment, InitialRegisters};
 
@@ -34,7 +37,8 @@ pub fn build_environment(
   let offset = (segment << 4) + ip;
 
   // Same memory segmentation setup as BIN
-  let segments = super::bin::build_single_section_environment(file_size, offset as usize)?;
+  let segments = build_single_section_environment_with_psp(file_size, offset as usize)?;
+  
 
   // When running a COM file, the DOS shell is supposed to interpret the first
   // two command-line arguments and determine if they represent files.
@@ -61,3 +65,32 @@ pub fn build_environment(
     }
   )
 }
+
+pub fn build_single_section_environment_with_psp(
+  file_size: usize,
+  offset: usize,
+) -> Result<Vec<ExecutionSegment>, LoaderError> {
+  let psp_section = ExecutionSection {
+    segment_offset: offset - 0x100,
+    executable_offset: None,
+    size: 0x100,
+  };
+  let data_size = file_size + offset;
+  let section = ExecutionSection {
+    segment_offset: offset,
+    executable_offset: Some(0),
+    size: data_size,
+  };
+  let mut page_count = data_size / 0x1000;
+  if data_size & 0xfff != 0 {
+    page_count += 1;
+  }
+  let mut segment = ExecutionSegment::at_address(VirtualAddress::new(0), page_count).map_err(|_| LoaderError::InternalError)?;
+  segment.set_user_can_write(true);
+  segment.add_section(psp_section).map_err(|_| LoaderError::InternalError)?;
+  segment.add_section(section).map_err(|_| LoaderError::InternalError)?;
+  let mut segments = Vec::with_capacity(1);
+  segments.push(segment);
+  Ok(segments)
+}
+

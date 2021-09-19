@@ -17,7 +17,6 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
 
     // If running a DOS program, the VM needs to be initialized
     if env.require_vm {
-      // Set up the memory for the environment
       process.subsystem = Subsystem::DOS(VMState::new());
     }
 
@@ -32,6 +31,14 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
     None => (),
   }
   // Set up the environment to run the new program
+  if env.require_vm {
+    // Initialize DOS memory
+    let segment = env.registers.cs.unwrap_or(0) as u16;
+    let psp = unsafe { crate::dos::execution::PSP::at_segment(segment) };
+    // Writing to this PSP will trigger a page fault and fill the first page of
+    // the program.
+    psp.reset();
+  }
   // Merge the previous register state with the requested state
 
   // Return the kernel stack pointer to the top of the stack. The next time the
