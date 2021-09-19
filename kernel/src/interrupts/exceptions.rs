@@ -5,11 +5,11 @@ use crate::memory::{
   address::{VirtualAddress},
   virt::page_directory::CurrentPageDirectory,
 };
-use super::stack::StackFrame;
+use super::stack::{FullStackFrame, StackFrame};
 use super::syscall_legacy::dos_api;
 
 #[no_mangle]
-pub extern "x86-interrupt" fn divide_by_zero(stack_frame: &StackFrame) {
+pub extern "x86-interrupt" fn divide_by_zero(stack_frame: StackFrame) {
   kprintln!("\nERR: Divide By Zero\n{:?}", stack_frame);
   // Send a floating-point exception signal to the current process, and return
   // to execution.
@@ -17,54 +17,56 @@ pub extern "x86-interrupt" fn divide_by_zero(stack_frame: &StackFrame) {
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn breakpoint(stack_frame: &StackFrame) {
+pub extern "x86-interrupt" fn breakpoint(stack_frame: StackFrame) {
   // Send a Trap signal to the current process
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn invalid_opcode(stack_frame: &StackFrame) {
+pub extern "x86-interrupt" fn invalid_opcode(stack_frame: StackFrame) {
   let eip = stack_frame.eip;
   kprintln!("Invalid opcode at {:#010x}", eip);
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn double_fault(stack_frame: &StackFrame, _error: u32) {
+pub extern "x86-interrupt" fn double_fault(stack_frame: StackFrame, _error: u32) {
   //kprintln!("\nERR: Double Fault\n{:?}", stack_frame);
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn invalid_tss(stack_frame: &StackFrame, error: u32) {
+pub extern "x86-interrupt" fn invalid_tss(stack_frame: StackFrame, error: u32) {
   kprintln!("\nERR: Invalid TSS. Segment {:?}", error);
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn segment_not_present(stack_frame: &StackFrame, error: u32) {
+pub extern "x86-interrupt" fn segment_not_present(stack_frame: StackFrame, error: u32) {
   kprintln!("\nERR: Segment not present: {:?}", error);
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn stack_segment_fault(stack_frame: &StackFrame, error: u32) {
+pub extern "x86-interrupt" fn stack_segment_fault(stack_frame: StackFrame, error: u32) {
   kprintln!("\nERR: Stack segment fault: {:?}", error);
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn gpf(stack_frame: &StackFrame, error: u32) {
-  let reg_ptr: usize;
-  unsafe {
-    llvm_asm!("" : "={ebp}"(reg_ptr) ::: "volatile");
-  }
+pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
+
   if stack_frame.eflags & 0x20000 != 0 {
     // VM86 Mode
-    let stack_frame_ptr = stack_frame as *const StackFrame as usize;
+    let stack_frame_ptr = &stack_frame as *const StackFrame as usize;
     let vm_frame_ptr = (stack_frame_ptr + mem::size_of::<StackFrame>()) as *mut VM86Frame;
+    // The registers get pushed by the x86-interrupt wrapper.
+    // They should be found beneath the last argument for this method.
+    let reg_ptr = (
+      stack_frame_ptr - core::mem::size_of::<u32>() - core::mem::size_of::<DosApiRegisters>()
+    ) as *mut DosApiRegisters;
     unsafe {
-      let regs = &mut *((reg_ptr - 6 * 4) as *mut DosApiRegisters);
+      let regs = &mut *reg_ptr;
       let vm_frame = &mut *vm_frame_ptr;
       let mut_stack_frame = &mut *(stack_frame_ptr as *mut StackFrame);
       let op_ptr = ((stack_frame.cs << 4) + stack_frame.eip) as *const u8;
@@ -73,11 +75,14 @@ pub extern "x86-interrupt" fn gpf(stack_frame: &StackFrame, error: u32) {
         match *op_ptr.offset(1) {
           0x21 => {
             // DOS API
-            dos_api(regs, vm_frame, mut_stack_frame);
+            kprintln!("DOS API {:X}", regs.ah());
+            dos_api(regs, vm_frame, &stack_frame);
           },
           _ => (),
         }
-        mut_stack_frame.eip += 2;
+        // Compiler will try to optimize out a write to the StackFrame
+        stack_frame.set_eip(stack_frame.eip + 2);
+        kprintln!("RETURN TO {:X}", stack_frame.eip);
         return;
       }
     }
@@ -89,7 +94,7 @@ pub extern "x86-interrupt" fn gpf(stack_frame: &StackFrame, error: u32) {
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn page_fault(stack_frame: &StackFrame, error: u32) {
+pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
   let address: usize;
   unsafe {
     asm!(

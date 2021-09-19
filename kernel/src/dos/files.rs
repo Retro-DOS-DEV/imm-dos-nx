@@ -1,3 +1,5 @@
+use super::memory::SegmentedAddress;
+
 #[repr(C, packed)]
 pub struct FileControlBlock {
   drive_number: u8,

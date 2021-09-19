@@ -275,7 +275,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[inline(never)]
 pub extern fn run_init() {
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
-  let r = task::exec::exec("INIT:\\echo.bin", loaders::InterpretationMode::Native);
+  let r = task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
   if let Err(_) = r {
     kprintln!("Failed to run init process");
     loop {}

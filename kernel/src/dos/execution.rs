@@ -60,6 +60,13 @@ impl PSP {
     self.int_20 = [0xcd, 0x20];
     self.dispatcher = [0xcd, 0x21, 0xcb];
     self.parent_segment = self.get_segment();
+
+    self.file_handles = [
+      0, 1, 2, 3, 4,
+      0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0xff, 0xff, 0xff, 0xff,
+    ];
   }
 
   pub fn get_segment(&self) -> u16 {
@@ -105,7 +112,7 @@ pub fn terminate(cs: u16) -> SegmentedAddress {
   // clean up resources
 
   match psp.get_parent_segment() {
-    Some(seg) => {
+    Some(_seg) => {
       // jump to parent psp via the terminate address
       psp.termination_vector
     },

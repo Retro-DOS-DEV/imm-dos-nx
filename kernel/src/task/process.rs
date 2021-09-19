@@ -10,6 +10,7 @@ use super::ipc::{IPCMessage, IPCPacket, IPCQueue};
 use super::memory::{ExecutionSegment, MemoryRegions};
 use super::regs::SavedState;
 use super::state::RunState;
+use super::vm::Subsystem;
 
 pub struct Process {
   /// The unique ID of this process
@@ -46,6 +47,8 @@ pub struct Process {
   pub page_directory: PageTableReference,
   /// Reference to the open file being executed by this process
   exec_file: Option<(DriveID, LocalHandle)>,
+  /// Stores extra data related to the subsystem used by the process
+  pub subsystem: Subsystem,
 }
 
 impl Process {
@@ -67,6 +70,7 @@ impl Process {
       saved_state: SavedState::empty(),
       page_directory: PageTableReference::current(),
       exec_file: None,
+      subsystem: Subsystem::Native,
     }
   }
 
@@ -307,6 +311,7 @@ impl Process {
       saved_state: SavedState::empty(),
       page_directory: self.page_directory.clone(),
       exec_file: None, // TODO: dup this
+      subsystem: Subsystem::Native,
     }
   }
 

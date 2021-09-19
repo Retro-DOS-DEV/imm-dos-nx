@@ -1,7 +1,9 @@
+use crate::dos::state::VMState;
 use crate::fs::DRIVES;
 use crate::loaders;
 use crate::task::switching::get_current_process;
 use super::regs::EnvironmentRegisters;
+use super::vm::Subsystem;
 use syscall::result::SystemError;
 
 /// Load an executable file from disk, map it into memory, and begin execution
@@ -13,6 +15,11 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
     let old_exec = process.prepare_exec_mapping(env.segments);
     // Remove the old exec and mmap mappings
 
+    // If running a DOS program, the VM needs to be initialized
+    if env.require_vm {
+      // Set up the memory for the environment
+      process.subsystem = Subsystem::DOS(VMState::new());
+    }
 
     process.set_exec_file(drive_id, local_handle)
   };

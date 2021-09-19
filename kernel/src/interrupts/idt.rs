@@ -7,17 +7,17 @@ use super::{exceptions, handlers, pic, stack};
 // use a bit of statically-linked assembly code to handle this interrupt
 #[link(name="libsyscall", kind="static")]
 extern "x86-interrupt" {
-  fn syscall_handler(frame: &stack::StackFrame) -> ();
+  fn syscall_handler(frame: stack::StackFrame) -> ();
 }
 
 #[link(name="libirq", kind="static")]
 extern "x86-interrupt" {
-  fn irq_3(frame: &stack::StackFrame) -> ();
-  fn irq_4(frame: &stack::StackFrame) -> ();
-  fn irq_5(frame: &stack::StackFrame) -> ();
-  fn irq_9(frame: &stack::StackFrame) -> ();
-  fn irq_10(frame: &stack::StackFrame) -> ();
-  fn irq_11(frame: &stack::StackFrame) -> ();
+  fn irq_3(frame: stack::StackFrame) -> ();
+  fn irq_4(frame: stack::StackFrame) -> ();
+  fn irq_5(frame: stack::StackFrame) -> ();
+  fn irq_9(frame: stack::StackFrame) -> ();
+  fn irq_10(frame: stack::StackFrame) -> ();
+  fn irq_11(frame: stack::StackFrame) -> ();
 }
 
 // Flags used in IDT entries
@@ -51,11 +51,11 @@ impl GateType {
 
 /// A function implementing the x86-interrupt "ABI" that will receive a stack
 /// frame as its only argument.
-pub type HandlerFunction = unsafe extern "x86-interrupt" fn(&stack::StackFrame);
+pub type HandlerFunction = unsafe extern "x86-interrupt" fn(stack::StackFrame);
 /// A function implementing the x86-interrupt "ABI" that also expects an error
 /// code. Some processor exceptions will push an extra 32-bit error code onto
 /// the stack which needs to be handled and popped before returning.
-pub type HandlerFunctionWithErrorCode = unsafe extern "x86-interrupt" fn(&stack::StackFrame, u32);
+pub type HandlerFunctionWithErrorCode = unsafe extern "x86-interrupt" fn(stack::StackFrame, u32);
 
 /// An IDT Entry tells a x86 CPU how to handle an interrupt.
 /// The entry attributes determine how the interrupt is entered, what permission

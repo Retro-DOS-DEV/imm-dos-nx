@@ -10,6 +10,24 @@ pub struct StackFrame {
   pub eflags: u32,
 }
 
+impl StackFrame {
+  unsafe fn as_ptr(&self) -> *mut u32 {
+    self as *const StackFrame as usize as *mut u32
+  }
+
+  pub unsafe fn set_eip(&self, eip: u32) {
+    core::ptr::write_volatile(self.as_ptr(), eip);
+  }
+
+  pub unsafe fn set_cs(&self, cs: u32) {
+    core::ptr::write_volatile(self.as_ptr().offset(1), cs);
+  }
+
+  pub unsafe fn set_eflags(&self, flags: u32) {
+    core::ptr::write_volatile(self.as_ptr().offset(2), flags);
+  }
+}
+
 impl fmt::Debug for StackFrame {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let eip = self.eip;

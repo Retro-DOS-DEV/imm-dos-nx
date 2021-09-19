@@ -9,6 +9,7 @@
 //! Multiple DOS API methods are expected to return absolute pointers to structs
 //! in the "kernel," so we keep a static map of these structs accessible.
 
+use crate::dos::execution::PSP;
 use crate::files::handle::LocalHandle;
 use crate::fs::{drive::DriveID, DRIVES};
 use super::LoaderError;
@@ -27,8 +28,9 @@ pub fn build_environment(
 
   // Set the segment and IP based on the current environment and expected PSP
   // location
+  let psp_size = core::mem::size_of::<PSP>() as u32;
   let segment: u32 = 0;
-  let ip = 0x100;
+  let ip = psp_size;
   let offset = (segment << 4) + ip;
 
   // Same memory segmentation setup as BIN

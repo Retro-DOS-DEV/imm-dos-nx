@@ -1,4 +1,5 @@
 use crate::dos::{
+  devices,
   execution,
   registers::{DosApiRegisters, VM86Frame}
 };
@@ -8,15 +9,17 @@ use super::stack::StackFrame;
 /**
  * Interrupts to support legacy DOS API calls
  */
-pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame: &mut StackFrame) {
+pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame: &StackFrame) {
   match (regs.ax & 0xff00) >> 8 {
     0 => { // Terminate
       let new_address = execution::terminate(stack_frame.cs as u16);
-      stack_frame.eip = new_address.offset as u32;
-      stack_frame.cs = new_address.segment as u32;
+      unsafe {
+        stack_frame.set_eip(new_address.offset as u32);
+        stack_frame.set_cs(new_address.segment as u32);
+      }
     },
     1 => { // Keyboard input with Echo
-      // Blocks until a key input occurs on STDIN, copies it to STDOUT
+      devices::read_stdin_with_echo(regs);
     },
     0x02 => { // Print character to STDOUT
       // Debugging body
@@ -275,6 +278,7 @@ pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame
     },
     0x5b => { // Create new file
     },
+
     _ => (),
   }
 }
