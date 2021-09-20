@@ -62,6 +62,11 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
     ecx: 0,
     eax: 0,
 
+    gs: 0,
+    fs: 0,
+    es: env.registers.es.unwrap_or(0),
+    ds: env.registers.ds.unwrap_or(0),
+
     ss: env.registers.ss.unwrap_or(0),
     cs: env.registers.cs.unwrap_or(0),
     eip: env.registers.eip.unwrap_or(0),

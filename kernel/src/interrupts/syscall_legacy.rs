@@ -54,6 +54,7 @@ pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame
     0x09 => { // Print string
       // DS:DX points to a string terminated by '$'
       // Copy the string to STDOUT
+      devices::print_string(regs, segments);
     },
     0x0a => { // Buffered keyboard input
       // Used to read multiple characters at a time

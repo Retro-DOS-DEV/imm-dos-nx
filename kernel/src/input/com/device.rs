@@ -112,6 +112,16 @@ impl ComDevice {
     written
   }
 
+  pub fn write(&self, handle: usize, src: &[u8]) -> usize {
+    // TODO: make this not blocking
+    let mut written = 0;
+    for value in src.iter() {
+      self.com.send_byte(*value);
+      written += 1;
+    }
+    written
+  }
+
   pub fn close(&self, handle: usize) {
     let mut handles = self.open_handles.write();
     let handle_index = handles
@@ -163,7 +173,8 @@ impl DeviceDriver for ComDriver {
   }
 
   fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()> {
-    Err(())
+    let device = self.get_device()?;
+    Ok(device.write(index, buffer))
   }
 
   fn close(&self, index: usize) -> Result<(), ()> {

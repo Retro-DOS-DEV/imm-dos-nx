@@ -21,6 +21,7 @@ testexec := initfs/test.bin
 testcom := initfs/test.com
 testdriver := initfs/driver.bin
 testecho := initfs/echo.bin
+dosio := initfs/dosio.com
 
 .PHONY: all, clean, test
 
@@ -85,7 +86,7 @@ $(libkernel_testing): $(kernel_deps)
 	cargo xbuild --lib --target i386-kernel.json --release --features "testing"
 	@cp kernel/target/i386-kernel/release/libkernel.a $(libkernel_testing)
 
-$(initfs): $(testexec) $(testcom) $(testdriver) $(testecho)
+$(initfs): $(testexec) $(testcom) $(testdriver) $(testecho) $(dosio)
 	@ls initfs/ | cpio -D initfs -H bin -o > $(initfs)
 
 # System programs:
@@ -95,7 +96,7 @@ $(testexec): testexec/test.s
 
 $(testcom): testexec/com.s
 	@as --32 -march=i386 -o build/testcom.o testexec/com.s
-	@ld -o $(testcom) --oformat binary -e start -m elf_i386 -Ttext 0 build/testcom.o
+	@ld -o $(testcom) --oformat binary -e start -m elf_i386 -Ttext=0x100 build/testcom.o
 
 $(testdriver): testexec/driver.s
 	@as --32 -march=i386 -o build/testdriver.o testexec/driver.s
@@ -104,3 +105,7 @@ $(testdriver): testexec/driver.s
 $(testecho): testexec/echo.s
 	@as --32 -march=i386 -o build/testecho.o testexec/echo.s
 	@ld -o $(testecho) --oformat binary -e start -m elf_i386 -Ttext 0 build/testecho.o
+
+$(dosio): testexec/dosio.s
+	@as --32 -march=i386 -o build/dosio.o testexec/dosio.s
+	@ld -o $(dosio) --oformat binary -e start -m elf_i386 -Ttext=0x100 build/dosio.o

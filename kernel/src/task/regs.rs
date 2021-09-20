@@ -71,4 +71,9 @@ pub struct EnvironmentRegisters {
   pub flags: u32,
   pub esp: u32,
   pub ss: u32,
+
+  pub es: u32,
+  pub ds: u32,
+  pub fs: u32,
+  pub gs: u32,
 }

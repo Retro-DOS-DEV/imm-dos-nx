@@ -49,10 +49,10 @@ pub struct PSP {
   /// Reserved space for the second FCB
   fcb_second: [u8; 20], // 0x6c
   /// Number of bytes in the command tail
-  command_tail_length: u8, // 0x80
+  pub command_tail_length: u8, // 0x80
   /// Actual contents of the command tail (arguments passed after the executable
   /// name)
-  command_tail: [u8; 127], // 0x81
+  pub command_tail: [u8; 127], // 0x81
 }
 
 impl PSP {

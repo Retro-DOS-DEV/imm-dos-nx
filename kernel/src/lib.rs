@@ -206,7 +206,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       task::switching::kfork(tty::ttys_process);
 
       // this is extra, for testing
-      task::switching::kfork(run_reader);
+      //task::switching::kfork(run_reader);
     }
 
     //task::switching::switch_to(&task::id::ProcessID::new(1));
@@ -275,7 +275,10 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[inline(never)]
 pub extern fn run_init() {
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
-  let r = task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
+  let stdin = task::io::open_path("DEV:\\COM1").unwrap();
+  let stdout = task::io::dup(stdin, None).unwrap();
+  let stderr = task::io::dup(stdin, None).unwrap();
+  let r = task::exec::exec("INIT:\\dosio.com", loaders::InterpretationMode::DOS);
   if let Err(_) = r {
     kprintln!("Failed to run init process");
     loop {}
@@ -308,11 +311,8 @@ pub extern fn run_reader() {
   //task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
 
   let mut buffer: [u8; 1] = [0; 1];
-  //let slot = input::com::get_device(0).open();
   let handle = task::io::open_path("DEV:\\COM1").map_err(|_| ()).unwrap();
-  //let slot = devices::get_driver_for_device(1).unwrap().open().unwrap();
   loop {
-    //devices::get_driver_for_device(1).unwrap().read(slot, &mut buffer);
     let _ = task::io::read_file(handle, &mut buffer);
     kprint!("{}:{:#02x} ", id.as_u32(), buffer[0]);
     task::sleep(1000);

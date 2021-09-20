@@ -54,3 +54,10 @@ pub fn close_file(handle: FileHandle) -> Result<(), SystemError> {
   let (_, instance) = DRIVES.get_drive_instance(&open_file_info.drive).ok_or(SystemError::NoSuchFileSystem)?;
   instance.close(open_file_info.local_handle).map_err(|_| SystemError::IOError)
 }
+
+pub fn dup(from_handle: FileHandle, to_handle: Option<FileHandle>) -> Result<FileHandle, SystemError> {
+  let process_lock = get_current_process();
+  let mut process = process_lock.write();
+  let (_, new_handle) = process.duplicate_file_descriptor(from_handle, to_handle);
+  new_handle.ok_or(SystemError::BadFileDescriptor)
+}

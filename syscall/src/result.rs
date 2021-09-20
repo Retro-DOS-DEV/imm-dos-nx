@@ -1,7 +1,7 @@
 /// Error codes that can be returned from syscalls
 /// They do not correspond to POSIX error numbers, but they can be mapped
 /// to POSIX values for compatibility.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(u32)]
 pub enum SystemError {
   /// Used when the error doesn't match a known code
