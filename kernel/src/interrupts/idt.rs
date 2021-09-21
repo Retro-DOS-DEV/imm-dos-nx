@@ -253,8 +253,8 @@ pub unsafe fn init() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn _irq_inner(registers: SavedState, irq: usize, frame: stack::FullStackFrame) {
-  crate::kprintln!("IRQ #{:x}", irq);
-  crate::kprintln!("{:?}", registers);
+  crate::klog!("IRQ #{:x}\n", irq);
+  crate::klog!("{:?}\n", registers);
 
   let handler = match handlers::try_get_installed_handler(irq) {
     Some(handler) => handler,

@@ -1,6 +1,6 @@
 use core::mem;
 use crate::dos::registers::{DosApiRegisters, VM86Frame};
-use crate::kprintln;
+use crate::{klog, kprintln};
 use crate::memory::{
   address::{VirtualAddress},
   virt::page_directory::CurrentPageDirectory,
@@ -55,7 +55,6 @@ pub extern "x86-interrupt" fn stack_segment_fault(stack_frame: StackFrame, error
 
 #[no_mangle]
 pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
-
   if stack_frame.eflags & 0x20000 != 0 {
     // VM86 Mode
     let stack_frame_ptr = &stack_frame as *const StackFrame as usize;
@@ -73,9 +72,13 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
       if *op_ptr == 0xcd {
         // INT
         match *op_ptr.offset(1) {
+          0x20 => {
+            // DOS terminate
+            
+          },
           0x21 => {
             // DOS API
-            kprintln!("DOS API {:X}", regs.ah());
+            klog!("DOS API {:X}\n", regs.ah());
             dos_api(regs, vm_frame, &stack_frame);
           },
           _ => (),
@@ -85,6 +88,9 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
         return;
       }
     }
+  } else if stack_frame.eip >= 0xc0000000 {
+    kprintln!("Kernel GPF: {}", error);
+    loop {}
   }
 
   kprintln!("\nERR: General Protection Fault, code {}", error);

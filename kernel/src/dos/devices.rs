@@ -40,8 +40,14 @@ pub fn read_stdaux() {
 
 }
 
-pub fn output_char_to_stdout() {
-
+pub fn output_char_to_stdout(regs: &mut DosApiRegisters) {
+  let psp = match get_current_psp_segment() {
+    Some(p) => unsafe { PSP::at_segment(p) },
+    None => return,
+  };
+  let stdout_handle = FileHandle::new(psp.file_handles[1] as u32);
+  let buffer: [u8; 1] = [regs.dl()];
+  let _ = write_file(stdout_handle, &buffer);
 }
 
 pub fn output_char_to_stdaux() {
@@ -63,8 +69,6 @@ pub fn print_string(regs: &mut DosApiRegisters, segments: &mut VM86Frame) {
     offset: regs.dx as u16,
   };
   let start = string_location.as_address() as *const u8;
-  crate::kprintln!("{:?}", segments);
-  crate::kprintln!("AT ADDR: {:X}", start as usize);
   let mut length = 0;
   loop {
     if length > 255 {

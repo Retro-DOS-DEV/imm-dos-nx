@@ -276,8 +276,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 pub extern fn run_init() {
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
   let stdin = task::io::open_path("DEV:\\COM1").unwrap();
-  let stdout = task::io::dup(stdin, None).unwrap();
-  let stderr = task::io::dup(stdin, None).unwrap();
+  let stdout = task::io::open_path("DEV:\\TTY1").unwrap();
+  let stderr = task::io::dup(stdout, None).unwrap();
   let r = task::exec::exec("INIT:\\dosio.com", loaders::InterpretationMode::DOS);
   if let Err(_) = r {
     kprintln!("Failed to run init process");

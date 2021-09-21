@@ -196,3 +196,9 @@ pub fn fork_page_directory() -> PageTableReference {
 
   PageTableReference::new(directory_frame.get_address())
 }
+
+pub fn terminate() {
+  let current_process = get_current_process();
+  current_process.write().terminate();
+  yield_coop();
+}

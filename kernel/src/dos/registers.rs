@@ -34,6 +34,30 @@ impl DosApiRegisters {
     (self.ax & 0xff) as u8
   }
 
+  pub fn bh(&self) -> u8 {
+    ((self.bx & 0xff00) >> 8) as u8
+  }
+
+  pub fn bl(&self) -> u8 {
+    (self.bx & 0xff) as u8
+  }
+
+  pub fn ch(&self) -> u8 {
+    ((self.cx & 0xff00) >> 8) as u8
+  }
+
+  pub fn cl(&self) -> u8 {
+    (self.cx & 0xff) as u8
+  }
+
+  pub fn dh(&self) -> u8 {
+    ((self.dx & 0xff00) >> 8) as u8
+  }
+
+  pub fn dl(&self) -> u8 {
+    (self.dx & 0xff) as u8
+  }
+
   pub fn set_al(&mut self, value: u8) {
     self.ax &= 0xff00;
     self.ax |= value as u32;

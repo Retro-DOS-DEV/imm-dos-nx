@@ -31,3 +31,8 @@ macro_rules! kprintln {
   () => ($crate::kprint!("\n"));
   ($($arg:tt)*) => ($crate::kprint!("{}\n", format_args!($($arg)*)));
 }
+
+#[macro_export]
+macro_rules! klog {
+  ($($arg:tt)*) => ($crate::tty::console_write(format_args!($($arg)*)));
+}

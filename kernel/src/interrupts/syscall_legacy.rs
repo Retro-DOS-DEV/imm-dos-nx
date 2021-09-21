@@ -22,9 +22,7 @@ pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame
       devices::read_stdin_with_echo(regs);
     },
     0x02 => { // Print character to STDOUT
-      // Debugging body
-      kprintln!("PRINTDOS");
-      regs.ax = (regs.ax & 0xff00) | (regs.dx & 0xff);
+      devices::output_char_to_stdout(regs);
     },
     0x03 => { // Wait for STDAUX
       // Blocks until a character can be read from STDAUX

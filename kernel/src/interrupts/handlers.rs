@@ -102,9 +102,6 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
     current_proc.save_state(registers);
     *current_proc.get_id()
   };
-
-  crate::kprintln!("GOT HANDLER");
-
   let mut interrupt_frame = FullStackFrame::empty();
   interrupt_frame.eip = frame.eip;
   interrupt_frame.cs = frame.cs;
@@ -115,8 +112,6 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
     interrupt_frame.esp = frame.esp;
     interrupt_frame.ss = frame.ss;
   }
-
-  crate::kprintln!("When we're done, return to {:x}:{:#010x}", interrupt_frame.cs, interrupt_frame.eip);
 
   match CURRENT_INTERRUPT.try_write() {
     Some(mut inner) => {
@@ -146,7 +141,7 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
 
   // If necessary, switch to the handling process
   if handler.process != current_id {
-    crate::kprintln!("SWITCH NECESSARY {:?} => {:?}", current_id, handler.process);
+    crate::klog!("SWITCH NECESSARY {:?} => {:?}\n", current_id, handler.process);
     *crate::task::switching::CURRENT_ID.write() = handler.process;
     // update the currently mapped userspace to the handler process
     let cr3 = {
@@ -200,7 +195,7 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
 }
 
 pub fn return_from_handler(irq: usize) {
-  crate::kprintln!("Return from IRQ {}", irq);
+  crate::klog!("Return from IRQ {}\n", irq);
 
   // In order to unwind to the original interrupt entry point, we return to the
   // process that was interrupted. Then, we update the stack pointer to the
@@ -217,7 +212,7 @@ pub fn return_from_handler(irq: usize) {
   // Return to the memory space of the originating process
   let current_id = crate::task::switching::get_current_id();
   if return_point.process != current_id {
-    crate::kprintln!("SWITCH BACK {:?} => {:?}", current_id, return_point.process);
+    crate::klog!("SWITCH BACK {:?} => {:?}", current_id, return_point.process);
     *crate::task::switching::CURRENT_ID.write() = return_point.process;
     // update the currently mapped userspace to the handler process
     let cr3 = {
