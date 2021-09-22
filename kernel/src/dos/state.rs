@@ -7,7 +7,7 @@ impl VMState {
   pub fn new() -> Self {
 
     Self {
-      current_psp: 0,
+      current_psp: 0x100,
     }
   }
 }

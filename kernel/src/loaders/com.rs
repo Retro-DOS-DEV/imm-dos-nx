@@ -31,14 +31,11 @@ pub fn build_environment(
 
   // Set the segment and IP based on the current environment and expected PSP
   // location
-  let psp_size = core::mem::size_of::<PSP>() as u32;
-  let segment: u32 = 0;
-  let ip = psp_size;
-  let offset = (segment << 4) + ip;
+  let psp_segment: u32 = 0x100;
+  let ip = core::mem::size_of::<PSP>() as u32;
 
   // Same memory segmentation setup as BIN
-  let segments = build_single_section_environment_with_psp(file_size, offset as usize)?;
-  
+  let segments = build_single_section_environment_with_psp(file_size, psp_segment as usize)?;
 
   // When running a COM file, the DOS shell is supposed to interpret the first
   // two command-line arguments and determine if they represent files.
@@ -56,10 +53,10 @@ pub fn build_environment(
         eip: Some(ip),
         esp: Some(0xfffe),
 
-        cs: Some(segment),
-        ds: Some(segment),
-        es: Some(segment),
-        ss: Some(segment),
+        cs: Some(psp_segment),
+        ds: Some(psp_segment),
+        es: Some(psp_segment),
+        ss: Some(psp_segment),
       },
       require_vm: true,
     }
@@ -68,24 +65,36 @@ pub fn build_environment(
 
 pub fn build_single_section_environment_with_psp(
   file_size: usize,
-  offset: usize,
+  psp_segment: usize,
 ) -> Result<Vec<ExecutionSegment>, LoaderError> {
+  let psp_start = psp_segment << 4;
+  let psp_size = core::mem::size_of::<PSP>();
+  let code_start = psp_start + psp_size;
+  let mut page_start = VirtualAddress::new(psp_start)
+    .prev_page_barrier();
+  crate::kprintln!("SEGMENT START: {:?}", page_start);
   let psp_section = ExecutionSection {
-    segment_offset: offset - 0x100,
+    segment_offset: psp_start - page_start.as_usize(),
     executable_offset: None,
-    size: 0x100,
+    size: psp_size,
   };
-  let data_size = file_size + offset;
   let section = ExecutionSection {
-    segment_offset: offset,
+    segment_offset: code_start - page_start.as_usize(),
     executable_offset: Some(0),
-    size: data_size,
+    size: file_size,
   };
-  let mut page_count = data_size / 0x1000;
-  if data_size & 0xfff != 0 {
+  let final_byte = code_start + file_size;
+  let total_length = final_byte - page_start.as_usize();
+  let mut page_count = total_length / 0x1000;
+  if total_length & 0xfff != 0 {
     page_count += 1;
   }
-  let mut segment = ExecutionSegment::at_address(VirtualAddress::new(0), page_count).map_err(|_| LoaderError::InternalError)?;
+
+  crate::kprintln!("PSP: {:X}-{:X}-{:X} ({})", psp_start, code_start, final_byte, page_count);
+  let mut segment = ExecutionSegment::at_address(
+    page_start,
+    page_count,
+  ).map_err(|_| LoaderError::InternalError)?;
   segment.set_user_can_write(true);
   segment.add_section(psp_section).map_err(|_| LoaderError::InternalError)?;
   segment.add_section(section).map_err(|_| LoaderError::InternalError)?;
