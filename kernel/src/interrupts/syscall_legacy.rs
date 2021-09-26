@@ -1,9 +1,9 @@
 use crate::dos::{
   devices,
   execution,
+  files,
   registers::{DosApiRegisters, VM86Frame}
 };
-use crate::kprintln;
 use super::stack::StackFrame;
 
 /**
@@ -216,10 +216,12 @@ pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame
     0x3c => { // Create file using handle
     },
     0x3d => { // Open file using handle
+      files::open_file(regs, segments, stack_frame);
     },
     0x3e => { // Close file using handle
     },
     0x3f => { // Read file using handle
+      files::read_file(regs, segments);
     },
     0x40 => { // Write file using handle
     },

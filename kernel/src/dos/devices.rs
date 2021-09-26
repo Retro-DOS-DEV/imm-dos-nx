@@ -1,19 +1,6 @@
 use crate::files::handle::{FileHandle, Handle};
 use crate::task::io::{read_file, write_file};
-use crate::task::switching::get_current_process;
-use crate::task::vm::Subsystem;
-use super::{execution::PSP, memory::SegmentedAddress, registers::{DosApiRegisters, VM86Frame}};
-
-fn get_current_psp_segment() -> Option<u16> {
-  let process_lock = get_current_process();
-  let process = process_lock.read();
-  match &process.subsystem {
-    Subsystem::DOS(state) => Some(state.current_psp),
-    Subsystem::Native => {
-      return None;
-    },
-  }
-}
+use super::{execution::{PSP, get_current_psp_segment}, memory::SegmentedAddress, registers::{DosApiRegisters, VM86Frame}};
 
 pub fn read_stdin_with_echo(regs: &mut DosApiRegisters) {
   // Read from STDIN (local handle 0), write to STDOUT (local handle 1)

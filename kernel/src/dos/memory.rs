@@ -26,3 +26,23 @@ impl Segment {
     (self.0 as usize) << 4
   }
 }
+
+pub unsafe fn get_asciiz_string(addr: SegmentedAddress) -> &'static str {
+  let start = addr.as_address();
+  let start_ptr = start as *const u8;
+  // for sanity, limit the string length to the end of the DS segment
+  let max_length: usize = 0x10000 - (addr.offset as usize);
+  let mut length: usize = 0;
+  loop {
+    let ch = start_ptr.offset(length as isize);
+    if *ch == 0 {
+      break;
+    }
+    if length >= max_length {
+      break;
+    }
+    length += 1;
+  }
+  let slice = core::slice::from_raw_parts(start_ptr, length);
+  core::str::from_utf8_unchecked(slice)
+}

@@ -1,3 +1,5 @@
+use crate::task::switching::get_current_process;
+use crate::task::vm::Subsystem;
 use super::memory::SegmentedAddress;
 use super::registers::{DosApiRegisters, VM86Frame};
 
@@ -100,6 +102,27 @@ impl PSP {
     } else {
       Some(self.parent_segment)
     }
+  }
+
+  pub fn find_empty_file_handle(&self) -> Option<usize> {
+    let len = self.file_handles.len();
+    for i in 0..len {
+      if self.file_handles[i] == 0xff {
+        return Some(i);
+      }
+    }
+    None
+  }
+}
+
+pub fn get_current_psp_segment() -> Option<u16> {
+  let process_lock = get_current_process();
+  let process = process_lock.read();
+  match &process.subsystem {
+    Subsystem::DOS(state) => Some(state.current_psp),
+    Subsystem::Native => {
+      return None;
+    },
   }
 }
 

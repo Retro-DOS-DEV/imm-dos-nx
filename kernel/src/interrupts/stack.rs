@@ -26,6 +26,11 @@ impl StackFrame {
   pub unsafe fn set_eflags(&self, flags: u32) {
     core::ptr::write_volatile(self.as_ptr().offset(2), flags);
   }
+
+  pub unsafe fn set_carry_flag(&self) {
+    let flags = core::ptr::read_volatile(self.as_ptr().offset(2));
+    core::ptr::write_volatile(self.as_ptr().offset(2), flags | 1);
+  }
 }
 
 impl fmt::Debug for StackFrame {
