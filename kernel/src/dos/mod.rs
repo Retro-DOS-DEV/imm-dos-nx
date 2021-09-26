@@ -2,6 +2,7 @@
 //! well as methods to manipulate the current VM process space.
 
 pub mod devices;
+pub mod errors;
 pub mod execution;
 pub mod files;
 pub mod memory;

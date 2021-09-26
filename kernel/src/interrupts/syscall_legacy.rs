@@ -1,5 +1,6 @@
 use crate::dos::{
   devices,
+  errors,
   execution,
   files,
   registers::{DosApiRegisters, VM86Frame}
@@ -216,12 +217,12 @@ pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame
     0x3c => { // Create file using handle
     },
     0x3d => { // Open file using handle
-      files::open_file(regs, segments, stack_frame);
+      errors::with_error_code(regs, segments, stack_frame, |r, s| files::open_file(r, s));
     },
     0x3e => { // Close file using handle
     },
     0x3f => { // Read file using handle
-      files::read_file(regs, segments);
+      errors::with_error_code(regs, segments, stack_frame, |r, s| files::read_file(r, s));
     },
     0x40 => { // Write file using handle
     },

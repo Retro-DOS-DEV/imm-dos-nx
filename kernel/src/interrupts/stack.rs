@@ -31,6 +31,11 @@ impl StackFrame {
     let flags = core::ptr::read_volatile(self.as_ptr().offset(2));
     core::ptr::write_volatile(self.as_ptr().offset(2), flags | 1);
   }
+
+  pub unsafe fn clear_carry_flag(&self) {
+    let flags = core::ptr::read_volatile(self.as_ptr().offset(2));
+    core::ptr::write_volatile(self.as_ptr().offset(2), flags & 0xfffffffe);
+  }
 }
 
 impl fmt::Debug for StackFrame {
