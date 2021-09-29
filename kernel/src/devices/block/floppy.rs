@@ -78,7 +78,7 @@ pub struct OpenInstance {
 impl OpenInstance {
   pub fn new() -> Self {
     Self {
-      cursor: 0x161,
+      cursor: 0,
     }
   }
 }
