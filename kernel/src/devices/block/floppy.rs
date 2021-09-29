@@ -1,10 +1,11 @@
 use alloc::collections::BTreeMap;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use crate::hardware::floppy::{FloppyDiskController};
+use crate::hardware::floppy::{FloppyDiskController, Operation};
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use crate::task::id::ProcessID;
 use crate::task::memory::MMapBacking;
 use spin::RwLock;
+use super::geometry::{Sector, SectorRange};
 use super::super::driver::DeviceDriver;
 
 static CONTROLLER: FloppyDiskController = FloppyDiskController::new();
@@ -40,6 +41,31 @@ pub fn init() {
   }
 }
 
+fn get_dma_addresses() -> (PhysicalAddress, VirtualAddress) {
+  loop {
+    let addr = {
+      *DMA_ADDR.read()
+    };
+    match addr {
+      Some(pair) => return pair,
+      None => crate::task::yield_coop(),
+    }
+  }
+}
+
+pub fn load_sectors_to_cache(sectors: &SectorRange, dma_mode: u8) -> Result<VirtualAddress, ()> {
+  let (dma_phys, dma_virt) = get_dma_addresses();
+  {
+    let channel = super::super::DMA.get_channel(2);
+    channel.set_address(dma_phys);
+    channel.set_count(sectors.byte_length() - 1);
+    channel.set_mode(dma_mode);
+  }
+  let (c, h, s) = sectors.get_first_sector().to_chs();
+  CONTROLLER.add_operation(Operation::Read(c, h, s));
+  Ok(dma_virt)
+}
+
 pub extern "C" fn int_floppy() {
   CONTROLLER.handle_interrupt();
   crate::interrupts::handlers::return_from_handler(6);
@@ -52,7 +78,7 @@ pub struct OpenInstance {
 impl OpenInstance {
   pub fn new() -> Self {
     Self {
-      cursor: 0,
+      cursor: 0x161,
     }
   }
 }
@@ -93,7 +119,30 @@ impl DeviceDriver for FloppyDriver {
   }
 
   fn read(&self, index: usize, buffer: &mut [u8]) -> Result<usize, ()> {
-    Ok(0)
+    let cursor = match self.open_handles.read().get(&index) {
+      Some(open_handle) => Ok(open_handle.cursor),
+      None => Err(())
+    }?;
+
+    let length = buffer.len();
+    let sectors = SectorRange::for_byte_range(cursor, length);
+
+    let dma_src = load_sectors_to_cache(&sectors, 0x56)?;
+    let local_offset = sectors.get_local_offset(cursor);
+    let dma_src_ptr = (dma_src.as_usize() + local_offset) as *const u8;
+    for i in 0..length {
+      unsafe {
+        buffer[i] = *dma_src_ptr.offset(i as isize);
+      }
+    }
+
+    match self.open_handles.write().get_mut(&index) {
+      Some(open_file) => {
+        open_file.cursor += length;
+        Ok(length)
+      },
+      None => Err(()),
+    }
   }
 
   fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()> {

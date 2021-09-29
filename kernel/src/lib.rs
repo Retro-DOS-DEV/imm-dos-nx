@@ -269,6 +269,17 @@ pub extern fn run_init() {
   devices::init();
   time::system::initialize_from_rtc();
 
+  {
+    let mut buffer: [u8; 8] = [0; 8];
+    let handle = task::io::open_path("DEV:\\FD1").unwrap();
+    let _ = task::io::read_file(handle, &mut buffer);
+    for i in 0..buffer.len() {
+      crate::kprint!("{:X} ", buffer[i]);
+    }
+  }
+
+  loop {}
+
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
   let stdin = task::io::open_path("DEV:\\COM1").unwrap();
   let stdout = task::io::open_path("DEV:\\TTY1").unwrap();

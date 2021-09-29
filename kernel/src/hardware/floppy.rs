@@ -40,12 +40,9 @@ pub enum Command {
 
 #[derive(Copy, Clone)]
 pub enum Operation {
-  Read(CHS),
-  Write(CHS),
+  Read(usize, usize, usize),
+  Write(usize, usize, usize),
 }
-
-#[derive(Copy, Clone)]
-pub struct CHS(pub usize, pub usize, pub usize);
 
 const DOR_PORT_NUMBER: u16 = 0x3F2;
 const MSR_PORT_NUMBER: u16  = 0x3f4;
@@ -142,11 +139,11 @@ impl FloppyDiskController {
     }
     // The operation is now first in the queue
     let result = match op {
-      Operation::Read(loc) => {
-        self.read(loc)
+      Operation::Read(c, h, s) => {
+        self.read(c, h, s)
       },
-      Operation::Write(loc) => {
-        self.write(loc)
+      Operation::Write(c, h, s) => {
+        self.write(c, h, s)
       },
     };
 
@@ -335,12 +332,12 @@ impl FloppyDiskController {
     Ok(())
   }
 
-  fn read(&self, location: CHS) -> Result<(), ControllerError> {
-    self.dma(Command::ReadData, location.0, location.1, location.2)
+  fn read(&self, c: usize, h: usize, s: usize) -> Result<(), ControllerError> {
+    self.dma(Command::ReadData, c, h, s)
   }
 
-  fn write(&self, location: CHS) -> Result<(), ControllerError> {
-    self.dma(Command::WriteData, location.0, location.1, location.2)
+  fn write(&self, c: usize, h: usize, s: usize) -> Result<(), ControllerError> {
+    self.dma(Command::WriteData, c, h, s)
   }
 
   fn dma(&self, command: Command, cylinder: usize, head: usize, sector: usize) -> Result<(), ControllerError> {
