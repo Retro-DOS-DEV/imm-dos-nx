@@ -33,6 +33,7 @@ pub const STACK_SIZE: usize = 0x4000;
 pub const STACK_GUARD_SIZE: usize = 0x1000;
 pub const STACK_SIZE_IN_PAGES: usize = STACK_SIZE / 0x1000;
 pub const FIRST_STACK_TOP_PAGE: usize = STACKS_TOP - STACK_SIZE - 0x1000;
+pub const MAX_STACK_AREA_SIZE: usize = STACK_SIZE * (super::process::MAX_PROCESS_COUNT + 1);
 
 pub fn temporary_paging_range() -> Range<VirtualAddress> {
   VirtualAddress::new(STACKS_TOP - STACK_SIZE)..VirtualAddress::new(STACKS_TOP)

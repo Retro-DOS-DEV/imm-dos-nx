@@ -59,7 +59,6 @@ impl<'data> RingBuffer<'data> {
     let available_room = head + len - tail;
     if available_room < to_write {
       to_write = available_room;
-      panic!("OUT OF ROOM {} {} {}", available_room, head, tail);
     }
     unsafe {
       let data_ptr = self.data.as_ptr() as *mut u8;

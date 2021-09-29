@@ -25,6 +25,7 @@ impl PermissionFlags {
 
 pub trait PageDirectory {
   fn map(&self, frame: Frame, vaddr: VirtualAddress, flags: PermissionFlags);
+  fn get_physical_address(&self, vaddr: VirtualAddress) -> Option<PhysicalAddress>;
 }
 
 pub struct CurrentPageDirectory {
@@ -105,6 +106,29 @@ impl PageDirectory for CurrentPageDirectory {
         invalidate_page(vaddr);
       }
     }
+  }
+
+  fn get_physical_address(&self, vaddr: VirtualAddress) -> Option<PhysicalAddress> {
+    // this could be supported, we just don't need it
+    if !vaddr.is_page_aligned() {
+      return None;
+    }
+
+    let dir_index = vaddr.get_page_directory_index();
+    let table_index = vaddr.get_page_table_index();
+    let top_page = PageTable::at_address(VirtualAddress::new(0xfffff000));
+    let entry = top_page.get_mut(dir_index);
+    if !entry.is_present() {
+      return None;
+    }
+    // Address for the nested page table
+    let table_address = VirtualAddress::new(0xffc00000 + (dir_index * 0x1000));
+    let table = PageTable::at_address(table_address);
+    let row = table.get(table_index);
+    if row.is_present() {
+      return Some(row.get_address());
+    }
+    Some(row.get_address())
   }
 }
 
@@ -262,6 +286,14 @@ impl AlternatePageDirectory {
       page_start = page_start.offset(0x1000);
     }
   }
+
+  pub fn add_directory_frame(&self, dir_index: usize, frame_addr: PhysicalAddress) {
+    let pagedir_frame = Frame::new(self.directory_address.as_usize());
+    map_frame_to_temporary_page(pagedir_frame);
+    let directory = PageTable::at_address(get_temporary_page_address());
+    directory.get_mut(dir_index).set_address(frame_addr);
+    directory.get_mut(dir_index).set_present();
+  }
 }
 
 impl PageDirectory for AlternatePageDirectory {
@@ -308,6 +340,25 @@ impl PageDirectory for AlternatePageDirectory {
         invalidate_page(vaddr);
       }
     }
+  }
+
+  fn get_physical_address(&self, vaddr: VirtualAddress) -> Option<PhysicalAddress> {
+    let pagedir_frame = Frame::new(self.directory_address.as_usize());
+    map_frame_to_temporary_page(pagedir_frame);
+    let dir_index = vaddr.get_page_directory_index();
+    let table_index = vaddr.get_page_table_index();
+    let directory = PageTable::at_address(get_temporary_page_address());
+    if !directory.get(dir_index).is_present() {
+      return None;
+    }
+    let addr = directory.get(dir_index).get_address();
+    map_frame_to_temporary_page(Frame::new(addr.as_usize()));
+    let table = PageTable::at_address(get_temporary_page_address());
+    let row = table.get(table_index);
+    if row.is_present() {
+      return Some(row.get_address());
+    }
+    Some(row.get_address())
   }
 }
 

@@ -39,6 +39,8 @@ use spin::RwLock;
 
 pub const USER_KERNEL_BARRIER: usize = 0xc0000000;
 
+pub const KERNEL_MMAP_TOP: usize = super::stack::STACKS_TOP - super::stack::MAX_STACK_AREA_SIZE;
+
 /// When executing a process, the kernel builds a mapping between sections of
 /// the executable and locations where they should appear in virtual memory.
 /// Formats like ELF formally define these mappings. The kernel is designed to
@@ -224,6 +226,9 @@ pub struct MemoryRegions {
   /// Determines the size of the heap found after the program's exeuction
   /// segments. This can be controlled with the `brk`/`sbrk` syscalls.
   heap_size: usize,
+  /// The highest location in memory available to this process; only space below
+  /// this will be allocated for mmap operations
+  memory_top: usize,
   /// Collection of mmap regions. When a specific location is not requested,
   /// these will be allocated from the top of memory space downwards.
   mmap_regions: BTreeMap<VirtualAddress, MMapRegion>,
@@ -235,6 +240,17 @@ impl MemoryRegions {
       execution_segments: Vec::new(),
       heap_start: VirtualAddress::new(0),
       heap_size: 0,
+      memory_top: USER_KERNEL_BARRIER,
+      mmap_regions: BTreeMap::new(),
+    }
+  }
+
+  pub const fn with_memory_top(top: usize) -> Self {
+    Self {
+      execution_segments: Vec::new(),
+      heap_start: VirtualAddress::new(0),
+      heap_size: 0,
+      memory_top: top,
       mmap_regions: BTreeMap::new(),
     }
   }
@@ -340,12 +356,12 @@ impl MemoryRegions {
   /// Except... we don't actually use the hint for anything right now.
   pub fn find_free_mmap_space(&self, _hint: Option<VirtualAddress>, size: usize) -> Option<VirtualAddress> {
     let heap_end = self.get_heap_page_range().end;
-    if VirtualAddress::new(USER_KERNEL_BARRIER - size) < heap_end {
+    if VirtualAddress::new(self.memory_top - size) < heap_end {
       return None;
     }
     // Iterate backwards through the mmap set. If the space between the current
     // region and the previous one is large enough to fit the requested 
-    let mut prev_start = VirtualAddress::new(USER_KERNEL_BARRIER);
+    let mut prev_start = VirtualAddress::new(self.memory_top);
     for (_, region) in self.mmap_regions.iter().rev() {
       let region_end = (region.address + region.size).next_page_barrier();
       let free_space = prev_start - region_end;
@@ -488,6 +504,7 @@ impl Clone for MemoryRegions {
       execution_segments: self.execution_segments.clone(),
       heap_start: self.heap_start,
       heap_size: self.heap_size,
+      memory_top: self.memory_top,
       mmap_regions: self.mmap_regions.clone(),
     }
   }
@@ -520,7 +537,14 @@ pub fn ranges_overlap(a: &Range<VirtualAddress>, b: &Range<VirtualAddress>) -> b
 /// Kernel-space memory is shared between all processes. Each process has its
 /// own stack, although they all exist in the same address space. Beyond this,
 /// all other memory (executable, heap, mmaps) are shared between all processes.
-pub static KERNEL_MEMORY: RwLock<MemoryRegions> = RwLock::new(MemoryRegions::new());
+pub static KERNEL_MEMORY: RwLock<MemoryRegions> = RwLock::new(MemoryRegions::with_memory_top(KERNEL_MMAP_TOP));
+
+pub fn kernel_mmap(addr: Option<VirtualAddress>, size: usize, backing: MMapBacking) -> Result<VirtualAddress, ProcessMemoryError> {
+  let mut mem = KERNEL_MEMORY.write();
+  let location = mem.mmap(addr, size, backing)?;
+
+  Ok(location)
+}
 
 #[cfg(test)]
 mod tests {

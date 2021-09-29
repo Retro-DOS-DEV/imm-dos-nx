@@ -12,6 +12,8 @@ use super::regs::SavedState;
 use super::state::RunState;
 use super::vm::Subsystem;
 
+pub const MAX_PROCESS_COUNT: usize = 256 * 64 - 1;
+
 pub struct Process {
   /// The unique ID of this process
   id: ProcessID,

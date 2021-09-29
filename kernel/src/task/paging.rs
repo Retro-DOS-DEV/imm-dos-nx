@@ -2,9 +2,12 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use crate::files::cursor::SeekMethod;
 use crate::fs::DRIVES;
-use crate::memory::address::VirtualAddress;
-use crate::memory::virt::page_directory::{self, PageDirectory, PermissionFlags};
+use crate::memory::address::{PhysicalAddress, VirtualAddress};
+use crate::memory::physical::frame::Frame;
+use crate::memory::virt::page_directory::{self, AlternatePageDirectory, PageDirectory, PermissionFlags};
+use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
+use super::memory::{MMapBacking, MMapRegion};
 use super::process::Process;
 
 pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bool {
@@ -100,4 +103,62 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
   }
 
   false
+}
+
+pub fn get_or_allocate_physical_address(addr: VirtualAddress) -> Result<PhysicalAddress, ()> {
+  if !addr.is_page_aligned() {
+    return Err(());
+  }
+  if addr < VirtualAddress::new(0xc0000000) {
+    // not supporting user space yet
+    return Err(());
+  }
+  let current_pagedir = page_directory::CurrentPageDirectory::get();
+  match current_pagedir.get_physical_address(addr) {
+    Some(phys) => return Ok(phys),
+    None => (),
+  }
+  // Not currently mapped
+  {
+    let kernel_mem = super::memory::KERNEL_MEMORY.read();
+    let mapping = kernel_mem.get_mapping_containing_address(&addr);
+    let new_frame = match mapping {
+      Some(map) => get_frame_for_region(map).ok_or(()),
+      None => Err(()),
+    }?;
+    let start = new_frame.get_address();
+    current_pagedir.map(
+      new_frame,
+      addr.prev_page_barrier(),
+      PermissionFlags::empty(),
+    );
+    Ok(start)
+  }
+}
+
+pub fn get_frame_for_region(region: &MMapRegion) -> Option<Frame> {
+  match region.backed_by {
+    MMapBacking::Anonymous => {
+      crate::memory::physical::allocate_frame().ok()
+    },
+    MMapBacking::DMA => {
+      // TODO: needs to be in lower 16MB
+      crate::memory::physical::allocate_frame().ok()
+    },
+    // need to be built
+    _ => panic!("Unsupported physical backing"),
+  }
+}
+
+pub fn share_kernel_page_directory(vaddr: VirtualAddress) {
+  let dir_index = vaddr.get_page_directory_index();
+  let top_page = PageTable::at_address(VirtualAddress::new(0xfffff000));
+  let entry = top_page.get(dir_index);
+  let frame_address = entry.get_address();
+
+  super::switching::for_each_process(|p| {
+    let dir_address = p.read().page_directory.get_address();
+    let alt = AlternatePageDirectory::new(dir_address);
+    alt.add_directory_frame(dir_index, frame_address);
+  });
 }

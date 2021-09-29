@@ -84,6 +84,13 @@ pub fn get_current_process() -> Arc<RwLock<Process>> {
   entry.clone()
 }
 
+pub fn for_each_process<F>(f: F)
+  where F: Fn(Arc<RwLock<Process>>) -> () {
+  for (_, proc) in TASK_MAP.read().iter() {
+    f(proc.clone());
+  }
+}
+
 /// When a process gets forked, we create a duplicate process with an empty
 /// stack. Previously the kernel used a bunch of hacks to duplicate the stack
 /// and ensure that the child process returned through all the callers in the
