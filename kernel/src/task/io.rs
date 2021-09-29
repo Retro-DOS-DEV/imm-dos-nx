@@ -1,3 +1,4 @@
+use crate::files::cursor::SeekMethod;
 use crate::files::filename;
 use crate::files::handle::FileHandle;
 use crate::fs::{DRIVES, filesystem::KernelFileSystem};
@@ -60,4 +61,18 @@ pub fn dup(from_handle: FileHandle, to_handle: Option<FileHandle>) -> Result<Fil
   let mut process = process_lock.write();
   let (_, new_handle) = process.duplicate_file_descriptor(from_handle, to_handle);
   new_handle.ok_or(SystemError::BadFileDescriptor)
+}
+
+pub fn seek(handle: FileHandle, cursor: SeekMethod) -> Result<usize, SystemError> {
+  let open_file_info = {
+    let process_lock = get_current_process();
+    let process = process_lock.read();
+    let info = process
+      .get_open_file_info(handle)
+      .ok_or(SystemError::BadFileDescriptor)?;
+    *info
+  };
+
+  let (_, instance) = DRIVES.get_drive_instance(&open_file_info.drive).ok_or(SystemError::NoSuchFileSystem)?;
+  instance.seek(open_file_info.local_handle, cursor).map_err(|_| SystemError::IOError)
 }

@@ -98,7 +98,12 @@ impl KernelFileSystem for DevFileSystem {
   }
 
   fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()> {
-    Err(())
+    let device_handle = self.get_device_handle(handle).ok_or(())?;
+
+    self.run_device_operation(
+      device_handle.device_number,
+      |driver| driver.seek(device_handle.local_index, offset),
+    )
   }
   
   fn open_dir(&self, path: &str) -> Result<LocalHandle, ()> {

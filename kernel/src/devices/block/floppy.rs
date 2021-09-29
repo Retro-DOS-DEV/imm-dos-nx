@@ -1,5 +1,6 @@
 use alloc::collections::BTreeMap;
 use core::sync::atomic::{AtomicUsize, Ordering};
+use crate::files::cursor::SeekMethod;
 use crate::hardware::floppy::{FloppyDiskController, Operation};
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use crate::task::id::ProcessID;
@@ -147,5 +148,16 @@ impl DeviceDriver for FloppyDriver {
 
   fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()> {
     Ok(0)
+  }
+
+  fn seek(&self, index: usize, offset: SeekMethod) -> Result<usize, ()> {
+    match self.open_handles.write().get_mut(&index) {
+      Some(open_handle) => {
+        let next_cursor = offset.from_current_position(open_handle.cursor);
+        open_handle.cursor = next_cursor;
+        Ok(next_cursor)
+      },
+      None => Err(())
+    }
   }
 }
