@@ -254,7 +254,7 @@ pub fn return_from_handler(irq: usize) {
         out 0x20, al
         pop eax"
       );
-    } else {
+    } else if irq < 16 {
       asm!(
         "push eax
         mov al, 0x20

@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use crate::buffers::RingBuffer;
 
-const BUFFER_SIZE: usize = 256;
+const BUFFER_SIZE: usize = 512;
 
 /// Ring buffers for reading and writing to a TTY device file
 pub struct TTYReadWriteBuffers {

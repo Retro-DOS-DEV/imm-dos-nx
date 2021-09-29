@@ -30,10 +30,6 @@ pub mod debug;
 #[cfg(not(test))]
 pub mod devices;
 #[cfg(not(test))]
-pub mod disks;
-#[cfg(not(test))]
-pub mod drivers;
-#[cfg(not(test))]
 pub mod gdt;
 #[cfg(not(test))]
 pub mod hardware;
@@ -55,6 +51,8 @@ pub mod tty;
 pub mod x86;
 
 extern crate alloc;
+
+use memory::address::VirtualAddress;
 
 #[cfg(not(test))]
 extern {
@@ -162,8 +160,6 @@ unsafe fn init_memory() {
 #[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
-  use memory::address::VirtualAddress;
-
   let initfs_start = unsafe {
     let boot_struct = &*boot_struct_ptr;
     boot_struct.initfs_start
@@ -209,13 +205,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       //task::switching::kfork(run_reader);
     }
 
-    //task::switching::switch_to(&task::id::ProcessID::new(1));
-
-    // Initialize hardware
-    devices::init();
-    time::system::initialize_from_rtc();
     fs::init_system_drives(VirtualAddress::new(initfs_start));
-    tty::init_ttys();
     /*
 
     filesystems::init_fs();
@@ -274,6 +264,11 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[cfg(not(test))]
 #[inline(never)]
 pub extern fn run_init() {
+  // Initialize hardware
+  tty::init_ttys();
+  devices::init();
+  time::system::initialize_from_rtc();
+
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
   let stdin = task::io::open_path("DEV:\\COM1").unwrap();
   let stdout = task::io::open_path("DEV:\\TTY1").unwrap();

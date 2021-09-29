@@ -1,10 +1,11 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
-use crate::hardware::{dma, floppy, pic, pit, rtc};
+use crate::hardware::{dma, pic, pit, rtc};
 use crate::hardware::vga::text_mode;
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
 
+pub mod block;
 pub mod driver;
 pub mod installed;
 pub mod null;
@@ -22,8 +23,6 @@ pub static mut PIT: pit::PIT = pit::PIT::new();
 pub static RTC: rtc::RTC = rtc::RTC::new();
 /// The DMA controller configures direct access to memory for ISA devices
 pub static DMA: dma::DMA = dma::DMA::new();
-/// The floppy controller configures the disk drive
-pub static FLOPPY: floppy::FloppyController = floppy::FloppyController::new();
 
 pub static mut VGA_TEXT: text_mode::TextMode = text_mode::TextMode::new(VirtualAddress::new(0xc00b8000));
 
@@ -55,7 +54,8 @@ pub fn init() {
     all_devices.register_driver("NULL", Arc::new(Box::new(null::NullDriver::new())));
     all_devices.register_driver("ZERO", Arc::new(Box::new(zero::ZeroDriver::new())));
 
-    // TTY, FD1
+    block::floppy::init();
+    all_devices.register_driver("FD1", Arc::new(Box::new(block::FloppyDriver::new(0))));
   }
 }
 

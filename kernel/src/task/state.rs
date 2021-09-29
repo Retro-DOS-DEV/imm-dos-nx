@@ -67,4 +67,6 @@ pub enum RunState {
   HandlingInterrupt(u32),
   /// Blocked on a file IO operation, with an optional timeout
   FileIO(Option<usize>),
+  /// Blocked on a hardware device, with an optional timeout
+  HardwareIO(Option<usize>),
 }

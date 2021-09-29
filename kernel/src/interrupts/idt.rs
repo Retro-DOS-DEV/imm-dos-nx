@@ -15,6 +15,7 @@ extern "x86-interrupt" {
   fn irq_3(frame: stack::StackFrame) -> ();
   fn irq_4(frame: stack::StackFrame) -> ();
   fn irq_5(frame: stack::StackFrame) -> ();
+  fn irq_6(frame: stack::StackFrame) -> ();
   fn irq_9(frame: stack::StackFrame) -> ();
   fn irq_10(frame: stack::StackFrame) -> ();
   fn irq_11(frame: stack::StackFrame) -> ();
@@ -235,7 +236,7 @@ pub unsafe fn init() {
   IDT[0x33].set_handler(irq_3, GateType::Interrupt);
   IDT[0x34].set_handler(irq_4, GateType::Interrupt);
   IDT[0x35].set_handler(irq_5, GateType::Interrupt);
-  IDT[0x36].set_handler(pic::floppy, GateType::Interrupt);
+  IDT[0x36].set_handler(irq_6, GateType::Interrupt);
   //IDT[0x37].set_handler(pic::lpt, GateType::Interrupt);
   //IDT[0x38].set_handler(pic::rtc, GateType::Interrupt);
   IDT[0x39].set_handler(irq_9, GateType::Interrupt);

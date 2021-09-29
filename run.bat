@@ -1,1 +1,1 @@
-"C:\Program Files\qemu\qemu-system-i386.exe" -m 8M -fda build\bootdisk.img -serial stdio
+"C:\Program Files\qemu\qemu-system-i386.exe" -m 8M -drive file=build\bootdisk.img,index=0,if=floppy,format=raw -drive index=1,if=floppy -serial stdio

@@ -371,6 +371,21 @@ impl Process {
     }
   }
 
+  /// Mark a process as blocked on hardware IO
+  pub fn hardware_block(&mut self, timeout: Option<usize>) {
+    self.state = RunState::HardwareIO(timeout);
+  }
+
+  /// If a process is blocked on hardware IO, wake it up
+  pub fn hardware_resume(&mut self) {
+    match self.state {
+      RunState::HardwareIO(_) => {
+        self.state = RunState::Running;
+      },
+      _ => (),
+    }
+  }
+
   /// Save a set of stashed registers from a memory location
   pub fn save_state(&mut self, state: &SavedState) {
     self.saved_state = *state;
