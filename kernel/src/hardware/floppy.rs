@@ -39,9 +39,60 @@ pub enum Command {
 }
 
 #[derive(Copy, Clone)]
+pub enum DriveSelect {
+  Primary,
+  Secondary,
+}
+
+impl DriveSelect {
+  pub fn get_number(&self) -> u8 {
+    match self {
+      DriveSelect::Primary => 0,
+      DriveSelect::Secondary => 1,
+    }
+  }
+}
+
+#[derive(Copy, Clone)]
 pub enum Operation {
-  Read(usize, usize, usize),
-  Write(usize, usize, usize),
+  Read(DriveSelect, usize, usize, usize),
+  Write(DriveSelect, usize, usize, usize),
+}
+
+#[derive(Copy, Clone)]
+pub enum DriveType {
+  None,
+  Capacity360K,
+  Capacity1200K,
+  Capacity720K,
+  Capacity1440K,
+  Capacity2880K,
+}
+
+impl DriveType {
+  pub fn from_cmos(value: u8) -> Self {
+    match value {
+      1 => Self::Capacity360K,
+      2 => Self::Capacity1200K,
+      3 => Self::Capacity720K,
+      4 => Self::Capacity1440K,
+      5 => Self::Capacity2880K,
+      _ => Self::None,
+    }
+  }
+}
+
+impl core::fmt::Display for DriveType {
+  fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    match self {
+      DriveType::None => f.write_str("Unavailable"),
+      DriveType::Capacity360K => f.write_str("360KB 5.25 Disk"),
+      DriveType::Capacity1200K => f.write_str("1.2MB 5.25 Disk"),
+      DriveType::Capacity720K => f.write_str("720KB 3.5 Disk"),
+      DriveType::Capacity1440K => f.write_str("1.44MB 3.5 Disk"),
+      DriveType::Capacity2880K => f.write_str("2.88MB 3.5 Disk"),
+    }
+  }
 }
 
 const DOR_PORT_NUMBER: u16 = 0x3F2;
@@ -56,6 +107,9 @@ pub struct FloppyDiskController {
   interrupt_received: RwLock<bool>,
   /// Which process to resume when an interrupt occurs
   wake_on_interrupt: RwLock<Option<task::id::ProcessID>>,
+
+  primary_drive_type: RwLock<DriveType>,
+  secondary_drive_type: RwLock<DriveType>,
 }
 
 impl FloppyDiskController {
@@ -64,6 +118,9 @@ impl FloppyDiskController {
       operation_queue: RwLock::new(None),
       interrupt_received: RwLock::new(false),
       wake_on_interrupt: RwLock::new(None),
+
+      primary_drive_type: RwLock::new(DriveType::None),
+      secondary_drive_type: RwLock::new(DriveType::None),
     }
   }
 
@@ -84,6 +141,21 @@ impl FloppyDiskController {
 
   /// Set up the controller for the first time
   pub fn init(&self) -> Result<(), ControllerError> {
+    // first, detect how many drives
+    {
+      let cmos_value = unsafe {
+        // read from CMOS register 0x10
+        crate::x86::io::outb(0x70, 0x10);
+        crate::x86::io::inb(0x71)
+      };
+      let primary_drive = DriveType::from_cmos(cmos_value >> 4);
+      let secondary_drive = DriveType::from_cmos(cmos_value & 0x0f);
+      *(self.primary_drive_type.write()) = primary_drive;
+      *(self.secondary_drive_type.write()) = secondary_drive;
+      crate::kprintln!("  Primary Drive: {:}", primary_drive);
+      crate::kprintln!("  Secondary Drive: {:}", secondary_drive);
+    }
+
     self.send_command(Command::Version, &[])?;
     let mut version_response = [0];
     self.get_response(&mut version_response)?;
@@ -96,18 +168,26 @@ impl FloppyDiskController {
     self.get_response(&mut lock_response)?;
     // Check if lock bit is set?
     self.reset()?;
-    self.ensure_motor_on();
-    let mut st0 = [0, 0];
-    self.send_command(Command::Recalibrate, &[0])?;
-    self.wait_for_interrupt();
-    self.send_command(Command::SenseInterrupt, &[])?;
-    self.get_response(&mut st0)?;
-    if st0[0] & 0x20 != 0x20 {
-      // Retry command
-      self.send_command(Command::Recalibrate, &[0])?;
-      self.wait_for_interrupt();
-      self.send_command(Command::SenseInterrupt, &[])?;
-      self.get_response(&mut st0)?;
+    // Ensure motor is on
+    let mut motor_flag = 0;
+    if self.has_primary_drive() {
+      motor_flag |= 0x10;
+    }
+    if self.has_secondary_drive() {
+      motor_flag |= 0x20;
+    }
+    let dor = self.dor_read();
+    self.dor_write(dor | motor_flag);
+    task::sleep(300);
+
+    if self.has_primary_drive() {
+      self.select_drive(DriveSelect::Primary);
+      self.recalibrate()?;
+    }
+
+    if self.has_secondary_drive() {
+      self.select_drive(DriveSelect::Secondary);
+      self.recalibrate()?;
     }
 
     Ok(())
@@ -139,11 +219,11 @@ impl FloppyDiskController {
     }
     // The operation is now first in the queue
     let result = match op {
-      Operation::Read(c, h, s) => {
-        self.read(c, h, s)
+      Operation::Read(drive, c, h, s) => {
+        self.read(drive, c, h, s)
       },
-      Operation::Write(c, h, s) => {
-        self.write(c, h, s)
+      Operation::Write(drive, c, h, s) => {
+        self.write(drive, c, h, s)
       },
     };
 
@@ -168,14 +248,57 @@ impl FloppyDiskController {
     resume_from_hardware(to_wake);
   }
 
+  pub fn has_primary_drive(&self) -> bool {
+    match *self.primary_drive_type.read() {
+      DriveType::None => false,
+      _ => true,
+    }
+  }
+
+  pub fn has_secondary_drive(&self) -> bool {
+    match *self.secondary_drive_type.read() {
+      DriveType::None => false,
+      _ => true,
+    }
+  }
+
   fn clear_interrupt_received(&self) {
     *(self.interrupt_received.write()) = false;
   }
 
-  fn ensure_motor_on(&self) {
+  fn ensure_motor_on(&self, drive: DriveSelect) {
     let dor = self.dor_read();
-    self.dor_write(dor | 0x10);
+    let flag = match drive {
+      DriveSelect::Primary => 0x10,
+      DriveSelect::Secondary => 0x20,
+    };
+    self.dor_write(dor | flag);
     task::sleep(300);
+  }
+
+  fn select_drive(&self, drive: DriveSelect) {
+    let dor = self.dor_read();
+    let select = match drive {
+      DriveSelect::Primary => 0,
+      DriveSelect::Secondary => 1,
+    };
+    self.dor_write((dor & 0xfc) | select);
+  }
+
+  fn recalibrate(&self) -> Result<(), ControllerError> {
+    let mut st0 = [0, 0];
+    self.send_command(Command::Recalibrate, &[0])?;
+    self.wait_for_interrupt();
+    self.send_command(Command::SenseInterrupt, &[])?;
+    self.get_response(&mut st0)?;
+    if st0[0] & 0x20 != 0x20 {
+      // Retry command
+      self.send_command(Command::Recalibrate, &[0])?;
+      self.wait_for_interrupt();
+      self.send_command(Command::SenseInterrupt, &[])?;
+      self.get_response(&mut st0)?;
+    }
+    Ok(())
   }
 
   /// Wait until an IRQ 6 interrupt occurs
@@ -332,25 +455,27 @@ impl FloppyDiskController {
     Ok(())
   }
 
-  fn read(&self, c: usize, h: usize, s: usize) -> Result<(), ControllerError> {
-    self.dma(Command::ReadData, c, h, s)
+  fn read(&self, drive: DriveSelect, c: usize, h: usize, s: usize) -> Result<(), ControllerError> {
+    self.select_drive(drive);
+    self.dma(Command::ReadData, drive.get_number(), c, h, s)
   }
 
-  fn write(&self, c: usize, h: usize, s: usize) -> Result<(), ControllerError> {
-    self.dma(Command::WriteData, c, h, s)
+  fn write(&self, drive: DriveSelect, c: usize, h: usize, s: usize) -> Result<(), ControllerError> {
+    self.select_drive(drive);
+    self.dma(Command::WriteData, drive.get_number(), c, h, s)
   }
 
-  fn dma(&self, command: Command, cylinder: usize, head: usize, sector: usize) -> Result<(), ControllerError> {
+  fn dma(&self, command: Command, drive_number: u8, cylinder: usize, head: usize, sector: usize) -> Result<(), ControllerError> {
     self.send_command(
       command,
       &[
-        (head << 2) as u8,
+        (head << 2) as u8 | drive_number,
         cylinder as u8,
         head as u8,
         sector as u8,
         2,
-        18,
-        0x1b,
+        18, // last sector on track
+        0x1b, // GAP1 default size
         0xff,
       ],
     )?;

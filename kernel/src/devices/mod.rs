@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
-use crate::hardware::{dma, pic, pit, rtc};
+use crate::hardware::{dma, floppy, pic, pit, rtc};
 use crate::hardware::vga::text_mode;
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
@@ -54,8 +54,13 @@ pub fn init() {
     all_devices.register_driver("NULL", Arc::new(Box::new(null::NullDriver::new())));
     all_devices.register_driver("ZERO", Arc::new(Box::new(zero::ZeroDriver::new())));
 
-    block::floppy::init();
-    all_devices.register_driver("FD1", Arc::new(Box::new(block::FloppyDriver::new(0))));
+    let (has_primary_floppy, has_secondary_floppy) = block::floppy::init();
+    if has_primary_floppy {
+      all_devices.register_driver("FD1", Arc::new(Box::new(block::FloppyDriver::new(floppy::DriveSelect::Primary))));
+    }
+    if has_secondary_floppy {
+      all_devices.register_driver("FD2", Arc::new(Box::new(block::FloppyDriver::new(floppy::DriveSelect::Secondary))));
+    }
   }
 }
 

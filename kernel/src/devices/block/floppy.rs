@@ -1,7 +1,7 @@
 use alloc::collections::BTreeMap;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use crate::files::cursor::SeekMethod;
-use crate::hardware::floppy::{FloppyDiskController, Operation};
+use crate::hardware::floppy::{DriveSelect, FloppyDiskController, Operation};
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use crate::task::id::ProcessID;
 use crate::task::memory::MMapBacking;
@@ -14,7 +14,7 @@ static CONTROLLER: FloppyDiskController = FloppyDiskController::new();
 static DMA_ADDR: RwLock<Option<(PhysicalAddress, VirtualAddress)>> = RwLock::new(None);
 const DMA_SIZE: usize = 4096;
 
-pub fn init() {
+pub fn init() -> (bool, bool) {
   crate::kprintln!("Install Floppy driver");
 
   let install_result = crate::interrupts::handlers::install_handler(
@@ -40,6 +40,8 @@ pub fn init() {
     let mut dma_addr = DMA_ADDR.write();
     *dma_addr = Some((phys, virt));
   }
+
+  (CONTROLLER.has_primary_drive(), CONTROLLER.has_secondary_drive())
 }
 
 fn get_dma_addresses() -> (PhysicalAddress, VirtualAddress) {
@@ -54,7 +56,7 @@ fn get_dma_addresses() -> (PhysicalAddress, VirtualAddress) {
   }
 }
 
-pub fn load_sectors_to_cache(sectors: &SectorRange, dma_mode: u8) -> Result<VirtualAddress, ()> {
+pub fn load_sectors_to_cache(drive: DriveSelect, sectors: &SectorRange, dma_mode: u8) -> Result<VirtualAddress, ()> {
   let (dma_phys, dma_virt) = get_dma_addresses();
   {
     let channel = super::super::DMA.get_channel(2);
@@ -63,7 +65,7 @@ pub fn load_sectors_to_cache(sectors: &SectorRange, dma_mode: u8) -> Result<Virt
     channel.set_mode(dma_mode);
   }
   let (c, h, s) = sectors.get_first_sector().to_chs();
-  CONTROLLER.add_operation(Operation::Read(c, h, s));
+  CONTROLLER.add_operation(Operation::Read(drive, c, h, s));
   Ok(dma_virt)
 }
 
@@ -92,15 +94,15 @@ impl OpenInstance {
 /// driver maintains an internal LRU cache of sectors that have been read from
 /// the disk. Byte-level data can be copied from this in-memory cache.
 pub struct FloppyDriver {
-  drive_number: usize,
+  drive_select: DriveSelect,
   next_handle: AtomicUsize,
   open_handles: RwLock<BTreeMap<usize, OpenInstance>>,
 }
 
 impl FloppyDriver {
-  pub fn new(drive_number: usize) -> Self {
+  pub fn new(drive_select: DriveSelect) -> Self {
     Self {
-      drive_number,
+      drive_select,
       next_handle: AtomicUsize::new(0),
       open_handles: RwLock::new(BTreeMap::new()),
     }
@@ -128,7 +130,7 @@ impl DeviceDriver for FloppyDriver {
     let length = buffer.len();
     let sectors = SectorRange::for_byte_range(cursor, length);
 
-    let dma_src = load_sectors_to_cache(&sectors, 0x56)?;
+    let dma_src = load_sectors_to_cache(self.drive_select, &sectors, 0x56)?;
     let local_offset = sectors.get_local_offset(cursor);
     let dma_src_ptr = (dma_src.as_usize() + local_offset) as *const u8;
     for i in 0..length {

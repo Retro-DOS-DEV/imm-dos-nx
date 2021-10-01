@@ -277,6 +277,17 @@ pub extern fn run_init() {
     for i in 0..buffer.len() {
       crate::kprint!("{:X} ", buffer[i]);
     }
+    crate::kprintln!("");
+  }
+
+  {
+    let mut buffer: [u8; 8] = [0; 8];
+    let handle = task::io::open_path("DEV:\\FD2").unwrap();
+    let _ = task::io::seek(handle, files::cursor::SeekMethod::Absolute(0x4200));
+    let _ = task::io::read_file(handle, &mut buffer);
+    unsafe {
+      crate::kprintln!("{}", core::str::from_utf8_unchecked(&buffer));
+    }
   }
 
   loop {}
