@@ -28,8 +28,8 @@ pub fn init() -> (bool, bool) {
   }
   
   match CONTROLLER.init() {
-    Ok(_) => crate::kprintln!("Floppy device ready"),
-    Err(e) => crate::kprintln!("Failed to install Floppy driver: {:?}", e),
+    Ok(_) => crate::klog!("Floppy device \x1b[92mready\x1b[m\n"),
+    Err(e) => crate::kprintln!("Failed to install Floppy driver: \x1b[91m{:?}\x1b[m\n", e),
   }
 
   // Set up DMA area

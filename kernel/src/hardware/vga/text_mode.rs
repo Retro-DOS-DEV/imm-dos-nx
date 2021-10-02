@@ -34,6 +34,14 @@ impl ColorCode {
   pub fn as_u8(&self) -> u8 {
     self.0
   }
+
+  pub fn set_fg(&self, fg: Color) -> ColorCode {
+    ColorCode((self.0 & 0xf0) | (fg as u8))
+  }
+
+  pub fn set_bg(&self, bg: Color) -> ColorCode {
+    ColorCode((bg as u8) << 4 | (self.0 & 0x0f))
+  }
 }
 
 pub struct TextMode {
@@ -53,6 +61,18 @@ impl TextMode {
       cursor_row: 24,
       current_color: ColorCode::new(Color::LightGrey, Color::Black),
     }
+  }
+  
+  pub fn set_fg_color(&mut self, color: Color) {
+    self.current_color = self.current_color.set_fg(color);
+  }
+
+  pub fn set_bg_color(&mut self, color: Color) {
+    self.current_color = self.current_color.set_bg(color);
+  }
+
+  pub fn reset_colors(&mut self) {
+    self.current_color = ColorCode::new(Color::LightGrey, Color::Black);
   }
 
   pub unsafe fn clear_screen(&mut self) {

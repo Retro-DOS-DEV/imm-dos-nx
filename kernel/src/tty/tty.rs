@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use crate::hardware::vga::text_mode::{TextMode};
+use crate::hardware::vga::text_mode::{Color, TextMode};
 use crate::memory::address::VirtualAddress;
 
 const BACK_BUFFER_SIZE: usize = 80 * 25 * 2;
@@ -34,7 +34,6 @@ pub struct TTY {
   show_cursor: bool,
   /// Track the current parsing state
   parse_state: ParseState,
-  arg_digits_written: usize,
   csi_args: Vec<Option<u32>>,
   /// Access to VGA video memory, also stores the current cursor info
   text_buffer: TextMode,
@@ -54,7 +53,6 @@ impl TTY {
       echo: true,
       show_cursor: true,
       parse_state: ParseState::Ready,
-      arg_digits_written: 0,
       csi_args: Vec::with_capacity(8),
       text_buffer: TextMode::new(VirtualAddress::new(0xc00b8000)),
       back_buffer,
@@ -112,7 +110,6 @@ impl TTY {
               self.csi_args.pop();
             }
             self.csi_args.push(None);
-            self.arg_digits_written = 0;
             return None;
           },
           _ => {
@@ -125,9 +122,24 @@ impl TTY {
       ParseState::CSI => {
         self.text_buffer.disable_cursor();
         let done = match byte {
+          b'0'..=b'9' => {
+            // arguments are pushed in ascii digits
+            let digit = (byte - 48) as u32;
+            let last_index = self.csi_args.len() - 1;
+            match self.csi_args.get_mut(last_index) {
+              Some(slot) => {
+                let current = match slot {
+                  Some(value) => *value * 10,
+                  None => 0,
+                } + digit;
+                *slot = Some(current);
+              },
+              None => (),
+            }
+            false
+          },
           b';' => {
             self.csi_args.push(None);
-            self.arg_digits_written = 0;
             false
           },
           b'A' => { // Cursor Up
@@ -183,6 +195,49 @@ impl TTY {
               0 => self.text_buffer.clear_row_to_end(),
               1 => self.text_buffer.clear_row_to_beginning(),
               2 | 3 => self.text_buffer.clear_row(),
+              _ => (),
+            }
+            true
+          },
+          
+          b'm' => { // Select Graphic Rendition
+            let modifier = self.get_csi_arg(0, 0);
+            match modifier {
+              0 => { // reset
+                self.text_buffer.reset_colors();
+              },
+
+              30 => self.text_buffer.set_fg_color(Color::Black),
+              31 => self.text_buffer.set_fg_color(Color::Red),
+              32 => self.text_buffer.set_fg_color(Color::Green),
+              33 => self.text_buffer.set_fg_color(Color::Brown),
+              34 => self.text_buffer.set_fg_color(Color::Blue),
+              35 => self.text_buffer.set_fg_color(Color::Magenta),
+              36 => self.text_buffer.set_fg_color(Color::Cyan),
+              37 => self.text_buffer.set_fg_color(Color::LightGrey),
+
+              39 => self.text_buffer.set_fg_color(Color::LightGrey),
+
+              40 => self.text_buffer.set_bg_color(Color::Black),
+              41 => self.text_buffer.set_bg_color(Color::Red),
+              42 => self.text_buffer.set_bg_color(Color::Green),
+              43 => self.text_buffer.set_bg_color(Color::Brown),
+              44 => self.text_buffer.set_bg_color(Color::Blue),
+              45 => self.text_buffer.set_bg_color(Color::Magenta),
+              46 => self.text_buffer.set_bg_color(Color::Cyan),
+              47 => self.text_buffer.set_bg_color(Color::LightGrey),
+
+              49 => self.text_buffer.set_bg_color(Color::Black),
+
+              90 => self.text_buffer.set_fg_color(Color::DarkGrey),
+              91 => self.text_buffer.set_fg_color(Color::LightRed),
+              92 => self.text_buffer.set_fg_color(Color::LightGreen),
+              93 => self.text_buffer.set_fg_color(Color::LightBrown),
+              94 => self.text_buffer.set_fg_color(Color::LightBlue),
+              95 => self.text_buffer.set_fg_color(Color::LightMagenta),
+              96 => self.text_buffer.set_fg_color(Color::LightCyan),
+              97 => self.text_buffer.set_fg_color(Color::White),
+
               _ => (),
             }
             true

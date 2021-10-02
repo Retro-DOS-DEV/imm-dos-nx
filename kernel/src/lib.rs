@@ -200,48 +200,14 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       let init_process = task::switching::kfork(run_init);
       let input_process = task::switching::kfork(input::run_input);
       task::switching::kfork(tty::ttys_process);
-
-      // this is extra, for testing
-      //task::switching::kfork(run_reader);
     }
 
     fs::init_system_drives(VirtualAddress::new(initfs_start));
-    /*
-
-    filesystems::init_fs();
-
-    let init_fs = filesystems::init::InitFileSystem::new(memory::address::VirtualAddress::new(initfs_start));
-    let boxed_fs = alloc::boxed::Box::new(init_fs);
-    filesystems::VFS.register_fs("INIT", boxed_fs).expect("Failed to register INIT FS");
-
-    process::init();
-    let init_process = process::all_processes_mut().spawn_first_process(heap_start);
-    process::make_current(init_process);
-    */
   }
 
   /*
   let current_time = time::system::get_system_time().to_timestamp().to_datetime();
   tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
-
-  // Spawn init process
-  let init_proc_id = process::all_processes_mut().fork_current();
-  {
-    let mut processes = process::all_processes_mut();
-    let init_proc = processes.get_process(init_proc_id).unwrap();
-    init_proc.set_initial_entry_point(user_init, 0xbffffffc);
-  }
-
-  {
-    let input_proc = process::all_processes_mut().fork_current();
-    process::set_kernel_mode_function(input_proc, input::run_input);
-
-    let disk_proc = process::all_processes_mut().fork_current();
-    process::set_kernel_mode_function(disk_proc, disks::floppy_driver);
-
-    let ttys_proc = process::all_processes_mut().fork_current();
-    process::set_kernel_mode_function(ttys_proc, tty::ttys_process);
-  }
 
   process::enter_usermode(init_proc_id);
   */
@@ -269,28 +235,10 @@ pub extern fn run_init() {
   devices::init();
   time::system::initialize_from_rtc();
 
-  {
-    let mut buffer: [u8; 8] = [0; 8];
-    let handle = task::io::open_path("DEV:\\FD1").unwrap();
-    let _ = task::io::seek(handle, files::cursor::SeekMethod::Absolute(0x410));
-    let _ = task::io::read_file(handle, &mut buffer);
-    for i in 0..buffer.len() {
-      crate::kprint!("{:X} ", buffer[i]);
-    }
-    crate::kprintln!("");
-  }
-
-  {
-    let mut buffer: [u8; 8] = [0; 8];
-    let handle = task::io::open_path("DEV:\\FD2").unwrap();
-    let _ = task::io::seek(handle, files::cursor::SeekMethod::Absolute(0x4200));
-    let _ = task::io::read_file(handle, &mut buffer);
-    unsafe {
-      crate::kprintln!("{}", core::str::from_utf8_unchecked(&buffer));
-    }
-  }
-
-  loop {}
+  //let current_time = time::system::get_system_time().to_timestamp().to_datetime();
+  //tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
+  let current_time = time::system::get_system_time().to_timestamp().to_datetime();
+  crate::klog!("System Time: \x1b[94m{:} {:}\x1b[m\n", current_time.date, current_time.time);
 
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
   let stdin = task::io::open_path("DEV:\\COM1").unwrap();

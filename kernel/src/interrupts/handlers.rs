@@ -141,7 +141,7 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
 
   // If necessary, switch to the handling process
   if handler.process != current_id {
-    crate::klog!("SWITCH NECESSARY {:?} => {:?}\n", current_id, handler.process);
+    //crate::klog!("SWITCH NECESSARY {:?} => {:?}\n", current_id, handler.process);
     *crate::task::switching::CURRENT_ID.write() = handler.process;
     // update the currently mapped userspace to the handler process
     let cr3 = {
@@ -195,7 +195,7 @@ pub fn enter_handler(handler: InterruptHandler, irq: usize, registers: &SavedSta
 }
 
 pub fn return_from_handler(irq: usize) {
-  crate::klog!("Return from IRQ {}\n", irq);
+  //crate::klog!("Return from IRQ {}\n", irq);
 
   // In order to unwind to the original interrupt entry point, we return to the
   // process that was interrupted. Then, we update the stack pointer to the
@@ -212,7 +212,7 @@ pub fn return_from_handler(irq: usize) {
   // Return to the memory space of the originating process
   let current_id = crate::task::switching::get_current_id();
   if return_point.process != current_id {
-    crate::klog!("SWITCH BACK {:?} => {:?}", current_id, return_point.process);
+    //crate::klog!("SWITCH BACK {:?} => {:?}", current_id, return_point.process);
     *crate::task::switching::CURRENT_ID.write() = return_point.process;
     // update the currently mapped userspace to the handler process
     let cr3 = {
