@@ -12,6 +12,7 @@ use syscall::result::SystemError;
 
 pub mod bin;
 pub mod com;
+pub mod elf;
 pub mod environment;
 
 pub enum ExecutableFormat {
@@ -120,6 +121,9 @@ pub fn load_executable(
     },
     ExecutableFormat::COM => {
       com::build_environment(drive_id, local_handle)
+    },
+    ExecutableFormat::ELF => {
+      elf::build_environment(drive_id, local_handle)
     },
     _ => {
       // Not supported yet

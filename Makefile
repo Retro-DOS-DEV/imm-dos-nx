@@ -22,6 +22,7 @@ testcom := initfs/test.com
 testdriver := initfs/driver.bin
 testecho := initfs/echo.bin
 dosio := initfs/dosio.com
+elftest := initfs/elftest.elf
 
 .PHONY: all, clean, test
 
@@ -86,7 +87,7 @@ $(libkernel_testing): $(kernel_deps)
 	cargo xbuild --lib --target i386-kernel.json --release --features "testing"
 	@cp kernel/target/i386-kernel/release/libkernel.a $(libkernel_testing)
 
-$(initfs): $(testexec) $(testcom) $(testdriver) $(testecho) $(dosio)
+$(initfs): $(testexec) $(testcom) $(testdriver) $(testecho) $(dosio) $(elftest)
 	@ls initfs/ | cpio -D initfs -H bin -o > $(initfs)
 
 # System programs:
@@ -109,3 +110,6 @@ $(testecho): testexec/echo.s
 $(dosio): testexec/dosio.s
 	@as --32 -march=i386 -o build/dosio.o testexec/dosio.s
 	@ld -o $(dosio) --oformat binary -e start -m elf_i386 -Ttext=0x100 build/dosio.o
+
+$(elftest): testexec/elftest.c
+	@gcc -shared -nostdlib -nodefaultlibs -fno-exceptions -nostartfiles -fPIE -march=i386 -m32 -Wl,-static -Wl,-Bsymbolic -o $(elftest) testexec/elftest.c

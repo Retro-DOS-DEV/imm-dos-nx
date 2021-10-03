@@ -1,5 +1,6 @@
 build/
 initfs/*.bin
 initfs/*.com
+initfs/*.elf
 kernel/target
 syscall/target

@@ -205,23 +205,14 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     fs::init_system_drives(VirtualAddress::new(initfs_start));
   }
 
-  /*
-  let current_time = time::system::get_system_time().to_timestamp().to_datetime();
-  tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
-
-  process::enter_usermode(init_proc_id);
-  */
-
   loop {
     unsafe {
       asm!("cli");
-      //llvm_asm!("cli" : : : : "volatile");
       task::yield_coop();
       asm!(
         "sti
         hlt"
       );
-      //llvm_asm!("sti; hlt" : : : : "volatile");
     }
   }
 }
@@ -235,8 +226,6 @@ pub extern fn run_init() {
   devices::init();
   time::system::initialize_from_rtc();
 
-  //let current_time = time::system::get_system_time().to_timestamp().to_datetime();
-  //tty::console_write(format_args!("System Time: {:} {:}\n", current_time.date, current_time.time));
   let current_time = time::system::get_system_time().to_timestamp().to_datetime();
   crate::klog!("System Time: \x1b[94m{:} {:}\x1b[m\n", current_time.date, current_time.time);
 
@@ -244,44 +233,20 @@ pub extern fn run_init() {
   let stdin = task::io::open_path("DEV:\\COM1").unwrap();
   let stdout = task::io::open_path("DEV:\\TTY1").unwrap();
   let stderr = task::io::dup(stdout, None).unwrap();
+  /*
   let r = task::exec::exec("INIT:\\dosio.com", loaders::InterpretationMode::DOS);
   if let Err(_) = r {
     kprintln!("Failed to run init process");
     loop {}
   }
-}
-
-#[cfg(not(test))]
-#[inline(never)]
-pub extern fn run_reader() {
-  let id = task::switching::get_current_id();
-  /*
-  let mut read_buffer: [u8; 10] = [0; 10];
-  let txt_file = task::io::open_path("INIT:\\test.txt").map_err(|_| "File not found.").unwrap();
-  task::io::read_file(txt_file, &mut read_buffer);
-  let message = unsafe {
-    core::str::from_utf8_unchecked(&read_buffer)
-  };
-  kprintln!("File intro: {}", message);
-  task::io::close_file(txt_file);
-
-  loop {
-    task::sleep(1000);
-    kprint!(".");
-  }
   */
 
-  // Testing exec
-  //task::exec::exec("INIT:\\test.com", loaders::InterpretationMode::DOS);
-
-  //task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
-
-  let mut buffer: [u8; 1] = [0; 1];
-  let handle = task::io::open_path("DEV:\\COM1").map_err(|_| ()).unwrap();
-  loop {
-    let _ = task::io::read_file(handle, &mut buffer);
-    kprint!("{}:{:#02x} ", id.as_u32(), buffer[0]);
-    task::sleep(1000);
+  let r = task::exec::exec("INIT:\\elftest.elf", loaders::InterpretationMode::Native);
+  if let Err(_) = r {
+    kprintln!("Failed to run init process");
+    loop {
+      task::yield_coop();
+    }
   }
 }
 
