@@ -16,6 +16,8 @@ int syscall(int method, int arg0, int arg1, int arg2) {
   return eax;
 }
 
+static strptr path_ptr;
+
 int open_file(char *path) {
   int length;
   for (length = 0; length < 255; length++) {
@@ -24,7 +26,6 @@ int open_file(char *path) {
     }
   }
 
-  strptr path_ptr;
   path_ptr.addr = (int) path;
   path_ptr.length = length;
   return syscall(0x10, (int)(&path_ptr), 0, 0);

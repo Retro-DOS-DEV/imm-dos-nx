@@ -48,6 +48,14 @@ pub struct ProgramHeader {
   pub segment_alignment: u32,
 }
 
+pub const SEGMENT_FLAG_EXECUTE: u32 = 1;
+pub const SEGMENT_FLAG_WRITE: u32 = 2;
+pub const SEGMENT_FLAG_READ: u32 = 4;
+
+pub const SEGMENT_TYPE_NULL: u32 = 0;
+pub const SEGMENT_TYPE_LOAD: u32 = 1;
+pub const SEGMENT_TYPE_DYNAMIC: u32 = 2;
+
 #[repr(C, packed)]
 pub struct SectionHeader {
   /// Offset to this section's name in the string table
@@ -62,3 +70,31 @@ pub struct SectionHeader {
   pub section_alignment: u32,
   pub section_entry_size: u32,
 }
+
+/// Inaction section header - the first entry in the table is always null
+pub const SECTION_TYPE_NULL: u32 = 0;
+/// Bits defined by the program, which have no meaning during load / interp
+pub const SECTION_TYPE_PROGBITS: u32 = 1;
+/// Symbol table
+pub const SECTION_TYPE_SYMTAB: u32 = 2;
+/// String table
+pub const SECTION_TYPE_STRTAB: u32 = 3;
+/// Relocations with known "addends"
+pub const SECTION_TYPE_RELA: u32 = 4;
+/// Hash table for symbol lookup
+pub const SECTION_TYPE_HASH: u32 = 5;
+/// Information needed for dynamic linking
+pub const SECTION_TYPE_DYNAMIC: u32 = 6;
+/// Markers specific to the file contents
+pub const SECTION_TYPE_NOTE: u32 = 7;
+/// Not backed by content from the file
+pub const SECTION_TYPE_NOBITS: u32 = 8;
+/// Relocations without addends
+pub const SECTION_TYPE_REL: u32 = 9;
+
+
+pub const SECTION_FLAG_WRITE: u32 = 1;
+pub const SECTION_FLAG_ALLOC: u32 = 2;
+pub const SECTION_FLAG_EXEC: u32 = 4;
+pub const SECTION_FLAG_MERGE: u32 = 0x10;
+pub const SECTION_FLAG_STRINGS: u32 = 0x20;

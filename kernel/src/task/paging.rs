@@ -29,11 +29,9 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
       PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
     );
     // zero the page
+    let buffer = unsafe { core::slice::from_raw_parts_mut(address.prev_page_barrier().as_usize() as *mut u32, 0x400) };
     for i in 0..0x400 {
-      unsafe {
-        let buffer = core::slice::from_raw_parts_mut(address.prev_page_barrier().as_usize() as *mut u32, 0x400);
-        buffer[i] = 0;
-      }
+      buffer[i] = 0;
     }
     return true;
   }
@@ -49,7 +47,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
         let clipped = segment.sections_iter().map(|s| s.clip_to(start_offset..end_offset)).filter(|s| !s.is_empty());
         for section in clipped {
           subsections.push((
-            address.prev_page_barrier() + section.segment_offset,
+            segment.get_starting_address() + section.segment_offset,
             section.size,
             section.executable_offset,
           ));
@@ -91,12 +89,15 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
       };
       match section.2 {
         Some(offset) => {
+          //crate::kprintln!("FILL FROM FILE: {:?} {:X}", section.0, section.1);
+          
           // should really do something with these potential errors
           let _ = drive_instance.seek(exec_file_info.1, SeekMethod::Absolute(offset));
           let _ = drive_instance.read(exec_file_info.1, buffer);
         },
         None => {
           // Fill with zeroes
+          //crate::kprintln!("FILL WITH ZEROES: {:?} {:X}", section.0, section.1);
           for i in 0..buffer.len() {
             buffer[i] = 0;
           }

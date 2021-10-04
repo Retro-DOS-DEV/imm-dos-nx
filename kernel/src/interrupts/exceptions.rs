@@ -149,7 +149,7 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
     // All other cases (accessing an unmapped section, writing a read-only
     // segment, etc) should cause a segfault.
 
-    kprintln!("SEGFAULT");
+    kprintln!("SEGFAULT AT IP: {:#010X}", stack_frame.eip);
 
     loop {}
   }
