@@ -38,27 +38,27 @@ pub struct Header {
 
 #[repr(C, packed)]
 pub struct ProgramHeader {
-  segment_type: u32,
-  segment_file_offset: u32,
-  segment_virtual_address: u32,
-  segment_physical_address: u32,
-  segment_size_in_file: u32,
-  segment_size_in_memory: u32,
-  segment_flags: u32,
-  segment_alignment: u32,
+  pub segment_type: u32,
+  pub segment_file_offset: u32,
+  pub segment_virtual_address: u32,
+  pub segment_physical_address: u32,
+  pub segment_size_in_file: u32,
+  pub segment_size_in_memory: u32,
+  pub segment_flags: u32,
+  pub segment_alignment: u32,
 }
 
 #[repr(C, packed)]
 pub struct SectionHeader {
   /// Offset to this section's name in the string table
-  section_name_offset: u32,
-  section_type: u32,
-  section_flags: u32,
-  section_virtual_address: u32,
-  section_file_offset: u32,
-  section_size_in_file: u32,
-  section_link: u32,
-  section_info: u32,
-  section_alignment: u32,
-  section_entry_size: u32,
+  pub section_name_offset: u32,
+  pub section_type: u32,
+  pub section_flags: u32,
+  pub section_virtual_address: u32,
+  pub section_file_offset: u32,
+  pub section_size_in_file: u32,
+  pub section_link: u32,
+  pub section_info: u32,
+  pub section_alignment: u32,
+  pub section_entry_size: u32,
 }

@@ -43,14 +43,27 @@ impl DeviceDriver for TTYDevice {
   }
 
   fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()> {
-    let router = super::get_router().read();
-    let buffers = router.get_tty_buffers(self.tty_id);
-    match buffers {
-      Some(b) => {
-        let bytes_written = b.write(buffer);
-        Ok(bytes_written)
-      },
-      None => Err(()),
+    // this needs enqueuing
+    let mut total_written = 0;
+    loop {
+      let remainder = &buffer[total_written..];
+      let partial_write = {
+        let router = super::get_router().read();
+        let buffers = router.get_tty_buffers(self.tty_id);
+        match buffers {
+          Some(b) => {
+            let bytes_written = b.write(remainder);
+            Ok(bytes_written)
+          },
+          None => Err(()),
+        }
+      }?;
+      total_written += partial_write;
+      if total_written >= buffer.len() {
+        break;
+      }
+      crate::task::yield_coop();
     }
+    Ok(total_written)
   }
 }

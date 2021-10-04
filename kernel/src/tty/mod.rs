@@ -56,14 +56,10 @@ pub struct Console();
 
 impl core::fmt::Write for Console {
   fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
-    let router = get_router().read();
-    match router.get_tty_buffers(0) {
-      Some(b) => {
-        b.input_buffer.write(s.as_bytes());
-        Ok(())
-      },
-      None => Err(core::fmt::Error),
-    }
+    use crate::devices::driver::DeviceDriver;
+
+    let device = device::TTYDevice::for_tty(0);
+    device.write(0, s.as_bytes()).map(|_| ()).map_err(|_| core::fmt::Error)
   }
 }
 

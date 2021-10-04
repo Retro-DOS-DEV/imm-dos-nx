@@ -7,12 +7,16 @@ use crate::memory::physical::frame::Frame;
 use crate::memory::virt::page_directory::{self, AlternatePageDirectory, PageDirectory, PermissionFlags};
 use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
-use super::memory::{MMapBacking, MMapRegion};
+use super::memory::{USER_KERNEL_BARRIER, MMapBacking, MMapRegion};
 use super::process::Process;
 
 pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bool {
+  let stack_size = 0x2000;
+  let stack_range = VirtualAddress::new(USER_KERNEL_BARRIER - stack_size)..VirtualAddress::new(USER_KERNEL_BARRIER);
+
   let heap_range = lock.read().memory.get_heap_address_range();
-  if heap_range.contains(&address) {
+  
+  if heap_range.contains(&address) || stack_range.contains(&address) {
     // allocate a new frame for the heap
     let new_frame = match crate::memory::physical::allocate_frame() {
       Ok(frame) => frame,
@@ -88,7 +92,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
       match section.2 {
         Some(offset) => {
           // should really do something with these potential errors
-          let _ = drive_instance.seek(exec_file_info.1, SeekMethod::Absolute(0));
+          let _ = drive_instance.seek(exec_file_info.1, SeekMethod::Absolute(offset));
           let _ = drive_instance.read(exec_file_info.1, buffer);
         },
         None => {

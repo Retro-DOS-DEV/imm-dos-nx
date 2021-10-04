@@ -31,7 +31,13 @@ int open_file(char *path) {
 }
 
 int write_file(int handle, char *buffer) {
-
+  int length;
+  for (length = 0; length < 255; length++) {
+    if (buffer[length] == 0) {
+      break;
+    }
+  }
+  return syscall(0x13, handle, (int)(buffer), length);
 }
 
 void yield() {

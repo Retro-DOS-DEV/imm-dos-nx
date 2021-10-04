@@ -97,15 +97,15 @@ impl ExecutionSection {
 /// constructed.
 pub struct ExecutionSegment {
   /// Where the segment begins in virtual memory. This must be page-aligned.
-  address: VirtualAddress,
+  pub address: VirtualAddress,
   /// The size of the segment, in bytes. This must be a multiple of page size.
-  size: usize,
+  pub size: usize,
   /// The full set of sections found in this segment. Because segments are sized
   /// to be a multiple of the page size, not all addresses in a segment will map
   /// to a section.
-  sections: Vec<ExecutionSection>,
+  pub sections: Vec<ExecutionSection>,
   /// Is the section user-writable?
-  can_write: bool,
+  pub can_write: bool,
 }
 
 impl ExecutionSegment {
