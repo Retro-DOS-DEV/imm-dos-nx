@@ -298,7 +298,7 @@ impl Process {
   /// Create a copy of this process and its memory space.
   pub fn create_fork(&self, new_id: ProcessID, current_ticks: u32) -> Process {
     let new_stack = super::stack::allocate_stack();
-    let stack_top = (new_stack.as_ptr() as usize) + new_stack.len();
+    let stack_top = (new_stack.as_ptr() as usize) + new_stack.len() - 4;
 
     Process {
       id: new_id,
@@ -312,7 +312,7 @@ impl Process {
       stack_pointer: stack_top,
       saved_state: SavedState::empty(),
       page_directory: self.page_directory.clone(),
-      exec_file: None, // TODO: dup this
+      exec_file: self.exec_file,
       subsystem: Subsystem::Native,
     }
   }

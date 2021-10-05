@@ -10,11 +10,12 @@ pub fn yield_coop() {
 }
 
 pub fn sleep(ms: u32) {
-  process::sleep(ms as usize)
+  task::sleep(ms as usize)
 }
 
 pub fn fork() -> u32 {
-  process::fork()
+  let id = task::fork();
+  id.as_u32()
 }
 
 pub fn exec_path(path_str: &'static str, _arg_str: &'static str, raw_interp_mode: u32) -> Result<(), SystemError> {

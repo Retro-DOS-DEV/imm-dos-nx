@@ -106,6 +106,18 @@ pub fn fork(current_ticks: u32) -> ProcessID {
   };
   map_kernel_stack(child.get_stack_range());
   child.page_directory = fork_page_directory();
+  super::stack::duplicate_stack(
+    current_process.read().get_kernel_stack(),
+    child.get_kernel_stack_mut(),
+  );
+  // Move the stack pointer down past the 5 values from the interrupt,
+  // and the 10 values pushed by the syscall wrapper.
+  // It should return within the syscall wrapper, popping off the registers and
+  // returning to userspace.
+  child.stack_pointer -= 5 * core::mem::size_of::<u32>();
+  child.stack_push_u32(0); // replace eax with 0 in the child
+  child.stack_pointer -= 9 * core::mem::size_of::<u32>();
+  crate::kprintln!("Child stack: {:?}", child.get_stack_range());
   {
     let mut map = TASK_MAP.write();
     map.insert(next_id, Arc::new(RwLock::new(child)));

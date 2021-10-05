@@ -41,13 +41,23 @@ int write_file(int handle, char *buffer) {
   return syscall(0x13, handle, (int)(buffer), length);
 }
 
+int fork() {
+  return syscall(1, 0, 0, 0);
+}
+
 void yield() {
   syscall(6, 0, 0, 0);
 }
 
 void _start() {
+  //write_file(handle, "HELLO FROM ELF");
+  int id = fork();
   int handle = open_file("DEV:\\TTY1");
-  write_file(handle, "HELLO FROM ELF");
+  if (id == 0) {
+    write_file(handle, "TICK ");
+  } else {
+    write_file(handle, "TOCK ");
+  }
   while (1) {
     yield();
   }
