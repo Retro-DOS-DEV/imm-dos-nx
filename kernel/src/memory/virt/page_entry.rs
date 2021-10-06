@@ -10,6 +10,9 @@ pub const ENTRY_USER_ACCESS: u32 = 1 << 2;
 pub const ENTRY_WRITE_ACCESS: u32 = 1 << 1;
 pub const ENTRY_PRESENT: u32 = 1;
 
+// Custom flags:
+pub const ENTRY_COW: u32 = 1 << 9;
+
 /**
  * We can use the same struct for the Page Directory and each Page Table.
  * Entries are 32-bit values with the following layout:
@@ -18,7 +21,7 @@ pub const ENTRY_PRESENT: u32 = 1;
  */
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct PageTableEntry(u32);
+pub struct PageTableEntry(pub u32);
 
 impl PageTableEntry {
   pub const fn new() -> PageTableEntry {
@@ -85,5 +88,17 @@ impl PageTableEntry {
 
   pub fn get_flags(&self) -> u32 {
     self.0 & 0x1f
+  }
+
+  pub fn is_cow(&self) -> bool {
+    self.0 & ENTRY_COW == ENTRY_COW
+  }
+
+  pub fn set_cow(&mut self) {
+    self.0 |= ENTRY_COW;
+  }
+
+  pub fn clear_cow(&mut self) {
+    self.0 &= !ENTRY_COW
   }
 }

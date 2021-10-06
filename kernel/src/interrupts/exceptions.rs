@@ -3,7 +3,7 @@ use crate::dos::registers::{DosApiRegisters, VM86Frame};
 use crate::{klog, kprintln};
 use crate::memory::{
   address::{VirtualAddress},
-  virt::page_directory::CurrentPageDirectory,
+  virt::page_directory::{CurrentPageDirectory, invalidate_page},
 };
 use super::stack::{FullStackFrame, StackFrame};
 use super::syscall_legacy::dos_api;
@@ -107,7 +107,8 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
       out(reg) address,
     );
   }
-  kprintln!("\nPage Fault at {:#010x} ({:x})", address, error);
+  let curid = crate::task::switching::get_current_id();
+  kprintln!("\nPage Fault ({:?}: {:#010X}) at {:#010x} ({:x})", curid, stack_frame.eip, address, error);
 
   if address >= 0xc0000000 { // Kernel region
     if error & 4 == 4 {
@@ -144,6 +145,40 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
         // Return back to the failed instruction
         return;
       }
+    } else if error & 2 == 2 {
+      // Write to a read-only page
+      // Either this is a CoW modification, or a permissions violation
+      // Load the page entry to determine which case should be handled
+      let id = crate::task::switching::get_current_id();
+      kprintln!("Write to page {:?}", id);
+
+      let vaddr = VirtualAddress::new(address);
+      let mut current_pagedir = CurrentPageDirectory::get();
+      let page_table_entry = current_pagedir.get_table_entry_for(vaddr);
+      if let Some(entry) = page_table_entry {
+        kprintln!("ENTRY: {:b}", entry.0);
+        if entry.is_cow() {
+          let new_count = crate::task::paging::decrement_cow(entry.get_address());
+          if new_count == 0 {
+            // this was the only reference to the frame, simply mark it as readable
+            kprintln!("Entry is no longer marked COW");
+            entry.clear_cow();
+            entry.set_write_access();
+            invalidate_page(vaddr);
+            return;
+          }
+          kprintln!("Decrement COW, {} refs remaining", new_count);
+          let page_start = vaddr.prev_page_barrier();
+          let new_frame_addr = crate::task::paging::duplicate_frame(page_start);
+          entry.clear_cow();
+          entry.set_address(new_frame_addr);
+          entry.set_write_access();
+          invalidate_page(page_start);
+
+          return;
+        }
+      }
+      kprintln!("No entry or cow");
     }
 
     // All other cases (accessing an unmapped section, writing a read-only

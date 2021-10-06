@@ -2,6 +2,7 @@ use super::super::address::{PhysicalAddress, VirtualAddress};
 use super::super::physical::frame::Frame;
 use super::super::physical::allocate_frame;
 use super::super::physical::reference_frame_at_address;
+use super::page_entry::PageTableEntry;
 use super::page_table::PageTable;
 use super::region::{MemoryRegionType, Permissions, VirtualMemoryRegion};
 
@@ -59,6 +60,21 @@ impl CurrentPageDirectory {
       self.unmap(page_start);
       page_start = page_start.offset(0x1000);
     }
+  }
+
+  pub fn get_table_entry_for(&mut self, address: VirtualAddress) -> Option<&mut PageTableEntry> {
+    let dir_index = address.get_page_directory_index();
+    let table_index = address.get_page_table_index();
+    let top_page = PageTable::at_address(VirtualAddress::new(0xfffff000));
+    let entry = top_page.get_mut(dir_index);
+    if !entry.is_present() {
+      // table doesn't exist, so there is no entry for the address
+      return None;
+    }
+
+    let table_address = VirtualAddress::new(0xffc00000 + (dir_index * 0x1000));
+    let table = PageTable::at_address(table_address);
+    Some(table.get_mut(table_index))
   }
 }
 

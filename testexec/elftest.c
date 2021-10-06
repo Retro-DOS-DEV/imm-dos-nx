@@ -49,16 +49,20 @@ void yield() {
   syscall(6, 0, 0, 0);
 }
 
+void sleep(int ms) {
+  syscall(5, ms, 0, 0);
+}
+
 void _start() {
   //write_file(handle, "HELLO FROM ELF");
   int id = fork();
   int handle = open_file("DEV:\\TTY1");
-  if (id == 0) {
-    write_file(handle, "TICK ");
-  } else {
-    write_file(handle, "TOCK ");
-  }
   while (1) {
-    yield();
+    if (id == 0) {
+      write_file(handle, "TOCK ");
+    } else {
+      write_file(handle, "TICK ");
+    }
+    sleep(1000);
   }
 }

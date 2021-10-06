@@ -1,3 +1,4 @@
+use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use crate::files::cursor::SeekMethod;
@@ -9,6 +10,9 @@ use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
 use super::memory::{USER_KERNEL_BARRIER, MMapBacking, MMapRegion};
 use super::process::Process;
+use super::stack::UnmappedPage;
+
+pub static COW_REFERENCE_COUNT: RwLock<BTreeMap<usize, usize>> = RwLock::new(BTreeMap::new());
 
 pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bool {
   let stack_size = 0x2000;
@@ -166,4 +170,71 @@ pub fn share_kernel_page_directory(vaddr: VirtualAddress) {
     let alt = AlternatePageDirectory::new(dir_address);
     alt.add_directory_frame(dir_index, frame_address);
   });
+}
+
+pub fn duplicate_frame(page_start: VirtualAddress) -> PhysicalAddress {
+  let new_frame = crate::memory::physical::allocate_frame().unwrap();
+  let temp_mapping = UnmappedPage::map(new_frame.get_address());
+  let temp_addr = temp_mapping.virtual_address();
+  unsafe {
+    let src = core::slice::from_raw_parts(page_start.as_usize() as *const u8, 4096);
+    let dest = core::slice::from_raw_parts_mut(temp_addr.as_usize() as *mut u8, 4096);
+    dest.copy_from_slice(&src);
+  }
+  crate::kprintln!("Copy from {:?} to {:?}", page_start, temp_addr);
+  new_frame.get_address()
+}
+
+pub fn increment_cow(frame_start: PhysicalAddress) -> usize {
+  let key = frame_start.as_usize();
+  let prev: usize = match COW_REFERENCE_COUNT.write().get_mut(&key) {
+    Some(entry) => {
+      let prev = *entry;
+      *entry = prev + 1;
+      prev
+    },
+    None => 0,
+  };
+  if prev == 0 {
+    // COW increment only happens when a page is forked, so the minimum
+    // reference count is 2
+    COW_REFERENCE_COUNT.write().insert(key, 2);
+    2
+  } else {
+    prev
+  }
+}
+
+/// Decerement the copy-on-write count for a specific page, and return the
+/// remaining reference count.
+pub fn decrement_cow(frame_start: PhysicalAddress) -> usize {
+  let key = frame_start.as_usize();
+  let remainder: Option<usize> = match COW_REFERENCE_COUNT.write().get_mut(&key) {
+    Some(entry) => {
+      if *entry == 0 {
+        Some(0)
+      } else {
+        *entry -= 1;
+        Some(*entry)
+      }
+    },
+    None => Some(0),
+  };
+  match remainder {
+    Some(x) if x < 2 => {
+      crate::kprintln!("Frame is no longer COW: {:#010X}", key);
+      COW_REFERENCE_COUNT.write().remove(&key);
+      x
+    },
+    Some(x) => {
+      x
+    },
+    None => 0,
+  }
+}
+
+pub fn invalidate_page(addr: VirtualAddress) {
+  unsafe {
+    llvm_asm!("invlpg ($0)" : : "r"(addr.as_u32()));
+  }
 }

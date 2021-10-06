@@ -33,5 +33,5 @@ pub fn sleep(duration: usize) {}
 #[cfg(not(test))]
 pub fn fork() -> id::ProcessID {
   let current_ticks = crate::time::system::get_system_ticks();
-  switching::fork(current_ticks)
+  switching::fork(current_ticks, true)
 }

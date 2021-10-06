@@ -6,6 +6,7 @@ use crate::task;
 use syscall::result::SystemError;
 
 pub fn yield_coop() {
+  let id = task::switching::get_current_id().as_u32();
   task::yield_coop();
 }
 

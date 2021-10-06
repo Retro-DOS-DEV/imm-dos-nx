@@ -6,6 +6,7 @@ use crate::memory::virt::map_kernel_stack;
 use crate::memory::virt::page_table::PageTableReference;
 use spin::RwLock;
 use super::id::{IDGenerator, ProcessID};
+use super::paging;
 use super::process::Process;
 use super::stack::UnmappedPage;
 
@@ -97,7 +98,7 @@ pub fn for_each_process<F>(f: F)
 /// same way the parent did. However, all we really need is for the child to
 /// return to the userspace entrypoint with the same registers.
 /// When a process enters a syscall, we store a pointer to the
-pub fn fork(current_ticks: u32) -> ProcessID {
+pub fn fork(current_ticks: u32, include_userspace: bool) -> ProcessID {
   let current_process = get_current_process();
   let next_id = NEXT_ID.next();
   let mut child = {
@@ -105,7 +106,7 @@ pub fn fork(current_ticks: u32) -> ProcessID {
     parent.create_fork(next_id, current_ticks)
   };
   map_kernel_stack(child.get_stack_range());
-  child.page_directory = fork_page_directory();
+  child.page_directory = fork_page_directory(include_userspace);
   super::stack::duplicate_stack(
     current_process.read().get_kernel_stack(),
     child.get_kernel_stack_mut(),
@@ -117,7 +118,7 @@ pub fn fork(current_ticks: u32) -> ProcessID {
   child.stack_pointer -= 5 * core::mem::size_of::<u32>();
   child.stack_push_u32(0); // replace eax with 0 in the child
   child.stack_pointer -= 9 * core::mem::size_of::<u32>();
-  crate::kprintln!("Child stack: {:?}", child.get_stack_range());
+  crate::kprintln!("Child {:?} ({:?}) stack: {:?}", next_id, current_process.read().get_id(), child.get_stack_range());
   {
     let mut map = TASK_MAP.write();
     map.insert(next_id, Arc::new(RwLock::new(child)));
@@ -126,7 +127,7 @@ pub fn fork(current_ticks: u32) -> ProcessID {
 }
 
 pub fn kfork(dest: extern "C" fn() -> ()) -> ProcessID {
-  let child_id = fork(0);
+  let child_id = fork(0, false);
   {
     let child_lock = get_process(&child_id).unwrap();
     let mut child = child_lock.write();
@@ -191,7 +192,7 @@ pub fn update_timeouts(delta_ms: usize) {
   }
 }
 
-pub fn fork_page_directory() -> PageTableReference {
+pub fn fork_page_directory(include_userspace: bool) -> PageTableReference {
   use crate::memory::physical;
   use crate::memory::virt::page_table;
 
@@ -210,6 +211,41 @@ pub fn fork_page_directory() -> PageTableReference {
       let table_address = current_directory.get(entry).get_address();
       directory_table.get_mut(entry).set_address(table_address);
       directory_table.get_mut(entry).set_present();
+    }
+  }
+
+  if include_userspace {
+    // Copy the user-space entries from the current table, making any writable
+    // table entries copy-on-write
+    for dir_entry in 0..0x300 {
+      if !current_directory.get(dir_entry).is_present() {
+        continue;
+      }
+      let table_address = VirtualAddress::new(0xffc00000 + (dir_entry * 0x1000));
+      let table = page_table::PageTable::at_address(table_address);
+      for table_index in 0..1024 {
+        let table_entry = table.get_mut(table_index);
+        if table_entry.is_present() && table_entry.is_write_access_granted() {
+          table_entry.clear_write_access();
+          table_entry.set_cow();
+          {
+            let page_start =
+              (dir_entry * 4 * 1024 * 1024)
+              + table_index * 4 * 1024;
+            paging::invalidate_page(VirtualAddress::new(page_start));
+          }
+          crate::kprintln!("SET COW {} {}", dir_entry, table_index);
+          let ref_count = paging::increment_cow(table_entry.get_address());
+          crate::kprintln!("COW count is now {}", ref_count);
+        }
+      }
+      let table_frame = paging::duplicate_frame(table_address);
+      directory_table.get_mut(dir_entry).set_address(table_frame);
+      directory_table.get_mut(dir_entry).set_user_access();
+      directory_table.get_mut(dir_entry).set_present();
+      if current_directory.get(dir_entry).is_write_access_granted() {
+        directory_table.get_mut(dir_entry).set_write_access();
+      }
     }
   }
 
