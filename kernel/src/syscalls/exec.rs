@@ -1,5 +1,3 @@
-use crate::files::filename;
-use crate::filesystems;
 use crate::memory::address::VirtualAddress;
 use crate::process;
 use crate::task;
@@ -20,21 +18,16 @@ pub fn fork() -> u32 {
 }
 
 pub fn exec_path(path_str: &'static str, _arg_str: &'static str, raw_interp_mode: u32) -> Result<(), SystemError> {
-  let (drive, path) = filename::string_to_drive_and_path(path_str);
-  let number = filesystems::get_fs_number(drive).ok_or(SystemError::NoSuchDrive)?;
-  let fs = filesystems::get_fs(number).ok_or(SystemError::NoSuchFileSystem)?;
-  let local_handle = fs.open(path).map_err(|_| SystemError::NoSuchEntity)?;
-  let interp_mode = process::exec::InterpretationMode::from_u32(raw_interp_mode);
-  process::exec(number, local_handle, interp_mode);
-  Ok(())
+  let interp_mode = crate::loaders::InterpretationMode::from_u32(raw_interp_mode);
+  task::exec::exec(path_str, interp_mode)
 }
 
 pub fn exit(code: u32) {
-  process::exit(code);
+  task::exec::terminate(code);
 }
 
 pub fn get_pid() -> u32 {
-  process::get_current_pid().as_u32()
+  task::switching::get_current_id().as_u32()
 }
 
 pub fn raise_signal(sig: u32) {
@@ -48,10 +41,10 @@ pub fn send_signal(id: u32, sig: u32) {
 
 pub fn wait_pid(id: u32) -> (u32, u32) {
   if id == 0 {
-    // TODO: wait on any process
-    (0, 0)
+    let code = task::wait(None);
+    (0, code)
   } else {
-    let code = process::wait(process::id::ProcessID::new(id));
+    let code = task::wait(Some(task::id::ProcessID::new(id)));
     (id, code)
   }
 }

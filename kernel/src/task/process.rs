@@ -207,6 +207,20 @@ impl Process {
     }
   }
 
+  pub fn wait(&mut self, child_id: Option<ProcessID>) {
+    self.state = RunState::WaitingForChild(child_id);
+  }
+
+  pub fn resume_from_wait(&mut self) -> u32 {
+    match self.state {
+      RunState::Resumed(code) => {
+        self.state = RunState::Running;
+        return code;
+      },
+      _ => 0,
+    }
+  }
+
   /// Tell a process that a child has exited. If the process is currently
   /// waiting on that child, it will resume execution.
   pub fn child_returned(&mut self, child_id: ProcessID, code: u32) {
@@ -214,8 +228,10 @@ impl Process {
       RunState::WaitingForChild(id) => id,
       _ => return,
     };
-    if child_id == waiting_on {
-      self.state = RunState::Resumed(code);
+    match waiting_on {
+      None => self.state = RunState::Resumed(code),
+      Some(id) if id == child_id => self.state = RunState::Resumed(code),
+      _ => (),
     }
   }
 

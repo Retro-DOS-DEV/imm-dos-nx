@@ -53,16 +53,30 @@ void sleep(int ms) {
   syscall(5, ms, 0, 0);
 }
 
+void terminate(int code) {
+  syscall(0, code, 0, 0);
+}
+
+void wait(int id) {
+  int status;
+  syscall(9, id, (int)(&status), 0);
+}
+
 void _start() {
-  //write_file(handle, "HELLO FROM ELF");
   int id = fork();
   int handle = open_file("DEV:\\TTY1");
+  if (id == 0) {
+    // child process
+    write_file(handle, "  Child running\n");
+    sleep(5000);
+    terminate(1);
+  } else {
+    // parent
+    write_file(handle, "Wait for child\n");
+    wait(id);
+    write_file(handle, "Child returned.");
+  }
   while (1) {
-    if (id == 0) {
-      write_file(handle, "TOCK ");
-    } else {
-      write_file(handle, "TICK ");
-    }
-    sleep(1000);
+    yield();
   }
 }

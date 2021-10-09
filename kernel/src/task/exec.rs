@@ -1,7 +1,7 @@
 use crate::dos::state::VMState;
 use crate::fs::DRIVES;
 use crate::loaders;
-use crate::task::switching::get_current_process;
+use crate::task::switching::{get_current_process, yield_coop};
 use super::regs::EnvironmentRegisters;
 use super::vm::Subsystem;
 use syscall::result::SystemError;
@@ -13,7 +13,13 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
     let process_lock = get_current_process();
     let mut process = process_lock.write();
     let old_exec = process.prepare_exec_mapping(env.segments);
-    // Remove the old exec and mmap mappings
+    // Remove the old exec and mmap mappings:
+    // Iterate over each section, and each page within the section
+    //   If the page is mapped, unmap it and free the frame
+    //   If the page is marked as copy-on-write, decrement the count for the frame
+
+
+    // Map a new stack frame, and push arguments onto it
 
     // If running a DOS program, the VM needs to be initialized
     if env.require_vm {
@@ -102,4 +108,20 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
       options(noreturn),
     );
   }
+}
+
+pub fn terminate(exit_code: u32) {
+  let current_process = get_current_process();
+  let (cur_id, parent_id) = {
+    let mut cur = current_process.write();
+    cur.terminate();
+    (*cur.get_id(), *cur.get_parent_id())
+  };
+  {
+    let parent_lock = super::switching::get_process(&parent_id);
+    if let Some(parent) = parent_lock {
+      parent.write().child_returned(cur_id, exit_code);
+    }
+  }
+  yield_coop();
 }

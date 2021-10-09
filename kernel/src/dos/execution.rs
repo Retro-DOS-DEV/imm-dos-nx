@@ -142,7 +142,7 @@ pub fn terminate(cs: u16) -> SegmentedAddress {
     None => {
       // Top-level DOS program, exit the process
       crate::klog!("Terminating DOS Process");
-      crate::task::switching::terminate();
+      crate::task::exec::terminate(0);
       SegmentedAddress {
         segment: 0,
         offset: 0,

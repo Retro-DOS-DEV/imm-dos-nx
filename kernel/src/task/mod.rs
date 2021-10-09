@@ -35,3 +35,12 @@ pub fn fork() -> id::ProcessID {
   let current_ticks = crate::time::system::get_system_ticks();
   switching::fork(current_ticks, true)
 }
+
+#[cfg(not(test))]
+pub fn wait(child_id: Option<id::ProcessID>) -> u32 {
+  let current = switching::get_current_process();
+  current.write().wait(child_id);
+  yield_coop();
+  let code = current.write().resume_from_wait();
+  code
+}

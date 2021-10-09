@@ -55,7 +55,7 @@ pub enum RunState {
   /// Waiting for IPC messages, with an optional timeout
   AwaitingIPC(Option<usize>),
   /// Waiting for a child process to finish executing
-  WaitingForChild(ProcessID),
+  WaitingForChild(Option<ProcessID>),
   /// Just resumed from a waiting state. This is quickly replaced with a Running
   /// state once the return code has been processed.
   Resumed(u32),
