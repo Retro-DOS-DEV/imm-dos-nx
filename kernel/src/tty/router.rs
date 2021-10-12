@@ -1,37 +1,66 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
+use crate::collections::SlotList;
+use crate::devices::driver::IOHandle;
 use crate::input::keyboard::{KeyAction, codes::KeyCode};
+use crate::task::id::ProcessID;
 use spin::RwLock;
 
-use super::buffers::TTYReadWriteBuffers;
+use super::buffers::{TTYReadWriteBuffers, TTYReaderBuffer};
 use super::keyboard::KeyState;
 use super::tty::TTY;
+
+/// Associates an open IOHandle with other relevant information
+pub struct Descriptor {
+  pub process: ProcessID,
+  pub handle: IOHandle,
+}
 
 /// Associates a TTY driver, containing internal screen state and the ability to
 /// write to the VGA buffer, with a device file that can be written and read by
 /// other processes.
 pub struct TTYData {
-  open_count: AtomicUsize,
+  next_handle: AtomicUsize,
   tty: Arc<RwLock<TTY>>,
   buffers: Arc<TTYReadWriteBuffers>,
+
+  descriptors: Arc<RwLock<SlotList<Descriptor>>>,
+  reader_buffer: Arc<TTYReaderBuffer>,
 }
 
 impl TTYData {
   pub fn new(tty: TTY) -> TTYData {
+    let descriptors = Arc::new(RwLock::new(SlotList::new()));
     TTYData {
-      open_count: AtomicUsize::new(0),
+      next_handle: AtomicUsize::new(0),
       tty: Arc::new(RwLock::new(tty)),
       buffers: Arc::new(TTYReadWriteBuffers::new()),
+
+      descriptors: descriptors.clone(),
+      reader_buffer: Arc::new(TTYReaderBuffer::new(descriptors)),
     }
   }
 
-  pub fn open(&self) -> usize {
-    self.open_count.fetch_add(1, Ordering::SeqCst)
+  pub fn open(&self) -> IOHandle {
+    let handle = IOHandle::new(self.next_handle.fetch_add(1, Ordering::SeqCst));
+    let process = crate::task::switching::get_current_id();
+    self.descriptors.write().insert(Descriptor { process, handle });
+    handle
   }
 
-  pub fn close(&self) {
-    self.open_count.fetch_sub(1, Ordering::SeqCst);
+  pub fn close(&self, handle: IOHandle) {
+    let mut descriptors = self.descriptors.write();
+    let index = descriptors
+      .iter()
+      .enumerate()
+      .find_map(|(i, h)| if h.handle == handle { Some(i) } else { None });
+    match index {
+      Some(i) => {
+        descriptors.remove(i);
+      },
+      None => (),
+    }
   }
 
   pub fn get_tty(&self) -> Arc<RwLock<TTY>> {
@@ -40,6 +69,10 @@ impl TTYData {
 
   pub fn get_buffers(&self) -> Arc<TTYReadWriteBuffers> {
     Arc::clone(&self.buffers)
+  }
+
+  pub fn get_reader_buffer(&self) -> Arc<TTYReaderBuffer> {
+    Arc::clone(&self.reader_buffer)
   }
 }
 
@@ -92,7 +125,16 @@ impl TTYRouter {
     }
   }
 
-  pub fn open_device(&self, index: usize) -> Option<usize> {
+  pub fn get_tty_reader_buffer(&self, index: usize) -> Option<Arc<TTYReaderBuffer>> {
+    let set = self.tty_set.read();
+    let data = set.get(index);
+    match data {
+      Some(tty) => Some(tty.get_reader_buffer()),
+      None => None
+    }
+  }
+
+  pub fn open_device(&self, index: usize) -> Option<IOHandle> {
     let set = self.tty_set.read();
     let data = set.get(index);
     match data {
@@ -101,11 +143,11 @@ impl TTYRouter {
     }
   }
 
-  pub fn close_device(&self, index: usize) {
+  pub fn close_device(&self, index: usize, handle: IOHandle) {
     let set = self.tty_set.read();
     let data = set.get(index);
     if let Some(tty) = data {
-      tty.close();
+      tty.close(handle);
     }
   }
 
@@ -166,7 +208,8 @@ impl TTYRouter {
         for i in 0..len {
           tty.handle_input(data[i]);
         }
-        active.buffers.output_buffer.write(&data);
+        active.reader_buffer.add_data(&data);
+        //active.buffers.output_buffer.write(&data);
       }
     }
   }

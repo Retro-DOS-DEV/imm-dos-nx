@@ -59,7 +59,10 @@ impl core::fmt::Write for Console {
     use crate::devices::driver::DeviceDriver;
 
     let device = device::TTYDevice::for_tty(0);
-    device.write(0, s.as_bytes()).map(|_| ()).map_err(|_| core::fmt::Error)
+    device.write(
+      crate::devices::driver::IOHandle::new(0),
+      s.as_bytes(),
+    ).map(|_| ()).map_err(|_| core::fmt::Error)
   }
 }
 

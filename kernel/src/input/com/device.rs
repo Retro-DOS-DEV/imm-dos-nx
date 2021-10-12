@@ -8,7 +8,7 @@
 use alloc::collections::VecDeque;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use crate::collections::SlotList;
-use crate::devices::driver::DeviceDriver;
+use crate::devices::driver::{DeviceDriver, IOHandle};
 use crate::task::id::ProcessID;
 use crate::task::switching::{get_current_id, get_current_process, get_process, yield_coop};
 use super::serial::SerialPort;
@@ -16,16 +16,16 @@ use spin::RwLock;
 
 pub static mut COM_DEVICES: [Option<ComDevice>; 2] = [None, None];
 
-struct Handle {
+struct Descriptor {
   pub process: ProcessID,
-  pub handle_id: usize,
+  pub handle: IOHandle,
 }
 
 pub struct ComDevice {
   com: SerialPort,
   next_handle: AtomicUsize,
-  open_handles: RwLock<SlotList<Handle>>,
-  readers: RwLock<VecDeque<usize>>,
+  open_handles: RwLock<SlotList<Descriptor>>,
+  readers: RwLock<VecDeque<IOHandle>>,
 }
 
 impl ComDevice {
@@ -42,11 +42,11 @@ impl ComDevice {
     self.com.init();
   }
 
-  pub fn get_id_for_handle(&self, handle: usize) -> Option<ProcessID> {
+  pub fn get_id_for_handle(&self, handle: IOHandle) -> Option<ProcessID> {
     self.open_handles
       .read()
       .iter()
-      .find_map(|o| if o.handle_id == handle { Some(o.process) } else { None } )
+      .find_map(|o| if o.handle == handle { Some(o.process) } else { None } )
   }
 
   pub fn get_interrupt_info(&self) -> u8 {
@@ -54,7 +54,7 @@ impl ComDevice {
   }
 
   pub fn wake_front(&self) {
-    let next: Option<usize> = self.readers.read().front().copied();
+    let next: Option<IOHandle> = self.readers.read().front().copied();
     let next_lock = next
       .and_then(|handle| self.get_id_for_handle(handle))
       .and_then(|id| get_process(&id));
@@ -74,18 +74,18 @@ impl ComDevice {
     read
   }
 
-  pub fn open(&self) -> usize {
-    let id = self.next_handle.fetch_add(1, Ordering::SeqCst);
-    let handle = Handle {
+  pub fn open(&self) -> IOHandle {
+    let id = IOHandle::new(self.next_handle.fetch_add(1, Ordering::SeqCst));
+    let handle = Descriptor {
       process: get_current_id(),
-      handle_id: id,
+      handle: id,
     };
     self.open_handles.write().insert(handle);
 
     id
   }
 
-  pub fn read(&self, handle: usize, dest: &mut [u8]) -> usize {
+  pub fn read(&self, handle: IOHandle, dest: &mut [u8]) -> usize {
     let queued = {
       let mut readers = self.readers.write();
       readers.push_back(handle);
@@ -112,7 +112,7 @@ impl ComDevice {
     written
   }
 
-  pub fn write(&self, handle: usize, src: &[u8]) -> usize {
+  pub fn write(&self, handle: IOHandle, src: &[u8]) -> usize {
     // TODO: make this not blocking
     let mut written = 0;
     for value in src.iter() {
@@ -122,12 +122,12 @@ impl ComDevice {
     written
   }
 
-  pub fn close(&self, handle: usize) {
+  pub fn close(&self, handle: IOHandle) {
     let mut handles = self.open_handles.write();
     let handle_index = handles
       .iter()
       .enumerate()
-      .find_map(|(i, h)| if h.handle_id == handle { Some(i) } else { None });
+      .find_map(|(i, h)| if h.handle == handle { Some(i) } else { None });
     match handle_index {
       Some(index) => {
         handles.remove(index);
@@ -162,22 +162,22 @@ impl ComDriver {
 }
 
 impl DeviceDriver for ComDriver {
-  fn open(&self) -> Result<usize, ()> {
+  fn open(&self) -> Result<IOHandle, ()> {
     let device = self.get_device()?;
     Ok(device.open())
   }
 
-  fn read(&self, index: usize, buffer: &mut [u8]) -> Result<usize, ()> {
+  fn read(&self, index: IOHandle, buffer: &mut [u8]) -> Result<usize, ()> {
     let device = self.get_device()?;
     Ok(device.read(index, buffer))
   }
 
-  fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()> {
+  fn write(&self, index: IOHandle, buffer: &[u8]) -> Result<usize, ()> {
     let device = self.get_device()?;
     Ok(device.write(index, buffer))
   }
 
-  fn close(&self, index: usize) -> Result<(), ()> {
+  fn close(&self, index: IOHandle) -> Result<(), ()> {
     let device = self.get_device()?;
     Ok(device.close(index))
   }

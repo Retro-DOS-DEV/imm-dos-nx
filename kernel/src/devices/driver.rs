@@ -1,17 +1,31 @@
 use crate::files::cursor::SeekMethod;
 
+#[repr(transparent)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IOHandle(usize);
+
+impl IOHandle {
+  pub fn new(inner: usize) -> Self {
+    Self(inner)
+  }
+
+  pub fn as_usize(&self) -> usize {
+    self.0
+  }
+}
+
 pub trait DeviceDriver {
   #![allow(unused_variables)]
 
-  fn open(&self) -> Result<usize, ()>;
+  fn open(&self) -> Result<IOHandle, ()>;
 
-  fn read(&self, index: usize, buffer: &mut [u8]) -> Result<usize, ()>;
+  fn read(&self, index: IOHandle, buffer: &mut [u8]) -> Result<usize, ()>;
 
-  fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()>;
+  fn write(&self, index: IOHandle, buffer: &[u8]) -> Result<usize, ()>;
 
-  fn close(&self, index: usize) -> Result<(), ()>;
+  fn close(&self, index: IOHandle) -> Result<(), ()>;
 
-  fn seek(&self, index: usize, offset: SeekMethod) -> Result<usize, ()> {
+  fn seek(&self, index: IOHandle, offset: SeekMethod) -> Result<usize, ()> {
     Err(())
   }
 }

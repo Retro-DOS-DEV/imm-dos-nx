@@ -14,10 +14,10 @@ pub enum ParseState {
 }
 
 /// How the terminal processes input
-pub enum LineDiscipline {
+pub enum ReadMode {
   /// Send individual bytes directly to the TTY device, no output
   Raw,
-  /// Process one line at a time. Arrow keys and 
+  /// Process one line at a time
   Canonical,
 }
 
@@ -26,8 +26,8 @@ pub struct TTY {
   /// Whether this TTY is currently active, determines whether it outputs new
   /// characters to video RAM
   is_active: bool,
-  /// Line discipline determines how data is collected before passed to readers
-  line_discipline: LineDiscipline,
+  /// Read mode determines how data is collected before passed to readers
+  read_mode: ReadMode,
   /// Whether echoing is enabled, controled by ioctl commands
   echo: bool,
   /// Whether the cursor is currently visible
@@ -49,7 +49,7 @@ impl TTY {
     }
     TTY {
       is_active: false,
-      line_discipline: LineDiscipline::Raw,
+      read_mode: ReadMode::Canonical,
       echo: true,
       show_cursor: true,
       parse_state: ParseState::Ready,

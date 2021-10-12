@@ -9,6 +9,7 @@ pub mod block;
 pub mod driver;
 pub mod installed;
 pub mod null;
+pub mod queue;
 pub mod zero;
 
 use installed::InstalledDevices;

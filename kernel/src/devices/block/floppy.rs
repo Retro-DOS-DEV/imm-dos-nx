@@ -7,7 +7,7 @@ use crate::task::id::ProcessID;
 use crate::task::memory::MMapBacking;
 use spin::RwLock;
 use super::geometry::{Sector, SectorRange};
-use super::super::driver::DeviceDriver;
+use super::super::driver::{DeviceDriver, IOHandle};
 
 static CONTROLLER: FloppyDiskController = FloppyDiskController::new();
 
@@ -96,7 +96,7 @@ impl OpenInstance {
 pub struct FloppyDriver {
   drive_select: DriveSelect,
   next_handle: AtomicUsize,
-  open_handles: RwLock<BTreeMap<usize, OpenInstance>>,
+  open_handles: RwLock<BTreeMap<IOHandle, OpenInstance>>,
 }
 
 impl FloppyDriver {
@@ -110,18 +110,18 @@ impl FloppyDriver {
 }
 
 impl DeviceDriver for FloppyDriver {
-  fn open(&self) -> Result<usize, ()> {
-    let handle = self.next_handle.fetch_add(1, Ordering::SeqCst);
+  fn open(&self) -> Result<IOHandle, ()> {
+    let handle = IOHandle::new(self.next_handle.fetch_add(1, Ordering::SeqCst));
     self.open_handles.write().insert(handle, OpenInstance::new());
     Ok(handle)
   }
 
-  fn close(&self, index: usize) -> Result<(), ()> {
+  fn close(&self, index: IOHandle) -> Result<(), ()> {
     self.open_handles.write().remove(&index);
     Ok(())
   }
 
-  fn read(&self, index: usize, buffer: &mut [u8]) -> Result<usize, ()> {
+  fn read(&self, index: IOHandle, buffer: &mut [u8]) -> Result<usize, ()> {
     let cursor = match self.open_handles.read().get(&index) {
       Some(open_handle) => Ok(open_handle.cursor),
       None => Err(())
@@ -148,11 +148,11 @@ impl DeviceDriver for FloppyDriver {
     }
   }
 
-  fn write(&self, index: usize, buffer: &[u8]) -> Result<usize, ()> {
+  fn write(&self, index: IOHandle, buffer: &[u8]) -> Result<usize, ()> {
     Ok(0)
   }
 
-  fn seek(&self, index: usize, offset: SeekMethod) -> Result<usize, ()> {
+  fn seek(&self, index: IOHandle, offset: SeekMethod) -> Result<usize, ()> {
     match self.open_handles.write().get_mut(&index) {
       Some(open_handle) => {
         let next_cursor = offset.from_current_position(open_handle.cursor);

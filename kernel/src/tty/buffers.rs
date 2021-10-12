@@ -1,5 +1,13 @@
 use alloc::boxed::Box;
+use alloc::collections::VecDeque;
+use alloc::sync::Arc;
 use crate::buffers::RingBuffer;
+use crate::collections::SlotList;
+use crate::devices::driver::IOHandle;
+use crate::devices::queue::QueuedIO;
+use crate::task::id::ProcessID;
+use spin::RwLock;
+use super::router::Descriptor;
 
 const BUFFER_SIZE: usize = 512;
 
@@ -48,5 +56,76 @@ impl Drop for TTYReadWriteBuffers {
   fn drop(&mut self) {
     Box::from(self.output_raw_ptr);
     Box::from(self.input_raw_ptr);
+  }
+}
+
+/// Stores input from the keyboard that is waiting to be read
+pub struct TTYReaderBuffer {
+  /// Pointer to allocated buffer data. The buffer gets leaked to get around
+  /// lifetime constraints. Keeping a pointer let us dealloc it when this
+  /// struct is dropped.
+  buffer_raw_ptr: *mut [u8; BUFFER_SIZE],
+  /// Ring buffer for data sent from the TTY to readers
+  pub buffer: RingBuffer<'static>,
+
+  open_handles: Arc<RwLock<SlotList<Descriptor>>>,
+  io_queue: RwLock<VecDeque<IOHandle>>,
+}
+
+impl TTYReaderBuffer {
+  pub fn new(open_handles: Arc<RwLock<SlotList<Descriptor>>>) -> Self {
+    let buffer_box: Box<[u8; BUFFER_SIZE]> = Box::new([0; BUFFER_SIZE]);
+    let buffer_raw_ptr = Box::into_raw(buffer_box);
+    let buffer_slice = unsafe { &*buffer_raw_ptr };
+
+    Self {
+      buffer_raw_ptr,
+      buffer: RingBuffer::new(buffer_slice),
+      io_queue: RwLock::new(VecDeque::new()),
+      open_handles,
+    }
+  }
+
+  pub fn read(&self, handle: IOHandle, dest: &mut [u8]) -> usize {
+    self.perform_io(handle, || {
+      let mut bytes_read = 0;
+      let mut byte_buffer: [u8; 1] = [0];
+      while bytes_read < dest.len() && byte_buffer[0] != b'\n' {
+        if self.buffer.available_bytes() < 1 {
+          crate::task::switching::get_current_process().write().io_block(None);
+          crate::task::yield_coop();
+        }
+        let partial_read = self.buffer.read(&mut byte_buffer);
+        if partial_read > 0 {
+          dest[bytes_read] = byte_buffer[0];
+          bytes_read += partial_read;
+        }
+      }
+      bytes_read
+    })
+  }
+
+  pub fn add_data(&self, data: &[u8]) {
+    self.buffer.write(&data);
+    self.wake_front();
+  }
+}
+
+impl Drop for TTYReaderBuffer {
+  fn drop(&mut self) {
+    Box::from(self.buffer_raw_ptr);
+  }
+}
+
+impl QueuedIO<(), usize> for TTYReaderBuffer {
+  fn get_process_id_for_handle(&self, handle: IOHandle) -> Option<ProcessID> {
+    self.open_handles
+      .read()
+      .iter()
+      .find_map(|o| if o.handle == handle { Some(o.process) } else { None } )
+  }
+
+  fn get_io_queue(&self) -> &RwLock<VecDeque<IOHandle>> {
+    &self.io_queue
   }
 }

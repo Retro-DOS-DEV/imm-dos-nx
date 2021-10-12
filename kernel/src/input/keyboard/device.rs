@@ -4,7 +4,7 @@
 
 use alloc::sync::Arc;
 use crate::collections::SlotList;
-use crate::devices::driver::DeviceDriver;
+use crate::devices::driver::{DeviceDriver, IOHandle};
 use crate::files::cursor::SeekMethod;
 use crate::task::switching::{get_current_id, get_current_process, yield_coop};
 use spin::RwLock;
@@ -16,14 +16,15 @@ static KEYBOARD_READERS: RwLock<SlotList<Arc<InputBuffer>>> = RwLock::new(SlotLi
 pub struct KeyboardDriver {}
 
 impl DeviceDriver for KeyboardDriver {
-  fn open(&self) -> Result<usize, ()> {
+  fn open(&self) -> Result<IOHandle, ()> {
     let id = get_current_id();
     let buffer = InputBuffer::for_process(id);
-    Ok(KEYBOARD_READERS.write().insert(Arc::new(buffer)))
+    let index = KEYBOARD_READERS.write().insert(Arc::new(buffer));
+    Ok(IOHandle::new(index))
   }
 
-  fn read(&self, slot: usize, dest: &mut [u8]) -> Result<usize, ()> {
-    let buffer = match KEYBOARD_READERS.read().get(slot) {
+  fn read(&self, slot: IOHandle, dest: &mut [u8]) -> Result<usize, ()> {
+    let buffer = match KEYBOARD_READERS.read().get(slot.as_usize()) {
       Some(entry) => entry.clone(),
       None => return Err(()),
     };
@@ -38,12 +39,12 @@ impl DeviceDriver for KeyboardDriver {
     Ok(written)
   }
 
-  fn write(&self, slot: usize, dest: &[u8]) -> Result<usize, ()> {
+  fn write(&self, slot: IOHandle, dest: &[u8]) -> Result<usize, ()> {
     Err(())
   }
 
-  fn close(&self, slot: usize) -> Result<(), ()> {
-    KEYBOARD_READERS.write().remove(slot);
+  fn close(&self, slot: IOHandle) -> Result<(), ()> {
+    KEYBOARD_READERS.write().remove(slot.as_usize());
     Ok(())
   }
 }

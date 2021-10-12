@@ -4,7 +4,7 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use crate::collections::SlotList;
-use crate::devices::{get_driver_for_device, get_device_number_by_name, driver::DeviceDriverType};
+use crate::devices::{get_driver_for_device, get_device_number_by_name, driver::{DeviceDriverType, IOHandle}};
 use crate::files::{cursor::SeekMethod, handle::{Handle, LocalHandle}};
 use crate::fs::KernelFileSystem;
 use spin::RwLock;
@@ -13,7 +13,7 @@ use syscall::files::{DirEntryInfo, FileStatus};
 #[derive(Copy, Clone)]
 struct DeviceHandle {
   pub device_number: usize,
-  pub local_index: usize,
+  pub io_handle: IOHandle,
 }
 
 pub struct DevFileSystem {
@@ -54,12 +54,12 @@ impl KernelFileSystem for DevFileSystem {
     let device_name = path_segments.next().ok_or(())?;
     let device_number = get_device_number_by_name(device_name).ok_or(())?;
 
-    let local_index = self.run_device_operation(device_number, |driver| driver.open())?;
+    let io_handle = self.run_device_operation(device_number, |driver| driver.open())?;
     
     let handle = self.handle_to_device.write().insert(
       DeviceHandle {
         device_number,
-        local_index,
+        io_handle,
       }
     );
     
@@ -71,7 +71,7 @@ impl KernelFileSystem for DevFileSystem {
 
     self.run_device_operation(
       device_handle.device_number,
-      |driver| driver.read(device_handle.local_index, buffer),
+      |driver| driver.read(device_handle.io_handle, buffer),
     )
   }
 
@@ -80,7 +80,7 @@ impl KernelFileSystem for DevFileSystem {
 
     self.run_device_operation(
       device_handle.device_number,
-      |driver| driver.write(device_handle.local_index, buffer),
+      |driver| driver.write(device_handle.io_handle, buffer),
     )
   }
 
@@ -89,7 +89,7 @@ impl KernelFileSystem for DevFileSystem {
 
     self.run_device_operation(
       device_handle.device_number,
-      |driver| driver.close(device_handle.local_index),
+      |driver| driver.close(device_handle.io_handle),
     ).map(|_| ())
   }
 
@@ -102,7 +102,7 @@ impl KernelFileSystem for DevFileSystem {
 
     self.run_device_operation(
       device_handle.device_number,
-      |driver| driver.seek(device_handle.local_index, offset),
+      |driver| driver.seek(device_handle.io_handle, offset),
     )
   }
   
