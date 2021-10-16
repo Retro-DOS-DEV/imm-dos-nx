@@ -1,5 +1,4 @@
 use alloc::collections::VecDeque;
-use crate::collections::SlotList;
 use crate::task::id::ProcessID;
 use crate::task::{switching::{get_process, get_current_process}, yield_coop};
 use spin::RwLock;

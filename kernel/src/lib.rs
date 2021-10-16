@@ -230,17 +230,18 @@ pub extern fn run_init() {
   crate::klog!("System Time: \x1b[94m{:} {:}\x1b[m\n", current_time.date, current_time.time);
 
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
-  let stdin = task::io::open_path("DEV:\\TTY1").unwrap();
+  //let stdin = task::io::open_path("DEV:\\TTY1").unwrap();
+  let stdin = task::io::open_path("DEV:\\COM1").unwrap();
   let stdout = task::io::open_path("DEV:\\TTY1").unwrap();
   let stderr = task::io::dup(stdout, None).unwrap();
-  /*
+
   let r = task::exec::exec("INIT:\\dosio.com", loaders::InterpretationMode::DOS);
   if let Err(_) = r {
     kprintln!("Failed to run init process");
     loop {}
   }
-  */
 
+  /*
   let r = task::exec::exec("INIT:\\command.elf", loaders::InterpretationMode::Native);
   if let Err(_) = r {
     kprintln!("Failed to run init process");
@@ -248,6 +249,7 @@ pub extern fn run_init() {
       task::yield_coop();
     }
   }
+  */
 }
 
 #[inline(never)]

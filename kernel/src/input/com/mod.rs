@@ -38,6 +38,8 @@ pub extern "C" fn int_com2() {
 }
 
 pub fn handle_interrupt(index: usize) {
+  use crate::devices::queue::QueuedIO;
+
   let driver = unsafe {
     &device::COM_DEVICES[index]
   };
