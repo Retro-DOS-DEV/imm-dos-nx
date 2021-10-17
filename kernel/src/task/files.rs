@@ -13,3 +13,9 @@ pub struct OpenFile {
 /// A file map contains slots to open files. A FileHandle represents an index
 /// into this data structure.
 pub type FileMap = SlotList<OpenFile>;
+
+impl FileMap {
+  pub fn empty() -> Self {
+    SlotList::new()
+  }
+}

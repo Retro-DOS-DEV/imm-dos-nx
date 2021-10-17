@@ -30,7 +30,7 @@ pub struct Process {
   /// Stores IPC messages that have been sent to this process
   ipc_queue: IPCQueue,
   /// Stores references to all currently open files
-  open_files: FileMap,
+  pub open_files: FileMap,
   /// A Box pointing to the kernel stack for this process. Each stack is page-
   /// aligned, and exists in a reserved area of kernel memory space. The lowest
   /// page of each stack is read/write protected, to act as a guard page.

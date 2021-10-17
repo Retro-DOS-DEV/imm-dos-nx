@@ -49,6 +49,12 @@ impl TTYData {
     handle
   }
 
+  pub fn reopen(&self, process: ProcessID) -> IOHandle {
+    let handle = IOHandle::new(self.next_handle.fetch_add(1, Ordering::SeqCst));
+    self.descriptors.write().insert(Descriptor { process, handle });
+    handle
+  }
+
   pub fn close(&self, handle: IOHandle) {
     let mut descriptors = self.descriptors.write();
     let index = descriptors
@@ -139,6 +145,15 @@ impl TTYRouter {
     let data = set.get(index);
     match data {
       Some(tty) => Some(tty.open()),
+      None => None,
+    }
+  }
+
+  pub fn reopen_device(&self, index: usize, id: ProcessID) -> Option<IOHandle> {
+    let set = self.tty_set.read();
+    let data = set.get(index);
+    match data {
+      Some(tty) => Some(tty.reopen(id)),
       None => None,
     }
   }

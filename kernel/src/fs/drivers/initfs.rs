@@ -8,6 +8,7 @@ use crate::files::{cursor::SeekMethod, handle::{Handle, LocalHandle}};
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
 use crate::fs::KernelFileSystem;
+use crate::task::id::ProcessID;
 use syscall::files::{DirEntryInfo, FileStatus};
 
 struct OpenFile {
@@ -92,7 +93,7 @@ impl KernelFileSystem for InitFileSystem {
     Err(())
   }
 
-  fn dup(&self, handle: LocalHandle) -> Result<LocalHandle, ()> {
+  fn reopen(&self, handle: LocalHandle, id: ProcessID) -> Result<LocalHandle, ()> {
     Err(())
   }
 

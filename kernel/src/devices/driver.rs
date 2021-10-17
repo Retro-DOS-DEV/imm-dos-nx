@@ -1,4 +1,5 @@
 use crate::files::cursor::SeekMethod;
+use crate::task::id::ProcessID;
 
 #[repr(transparent)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,6 +27,10 @@ pub trait DeviceDriver {
   fn close(&self, index: IOHandle) -> Result<(), ()>;
 
   fn seek(&self, index: IOHandle, offset: SeekMethod) -> Result<usize, ()> {
+    Err(())
+  }
+
+  fn reopen(&self, index: IOHandle, id: ProcessID) -> Result<IOHandle, ()> {
     Err(())
   }
 }

@@ -14,10 +14,7 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
     let mut process = process_lock.write();
     let old_exec = process.prepare_exec_mapping(env.segments);
     // Remove the old exec and mmap mappings:
-    // Iterate over each section, and each page within the section
-    //   If the page is mapped, unmap it and free the frame
-    //   If the page is marked as copy-on-write, decrement the count for the frame
-
+    super::paging::unmap(old_exec);
 
     // Map a new stack frame, and push arguments onto it
 
@@ -32,7 +29,7 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
   match to_close {
     Some((close_drive, close_handle)) => {
       let (_, instance) = DRIVES.get_drive_instance(&close_drive).ok_or(SystemError::NoSuchFileSystem)?;
-      instance.close(close_handle).map_err(|_| SystemError::IOError)?;
+      //instance.close(close_handle).map_err(|_| SystemError::IOError)?;
     },
     None => (),
   }

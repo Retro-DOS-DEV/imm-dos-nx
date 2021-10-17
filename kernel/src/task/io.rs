@@ -4,6 +4,8 @@ use crate::files::handle::FileHandle;
 use crate::fs::{DRIVES, filesystem::KernelFileSystem};
 use crate::task::switching::get_current_process;
 use syscall::result::SystemError;
+use super::id::ProcessID;
+use super::files::{FileMap, OpenFile};
 
 pub fn open_path(path_str: &'static str) -> Result<FileHandle, SystemError> {
   let (drive, path) = filename::string_to_drive_and_path(path_str);
@@ -75,4 +77,23 @@ pub fn seek(handle: FileHandle, cursor: SeekMethod) -> Result<usize, SystemError
 
   let (_, instance) = DRIVES.get_drive_instance(&open_file_info.drive).ok_or(SystemError::NoSuchFileSystem)?;
   instance.seek(open_file_info.local_handle, cursor).map_err(|_| SystemError::IOError)
+}
+
+pub fn reopen_files(id: ProcessID, files: &mut FileMap) {
+  files.map_in_place(|open_file| {
+    match DRIVES.get_drive_instance(&open_file.drive) {
+      Some((_, instance)) => match instance.reopen(open_file.local_handle, id) {
+        Ok(local_handle) => {
+          Some(
+            OpenFile {
+              drive: open_file.drive,
+              local_handle,
+            }
+          )
+        },
+        Err(_) => None,
+      },
+      None => None,
+    }
+  });
 }

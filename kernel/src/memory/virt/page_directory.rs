@@ -37,21 +37,24 @@ impl CurrentPageDirectory {
     CurrentPageDirectory {}
   }
 
-  pub fn unmap(&self, vaddr: VirtualAddress) {
+  pub fn unmap(&self, vaddr: VirtualAddress) -> Option<PageTableEntry> {
     let dir_index = vaddr.get_page_directory_index();
     let table_index = vaddr.get_page_table_index();
     let directory = PageTable::at_address(VirtualAddress::new(0xfffff000));
     if !directory.get(dir_index).is_present() {
-      return;
+      return None;
     }
     let table = PageTable::at_address(VirtualAddress::new(
       0xffc00000 + 0x1000 * dir_index,
     ));
-    if !table.get(table_index).is_present() {
-      return;
+    let entry = *table.get(table_index);
+    if !entry.is_present() {
+      return None;
     }
     table.get_mut(table_index).clear_present();
     invalidate_page(vaddr);
+
+    Some(entry)
   }
 
   pub fn unmap_region(&self, region: VirtualMemoryRegion) {

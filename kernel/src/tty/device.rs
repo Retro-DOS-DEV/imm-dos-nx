@@ -1,4 +1,5 @@
 use crate::devices::driver::{DeviceDriver, IOHandle};
+use crate::task::id::ProcessID;
 
 /// Device driver representing a TTY, so a shell program can open up DEV:/TTY1
 /// and listen to console input / publish to the terminal.
@@ -67,5 +68,14 @@ impl DeviceDriver for TTYDevice {
       crate::task::yield_coop();
     }
     Ok(total_written)
+  }
+
+  fn reopen(&self, index: IOHandle, id: ProcessID) -> Result<IOHandle, ()> {
+    let router = super::get_router().read();
+    let new_handle = router.reopen_device(self.tty_id, id);
+    match new_handle {
+      Some(handle) => Ok(handle),
+      None => Err(()),
+    }
   }
 }

@@ -156,12 +156,12 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
       let mut current_pagedir = CurrentPageDirectory::get();
       let page_table_entry = current_pagedir.get_table_entry_for(vaddr);
       if let Some(entry) = page_table_entry {
-        kprintln!("ENTRY: {:b}", entry.0);
+        //kprintln!("ENTRY: {:b}", entry.0);
         if entry.is_cow() {
           let new_count = crate::task::paging::decrement_cow(entry.get_address());
           if new_count == 0 {
             // this was the only reference to the frame, simply mark it as readable
-            kprintln!("Entry is no longer marked COW");
+            //kprintln!("Entry is no longer marked COW");
             entry.clear_cow();
             entry.set_write_access();
             invalidate_page(vaddr);

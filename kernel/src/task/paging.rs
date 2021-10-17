@@ -5,18 +5,18 @@ use crate::files::cursor::SeekMethod;
 use crate::fs::DRIVES;
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use crate::memory::physical::frame::Frame;
-use crate::memory::virt::page_directory::{self, AlternatePageDirectory, PageDirectory, PermissionFlags};
+use crate::memory::virt::page_directory::{self, AlternatePageDirectory, CurrentPageDirectory, PageDirectory, PermissionFlags};
 use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
-use super::memory::{USER_KERNEL_BARRIER, MMapBacking, MMapRegion};
+use super::memory::{USER_KERNEL_BARRIER, ExecutionSegment, MMapBacking, MMapRegion};
 use super::process::Process;
 use super::stack::UnmappedPage;
 
 pub static COW_REFERENCE_COUNT: RwLock<BTreeMap<usize, usize>> = RwLock::new(BTreeMap::new());
+pub static STACK_SIZE: usize = 0x2000;
 
 pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bool {
-  let stack_size = 0x2000;
-  let stack_range = VirtualAddress::new(USER_KERNEL_BARRIER - stack_size)..VirtualAddress::new(USER_KERNEL_BARRIER);
+  let stack_range = VirtualAddress::new(USER_KERNEL_BARRIER - STACK_SIZE)..VirtualAddress::new(USER_KERNEL_BARRIER);
 
   let heap_range = lock.read().memory.get_heap_address_range();
   
@@ -181,7 +181,7 @@ pub fn duplicate_frame(page_start: VirtualAddress) -> PhysicalAddress {
     let dest = core::slice::from_raw_parts_mut(temp_addr.as_usize() as *mut u8, 4096);
     dest.copy_from_slice(&src);
   }
-  crate::kprintln!("Copy from {:?} to {:?}", page_start, temp_addr);
+  //crate::kprintln!("Copy from {:?} to {:?}", page_start, temp_addr);
   new_frame.get_address()
 }
 
@@ -222,7 +222,7 @@ pub fn decrement_cow(frame_start: PhysicalAddress) -> usize {
   };
   match remainder {
     Some(x) if x < 2 => {
-      crate::kprintln!("Frame is no longer COW: {:#010X}", key);
+      //crate::kprintln!("Frame is no longer COW: {:#010X}", key);
       COW_REFERENCE_COUNT.write().remove(&key);
       x
     },
@@ -237,4 +237,36 @@ pub fn invalidate_page(addr: VirtualAddress) {
   unsafe {
     llvm_asm!("invlpg ($0)" : : "r"(addr.as_u32()));
   }
+}
+
+pub fn unmap(exec_segments: Vec<ExecutionSegment>) {
+  let current_pagedir = page_directory::CurrentPageDirectory::get();
+  for segment in exec_segments.iter() {
+    let mut cur: VirtualAddress = segment.address;
+    let end: VirtualAddress = segment.address + segment.size;
+
+    while cur < end {
+      if let Some(mapping) = current_pagedir.unmap(cur) {
+        if mapping.is_cow() {
+          decrement_cow(mapping.get_address());
+        }
+      }
+      cur = cur + 4096;
+    }
+  }
+  // unmap stack
+  {
+    let mut cur = VirtualAddress::new(USER_KERNEL_BARRIER - STACK_SIZE);
+    let stack_end = VirtualAddress::new(USER_KERNEL_BARRIER);
+    while cur < stack_end {
+      if let Some(mapping) = current_pagedir.unmap(cur) {
+        if mapping.is_cow() {
+          decrement_cow(mapping.get_address());
+        }
+      }
+      cur = cur + 4096;
+    }
+  }
+
+  // unmap heap?
 }

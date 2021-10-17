@@ -79,6 +79,19 @@ impl<T: Sized> SlotList<T> {
   pub fn iter(&self) -> impl Iterator<Item = &T> {
     self.slots.iter().filter_map(|i| i.as_ref())
   }
+
+  pub fn map_in_place<F>(&mut self, f: F)
+    where F: Fn(&T) -> Option<T> {
+    for i in 0..self.slots.len() {
+      if let Some(entry) = self.slots.get_mut(i) {
+        *entry = if let Some(content) = entry {
+          f(content)
+        } else {
+          None
+        };
+      }
+    }
+  }
 }
 
 impl<T: Clone> Clone for SlotList<T> {

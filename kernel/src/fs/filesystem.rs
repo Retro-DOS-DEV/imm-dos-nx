@@ -37,6 +37,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use crate::files::cursor::SeekMethod;
 use crate::files::handle::LocalHandle;
+use crate::task::id::ProcessID;
 use syscall::files::{DirEntryInfo, FileStatus};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -68,7 +69,7 @@ pub trait KernelFileSystem {
   fn close(&self, handle: LocalHandle) -> Result<(), ()>;
 
   /// Create a duplicate reference to an existing handle.
-  fn dup(&self, handle: LocalHandle) -> Result<LocalHandle, ()>;
+  fn reopen(&self, handle: LocalHandle, id: ProcessID) -> Result<LocalHandle, ()>;
 
   /// Update the cursor that determines the starting point for reads and writes.
   /// On success, it returns the new cursor location.

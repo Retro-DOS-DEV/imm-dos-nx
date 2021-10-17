@@ -7,6 +7,7 @@ use crate::collections::SlotList;
 use crate::devices::{get_driver_for_device, get_device_number_by_name, driver::{DeviceDriverType, IOHandle}};
 use crate::files::{cursor::SeekMethod, handle::{Handle, LocalHandle}};
 use crate::fs::KernelFileSystem;
+use crate::task::id::ProcessID;
 use spin::RwLock;
 use syscall::files::{DirEntryInfo, FileStatus};
 
@@ -93,8 +94,22 @@ impl KernelFileSystem for DevFileSystem {
     ).map(|_| ())
   }
 
-  fn dup(&self, handle: LocalHandle) -> Result<LocalHandle, ()> {
-    Err(())
+  fn reopen(&self, handle: LocalHandle, id: ProcessID) -> Result<LocalHandle, ()> {
+    let device_handle = self.get_device_handle(handle).ok_or(())?;
+
+    let io_handle = self.run_device_operation(
+      device_handle.device_number,
+      |driver| driver.reopen(device_handle.io_handle, id),
+    )?;
+
+    let new_handle = self.handle_to_device.write().insert(
+      DeviceHandle {
+        device_number: device_handle.device_number,
+        io_handle,
+      }
+    );
+    
+    Ok(LocalHandle::new(new_handle as u32))
   }
 
   fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()> {

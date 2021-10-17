@@ -105,6 +105,7 @@ pub fn fork(current_ticks: u32, include_userspace: bool) -> ProcessID {
     let parent = current_process.read();
     parent.create_fork(next_id, current_ticks)
   };
+  super::io::reopen_files(*child.get_id(), &mut child.open_files);
   map_kernel_stack(child.get_stack_range());
   child.page_directory = fork_page_directory(include_userspace);
   super::stack::duplicate_stack(
