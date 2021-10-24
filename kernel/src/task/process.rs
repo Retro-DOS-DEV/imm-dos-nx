@@ -311,6 +311,10 @@ impl Process {
     self.exec_file.replace((drive_id, handle))
   }
 
+  pub fn remove_exec_file(&mut self) -> Option<(DriveID, LocalHandle)> {
+    self.exec_file.take()
+  }
+
   /// Create a copy of this process and its memory space.
   pub fn create_fork(&self, new_id: ProcessID, current_ticks: u32) -> Process {
     let new_stack = super::stack::allocate_stack();

@@ -9,6 +9,8 @@ use syscall::result::SystemError;
 /// Load an executable file from disk, map it into memory, and begin execution
 pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<(), SystemError> {
   let (drive_id, local_handle, env) = loaders::load_executable(path_str, interp_mode).map_err(|e| e.to_system_error())?;
+  // TODO: If anything fails within or after this block, we need a way to
+  // "rewind" the changes here.
   let to_close = {
     let process_lock = get_current_process();
     let mut process = process_lock.write();
@@ -29,7 +31,7 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
   match to_close {
     Some((close_drive, close_handle)) => {
       let (_, instance) = DRIVES.get_drive_instance(&close_drive).ok_or(SystemError::NoSuchFileSystem)?;
-      //instance.close(close_handle).map_err(|_| SystemError::IOError)?;
+      instance.close(close_handle).map_err(|_| SystemError::IOError)?;
     },
     None => (),
   }

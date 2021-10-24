@@ -1,7 +1,7 @@
 use crate::files::cursor::SeekMethod;
 use crate::files::filename;
-use crate::files::handle::FileHandle;
-use crate::fs::{DRIVES, filesystem::KernelFileSystem};
+use crate::files::handle::{FileHandle, LocalHandle};
+use crate::fs::{DRIVES, drive::DriveID, filesystem::KernelFileSystem};
 use crate::task::switching::get_current_process;
 use syscall::result::SystemError;
 use super::id::ProcessID;
@@ -96,4 +96,10 @@ pub fn reopen_files(id: ProcessID, files: &mut FileMap) {
       None => None,
     }
   });
+}
+
+pub fn reopen_executable(id: ProcessID, exec: Option<(DriveID, LocalHandle)>) -> Option<(DriveID, LocalHandle)> {
+  let (drive_id, local_handle) = exec?;
+  let (_, instance) = DRIVES.get_drive_instance(&drive_id)?;
+  instance.reopen(local_handle, id).ok().map(|handle| (drive_id, handle))
 }

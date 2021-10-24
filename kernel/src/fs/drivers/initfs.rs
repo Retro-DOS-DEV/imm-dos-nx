@@ -11,6 +11,7 @@ use crate::fs::KernelFileSystem;
 use crate::task::id::ProcessID;
 use syscall::files::{DirEntryInfo, FileStatus};
 
+#[derive(Clone)]
 struct OpenFile {
   pub cursor: usize,
   pub length: usize,
@@ -90,11 +91,20 @@ impl KernelFileSystem for InitFileSystem {
   }
 
   fn close(&self, handle: LocalHandle) -> Result<(), ()> {
-    Err(())
+    let index = handle.as_usize();
+    self.open_files
+      .write()
+      .remove(index)
+      .map_or(Err(()), |_| Ok(()))
   }
 
   fn reopen(&self, handle: LocalHandle, id: ProcessID) -> Result<LocalHandle, ()> {
-    Err(())
+    let reopened_file= match self.open_files.write().get_mut(handle.as_usize()) {
+      Some(open_file) => Ok(open_file.clone()),
+      None => Err(()),
+    }?;
+    let index = self.open_files.write().insert(reopened_file);
+    Ok(LocalHandle::new(index as u32))
   }
 
   fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {

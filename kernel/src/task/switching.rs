@@ -106,6 +106,17 @@ pub fn fork(current_ticks: u32, include_userspace: bool) -> ProcessID {
     parent.create_fork(next_id, current_ticks)
   };
   super::io::reopen_files(*child.get_id(), &mut child.open_files);
+  {
+    // re-open the executable file
+    match super::io::reopen_executable(*child.get_id(), child.get_exec_file()) {
+      Some((drive, handle)) => {
+        child.set_exec_file(drive, handle);
+      },
+      None => {
+        child.remove_exec_file();
+      },
+    }
+  }
   map_kernel_stack(child.get_stack_range());
   child.page_directory = fork_page_directory(include_userspace);
   super::stack::duplicate_stack(
