@@ -15,13 +15,12 @@ pub mod buffers;
 pub mod collections;
 pub mod dos;
 pub mod files;
-pub mod filesystems;
 pub mod fs;
 pub mod input;
 pub mod interrupts;
 pub mod loaders;
 pub mod memory;
-pub mod pipes;
+//pub mod pipes;
 pub mod promise;
 pub mod task;
 pub mod time;
@@ -34,8 +33,6 @@ pub mod devices;
 pub mod gdt;
 #[cfg(not(test))]
 pub mod hardware;
-//#[cfg(not(test))]
-//pub mod idt;
 #[cfg(not(test))]
 pub mod init;
 #[cfg(not(test))]
