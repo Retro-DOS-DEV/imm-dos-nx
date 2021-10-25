@@ -68,6 +68,7 @@ pub fn determine_format(
   drive_id: DriveID,
   local_handle: LocalHandle,
   interp_mode: InterpretationMode,
+  extension: Option<&str>,
 ) -> Result<ExecutableFormat, LoaderError> {
   let mut magic_number: [u8; 4] = [0; 4];
   let (_, instance) = DRIVES.get_drive_instance(&drive_id).ok_or(LoaderError::FileNotFound)?;
@@ -81,7 +82,11 @@ pub fn determine_format(
       } else if is_mz {
         ExecutableFormat::MZ
       } else {
-        ExecutableFormat::BIN
+        match extension {
+          Some("com") => ExecutableFormat::COM,
+          Some("bin") => ExecutableFormat::BIN,
+          _ => ExecutableFormat::BIN,
+        }
       }
     },
     InterpretationMode::Native => {
@@ -114,7 +119,9 @@ pub fn load_executable(
   let (_, instance) = DRIVES.get_drive_instance(&drive_id).ok_or(LoaderError::FileNotFound)?;
   let local_handle = instance.open(path).map_err(|_| LoaderError::FileNotFound)?;
 
-  let format = determine_format(drive_id, local_handle, interp_mode)?;
+  let ext = filename::get_extension(path_str);
+
+  let format = determine_format(drive_id, local_handle, interp_mode, ext)?;
   let env = match format {
     ExecutableFormat::BIN => {
       bin::build_environment(drive_id, local_handle)

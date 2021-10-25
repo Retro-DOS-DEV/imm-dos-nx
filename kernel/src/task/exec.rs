@@ -1,6 +1,7 @@
 use crate::dos::state::VMState;
 use crate::fs::DRIVES;
 use crate::loaders;
+use crate::memory::address::VirtualAddress;
 use crate::task::switching::{get_current_process, yield_coop};
 use super::regs::EnvironmentRegisters;
 use super::vm::Subsystem;
@@ -16,7 +17,8 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
     let mut process = process_lock.write();
     let old_exec = process.prepare_exec_mapping(env.segments);
     // Remove the old exec and mmap mappings:
-    super::paging::unmap(old_exec);
+    let heap_range = process.memory.get_heap_page_range();
+    super::paging::unmap_task(old_exec, heap_range);
 
     // Map a new stack frame, and push arguments onto it
 
@@ -123,4 +125,34 @@ pub fn terminate(exit_code: u32) {
     }
   }
   yield_coop();
+}
+
+pub fn set_heap_top(addr: VirtualAddress) -> Result<VirtualAddress, ()> {
+  let current_process_lock = get_current_process();
+  let mut cur = current_process_lock.write();
+  let heap_start = cur.memory.get_heap_start();
+  if addr < heap_start {
+    return Err(());
+  }
+  let size = addr - heap_start;
+  cur.memory.set_heap_size(size);
+  Ok(cur.memory.get_heap_start() + cur.memory.get_heap_size())
+}
+
+pub fn move_heap_top(delta: isize) -> Result<VirtualAddress, ()> {
+  let current_process_lock = get_current_process();
+  let mut cur = current_process_lock.write();
+  if delta != 0 {
+    let current_size = cur.memory.get_heap_size();
+    let new_size = current_size as isize + delta;
+    if new_size < 0 {
+      return Err(());
+    } else {
+      cur.memory.set_heap_size(new_size as usize);
+    }
+
+    // if the heap shrank, do we need to unmap pages?
+  }
+
+  Ok(cur.memory.get_heap_start() + cur.memory.get_heap_size())
 }

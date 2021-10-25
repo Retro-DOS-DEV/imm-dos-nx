@@ -1,6 +1,7 @@
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::ops::Range;
 use crate::files::cursor::SeekMethod;
 use crate::fs::DRIVES;
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
@@ -239,7 +240,8 @@ pub fn invalidate_page(addr: VirtualAddress) {
   }
 }
 
-pub fn unmap(exec_segments: Vec<ExecutionSegment>) {
+/// Unmap a task, removing its executable segments, stack, and heap
+pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<VirtualAddress>) {
   let current_pagedir = page_directory::CurrentPageDirectory::get();
   for segment in exec_segments.iter() {
     let mut cur: VirtualAddress = segment.address;
@@ -268,5 +270,17 @@ pub fn unmap(exec_segments: Vec<ExecutionSegment>) {
     }
   }
 
-  // unmap heap?
+  // unmap heap
+  {
+    let mut cur = heap_pages.start;
+    let heap_end = heap_pages.end;
+    while cur < heap_end {
+      if let Some(mapping) = current_pagedir.unmap(cur) {
+        if mapping.is_cow() {
+          decrement_cow(mapping.get_address());
+        }
+      }
+      cur = cur + 4096;
+    }
+  }
 }

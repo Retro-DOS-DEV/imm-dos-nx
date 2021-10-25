@@ -50,15 +50,14 @@ pub fn wait_pid(id: u32) -> (u32, u32) {
 }
 
 pub fn brk(method: u32, offset: u32) -> Result<u32, ()> {
-  let cur = process::current_process().ok_or(())?;
   match method {
     0 => { // Absolute
       let addr = VirtualAddress::new(offset as usize);
-      cur.set_heap_break(addr).map(|addr| addr.as_u32())
+      task::exec::set_heap_top(addr).map(|addr| addr.as_u32())
     },
     1 => { // Relative
       let delta = offset as i32 as isize;
-      cur.move_heap_break(delta).map(|addr| addr.as_u32())
+      task::exec::move_heap_top(delta).map(|addr| addr.as_u32())
     },
     _ => {
       Err(())

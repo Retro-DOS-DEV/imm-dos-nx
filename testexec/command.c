@@ -76,10 +76,7 @@ void _start() {
       path_ptr.addr = (int) readbuffer;
       path_ptr.length = command_end;
 
-      //char *dosio = "INIT:\\dosio.com";
-      //path_ptr.addr = (int) dosio;
-      //path_ptr.length = 15;
-      exec(&path_ptr, 2);
+      exec(&path_ptr, 0);
       
       write_file(stdout, "\nFailed to execute program\n");
       terminate(1);
