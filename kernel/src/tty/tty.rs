@@ -37,6 +37,9 @@ pub struct TTY {
   csi_args: Vec<Option<u32>>,
   /// Access to VGA video memory, also stores the current cursor info
   text_buffer: TextMode,
+  /// Length of actual text (non special characters) in the read buffer, when in
+  /// canonical mode
+  canonical_length: usize,
 
   back_buffer: Vec<u8>,
 }
@@ -55,6 +58,7 @@ impl TTY {
       parse_state: ParseState::Ready,
       csi_args: Vec::with_capacity(8),
       text_buffer: TextMode::new(VirtualAddress::new(0xc00b8000)),
+      canonical_length: 0,
       back_buffer,
     }
   }
@@ -63,7 +67,32 @@ impl TTY {
     self.is_active = active;
   }
 
+  pub fn reset_canonical_length(&mut self) {
+    self.canonical_length = 0;
+  }
+
+  pub fn is_canonical_mode(&self) -> bool {
+    match self.read_mode {
+      ReadMode::Canonical => true,
+      _ => false,
+    }
+  }
+
   pub fn send_data(&mut self, byte: u8) {
+    if byte == 8 {
+      // handle backspace
+      if self.show_cursor {
+        self.text_buffer.invert_cursor();
+      }
+      self.text_buffer.move_cursor_relative(-1, 0);
+      self.text_buffer.write_byte(b' ');
+      self.text_buffer.move_cursor_relative(-1, 0);
+      if self.show_cursor {
+        self.text_buffer.invert_cursor();
+      }
+      return;
+    }
+
     let output = unsafe { self.process_character(byte) };
 
     if let Some(ch) = output {
@@ -75,6 +104,21 @@ impl TTY {
   }
 
   pub fn handle_input(&mut self, byte: u8) {
+    if self.is_canonical_mode() {
+      if byte == 8 {
+        if self.canonical_length > 0 {
+          self.canonical_length -= 1;
+          self.send_data(byte);
+        }
+        return;
+      }
+      if byte == b'\n' {
+        self.canonical_length = 0;
+      } else {
+        self.canonical_length += 1;
+      }
+    }
+
     if self.echo {
       self.send_data(byte);
     }

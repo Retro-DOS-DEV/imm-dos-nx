@@ -97,8 +97,15 @@ impl TTYReaderBuffer {
         }
         let partial_read = self.buffer.read(&mut byte_buffer);
         if partial_read > 0 {
-          dest[bytes_read] = byte_buffer[0];
-          bytes_read += partial_read;
+          if byte_buffer[0] == 8 /* and in canonical mode */ {
+            // handle backspace
+            if bytes_read > 0 {
+              bytes_read -= 1;
+            }
+          } else {
+            dest[bytes_read] = byte_buffer[0];
+            bytes_read += partial_read;
+          }
         }
       }
       bytes_read
