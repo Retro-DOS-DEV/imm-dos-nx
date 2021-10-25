@@ -32,7 +32,7 @@ pub fn reset_known_time(time: u64) {
   }
 
   if int_reenable {
-    interrupts::sti();
+    interrupts::control::sti();
   }
 }
 

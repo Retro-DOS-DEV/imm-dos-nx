@@ -3,13 +3,13 @@ use crate::{devices, interrupts};
 
 #[cfg(not(feature = "testing"))]
 pub fn _kprint(args: fmt::Arguments) {
-  let int_reenable = interrupts::is_interrupt_enabled();
-  interrupts::cli();
+  let int_reenable = interrupts::control::is_interrupt_enabled();
+  interrupts::control::cli();
   unsafe {
     devices::VGA_TEXT.write_fmt(args).unwrap();
   }
   if int_reenable {
-    interrupts::sti();
+    interrupts::control::sti();
   }
 }
 
