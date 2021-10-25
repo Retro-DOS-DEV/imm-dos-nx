@@ -1,28 +1,16 @@
+#[cfg(not(test))]
+pub mod control;
+#[cfg(not(test))]
 pub mod exceptions;
+#[cfg(not(test))]
 pub mod handlers;
+#[cfg(not(test))]
 pub mod idt;
+#[cfg(not(test))]
 pub mod pic;
-pub mod stack;
+#[cfg(not(test))]
 pub mod syscall;
+#[cfg(not(test))]
 pub mod syscall_legacy;
 
-pub fn cli() {
-  unsafe {
-    llvm_asm!("cli" : : : : "volatile");
-  }
-}
-
-pub fn sti() {
-  unsafe {
-    llvm_asm!("sti" : : : : "volatile");
-  }
-}
-
-#[inline]
-pub fn is_interrupt_enabled() -> bool {
-  let flags: u32;
-  unsafe {
-    llvm_asm!("pushfd; pop $0" : "=r"(flags) : : : "intel", "volatile");
-  }
-  flags & 0x200 == 0x200
-}
+pub mod stack;

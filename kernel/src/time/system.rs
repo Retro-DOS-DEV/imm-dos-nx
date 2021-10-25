@@ -23,8 +23,8 @@ static SYSTEM_TICKS: AtomicU32 = AtomicU32::new(0);
 
 /// Reset the known true reference point
 pub fn reset_known_time(time: u64) {
-  let int_reenable = interrupts::is_interrupt_enabled();
-  interrupts::cli();
+  let int_reenable = interrupts::control::is_interrupt_enabled();
+  interrupts::control::cli();
 
   {
     KNOWN_TIME.lock().set(time);
@@ -37,8 +37,8 @@ pub fn reset_known_time(time: u64) {
 }
 
 pub fn get_system_time() -> TimestampHires {
-  let int_reenable = interrupts::is_interrupt_enabled();
-  interrupts::cli();
+  let int_reenable = interrupts::control::is_interrupt_enabled();
+  interrupts::control::cli();
 
   let known = {
     *KNOWN_TIME.lock()
@@ -48,36 +48,36 @@ pub fn get_system_time() -> TimestampHires {
   };
 
   if int_reenable {
-    interrupts::sti();
+    interrupts::control::sti();
   }
 
   known + offset
 }
 
 pub fn get_offset_seconds() -> u64 {
-  let int_reenable = interrupts::is_interrupt_enabled();
-  interrupts::cli();
+  let int_reenable = interrupts::control::is_interrupt_enabled();
+  interrupts::control::cli();
 
   let seconds = {
     TIME_OFFSET.lock().in_seconds()
   };
 
   if int_reenable {
-    interrupts::sti();
+    interrupts::control::sti();
   }
   seconds
 }
 
 pub fn increment_offset(delta: u64) {
-  let int_reenable = interrupts::is_interrupt_enabled();
-  interrupts::cli();
+  let int_reenable = interrupts::control::is_interrupt_enabled();
+  interrupts::control::cli();
 
   {
     TIME_OFFSET.lock().increment(delta);
   }
 
   if int_reenable {
-    interrupts::sti();
+    interrupts::control::sti();
   }
 }
 

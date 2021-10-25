@@ -2,7 +2,7 @@ use crate::files::cursor::SeekMethod;
 use crate::files::filename;
 use crate::files::handle::{FileHandle, LocalHandle};
 use crate::fs::{DRIVES, drive::DriveID, filesystem::KernelFileSystem};
-use crate::task::switching::get_current_process;
+use crate::task::get_current_process;
 use syscall::result::SystemError;
 use super::id::ProcessID;
 use super::files::{FileMap, OpenFile};

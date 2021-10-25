@@ -1,4 +1,4 @@
-use crate::task::switching::get_current_process;
+use crate::task::get_current_process;
 use crate::task::vm::Subsystem;
 use super::memory::SegmentedAddress;
 use super::registers::{DosApiRegisters, VM86Frame};
@@ -141,8 +141,7 @@ pub fn terminate(cs: u16) -> SegmentedAddress {
     },
     None => {
       // Top-level DOS program, exit the process
-      crate::klog!("Terminating DOS Process");
-      crate::task::exec::terminate(0);
+      crate::task::terminate(0);
       SegmentedAddress {
         segment: 0,
         offset: 0,

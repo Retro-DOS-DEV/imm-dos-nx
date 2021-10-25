@@ -72,7 +72,6 @@ pub fn build_single_section_environment_with_psp(
   let code_start = psp_start + psp_size;
   let mut page_start = VirtualAddress::new(psp_start)
     .prev_page_barrier();
-  crate::kprintln!("SEGMENT START: {:?}", page_start);
   let psp_section = ExecutionSection {
     segment_offset: psp_start - page_start.as_usize(),
     executable_offset: None,
@@ -90,7 +89,6 @@ pub fn build_single_section_environment_with_psp(
     page_count += 1;
   }
 
-  crate::kprintln!("PSP: {:X}-{:X}-{:X} ({})", psp_start, code_start, final_byte, page_count);
   let mut segment = ExecutionSegment::at_address(
     page_start,
     page_count,

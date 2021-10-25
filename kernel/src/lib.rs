@@ -18,6 +18,7 @@ pub mod files;
 pub mod filesystems;
 pub mod fs;
 pub mod input;
+pub mod interrupts;
 pub mod loaders;
 pub mod memory;
 pub mod pipes;
@@ -37,8 +38,6 @@ pub mod hardware;
 //pub mod idt;
 #[cfg(not(test))]
 pub mod init;
-#[cfg(not(test))]
-pub mod interrupts;
 #[cfg(not(test))]
 pub mod panic;
 #[cfg(not(test))]

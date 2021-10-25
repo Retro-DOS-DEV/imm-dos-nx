@@ -2,7 +2,6 @@
 pub mod exec;
 pub mod files;
 pub mod id;
-#[cfg(not(test))]
 pub mod io;
 pub mod ipc;
 pub mod memory;
@@ -44,3 +43,15 @@ pub fn wait(child_id: Option<id::ProcessID>) -> u32 {
   let code = current.write().resume_from_wait();
   code
 }
+
+#[cfg(not(test))]
+pub use switching::get_current_process;
+#[cfg(test)]
+pub fn get_current_process() -> alloc::sync::Arc<spin::RwLock<process::Process>> {
+  panic!("No current process in test");
+}
+
+#[cfg(not(test))]
+pub use exec::terminate;
+#[cfg(test)]
+pub fn terminate(exit_code: u32) {}
