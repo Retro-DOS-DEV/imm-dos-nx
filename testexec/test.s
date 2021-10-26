@@ -14,8 +14,17 @@ start:
   mov eax, 0x04
   mov ebx, 0
   mov ecx, edi
+  add ecx, 0x3000
+  int 0x2b
+  movb [edi + 0x2200], 0xfa
+
+  # shrink the heap a bit
+  mov eax, 0x04
+  mov ebx, 0
+  mov ecx, edi
   add ecx, 0x1000
   int 0x2b
+
   # attempt a write to heap space
   movb [edi + 4], 0xfc
 

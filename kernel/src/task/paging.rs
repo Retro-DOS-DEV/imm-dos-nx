@@ -240,6 +240,16 @@ pub fn invalidate_page(addr: VirtualAddress) {
   }
 }
 
+/// Unmap a single page, reducing COW counts as needed
+pub fn unmap_page(address: VirtualAddress) {
+  let current_pagedir = page_directory::CurrentPageDirectory::get();
+  if let Some(mapping) = current_pagedir.unmap(address) {
+    if mapping.is_cow() {
+      decrement_cow(mapping.get_address());
+    }
+  }
+}
+
 /// Unmap a task, removing its executable segments, stack, and heap
 pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<VirtualAddress>) {
   let current_pagedir = page_directory::CurrentPageDirectory::get();

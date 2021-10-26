@@ -134,8 +134,10 @@ pub fn set_heap_top(addr: VirtualAddress) -> Result<VirtualAddress, ()> {
   if addr < heap_start {
     return Err(());
   }
+  let prev_size = cur.memory.get_heap_size();
   let size = addr - heap_start;
   cur.memory.set_heap_size(size);
+  unmap_unused_heap(heap_start, prev_size, size);
   Ok(cur.memory.get_heap_start() + cur.memory.get_heap_size())
 }
 
@@ -151,8 +153,25 @@ pub fn move_heap_top(delta: isize) -> Result<VirtualAddress, ()> {
       cur.memory.set_heap_size(new_size as usize);
     }
 
-    // if the heap shrank, do we need to unmap pages?
+    let heap_start = cur.memory.get_heap_start();
+    unmap_unused_heap(heap_start, current_size, new_size as usize);
   }
 
   Ok(cur.memory.get_heap_start() + cur.memory.get_heap_size())
+}
+
+fn unmap_unused_heap(start: VirtualAddress, prev_size: usize, new_size: usize) {
+  if new_size >= prev_size {
+    return;
+  }
+
+  let prev_end = start + prev_size;
+  let new_end = start + new_size as usize;
+
+  let mut page = new_end.prev_page_barrier() + 4096;
+  let end = prev_end.prev_page_barrier();
+  while page <= end {
+    super::paging::unmap_page(page);
+    page = page + 4096;
+  }
 }
