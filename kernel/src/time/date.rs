@@ -38,6 +38,7 @@ impl core::fmt::Display for Time {
   }
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct DateTime {
   pub date: Date,
   pub time: Time,
@@ -52,6 +53,59 @@ const MONTH_START_OFFSET: [u32; 12] = [
 pub fn year_offset_from_days(days: u32) -> u32 {
   let hundredths = days * 100;
   hundredths / 36525
+}
+
+impl DateTime {
+  pub fn from_unix_epoch(seconds: u32) -> DateTime {
+    // from http://howardhinnant.github.io/date_algorithms.html
+    // 719468 = shift from epoch start to 2000-03-01
+    let days_shift = 719468;
+    let days_in_era = 146097;
+    let days = seconds / SECONDS_IN_DAY + days_shift;
+    let era = days / days_in_era;
+    let day_of_era = days - era * days_in_era;
+    let year_of_era = (
+      day_of_era -
+      day_of_era / 1460 +
+      day_of_era / 36524 -
+      day_of_era / (days_in_era - 1)
+    ) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (year_of_era * 365 + year_of_era / 4 - year_of_era / 100);
+    let month_partial = (day_of_year * 5 + 2) / 153;
+    let day_of_month = day_of_year - (153 * month_partial + 2) / 5 + 1;
+    let month = if month_partial < 10 { month_partial + 3 } else { month_partial - 9 };
+    
+    if month <= 2 {
+      year += 1;
+    }
+
+    if year < 1980 {
+      year = 0; // idk, fix this?
+    } else {
+      year -= 1980;
+    }
+
+    let seconds_of_day = seconds - (seconds / SECONDS_IN_DAY) * SECONDS_IN_DAY;
+    let hours = seconds_of_day / 60 / 60;
+    let minutes_of_day = seconds_of_day / 60;
+    let minutes = minutes_of_day - (hours * 60);
+    let sec = seconds_of_day - (hours * 60 * 60) - (minutes * 60);
+
+    DateTime {
+      date: Date {
+        day: day_of_month as u8,
+        month: month as u8,
+        year: year as u8,
+      },
+
+      time: Time {
+        seconds: sec as u8,
+        minutes: minutes as u8,
+        hours: hours as u8,
+      }
+    }
+  }
 }
 
 impl Timestamp {
@@ -120,7 +174,7 @@ impl Timestamp {
 
 #[cfg(test)]
 mod tests {
-  use super::{Date, Time, Timestamp, year_offset_from_days};
+  use super::{Date, Time, DateTime, Timestamp, year_offset_from_days};
 
   #[test]
   fn year_offset() {
@@ -171,5 +225,40 @@ mod tests {
   fn to_timestamp() {
     let dt = Timestamp(1278713001).to_datetime();
     assert_eq!(Timestamp::from_datetime(dt), Timestamp(1278713001));
+  }
+
+  #[test]
+  fn from_unix() {
+    assert_eq!(
+      DateTime::from_unix_epoch(951868800),
+      DateTime {
+        date: Date {
+          day: 1,
+          month: 3,
+          year: 20,
+        },
+        time: Time {
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+        },
+      },
+    );
+
+    assert_eq!(
+      DateTime::from_unix_epoch(1635291103),
+      DateTime {
+        date: Date {
+          day: 26,
+          month: 10,
+          year: 41,
+        },
+        time: Time {
+          hours: 23,
+          minutes: 31,
+          seconds: 43,
+        },
+      },
+    );
   }
 }

@@ -6,7 +6,7 @@ use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use crate::task::id::ProcessID;
 use crate::task::memory::MMapBacking;
 use spin::RwLock;
-use super::geometry::{Sector, SectorRange};
+use super::geometry::{SectorRange};
 use super::super::driver::{DeviceDriver, IOHandle};
 
 static CONTROLLER: FloppyDiskController = FloppyDiskController::new();

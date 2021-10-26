@@ -86,7 +86,7 @@ impl KernelFileSystem for InitFileSystem {
     Ok(to_read)
   }
 
-  fn write(&self, handle: LocalHandle, buffer: &[u8]) -> Result<usize, ()> {
+  fn write(&self, _handle: LocalHandle, _buffer: &[u8]) -> Result<usize, ()> {
     Ok(0)
   }
 
@@ -107,7 +107,7 @@ impl KernelFileSystem for InitFileSystem {
     Ok(LocalHandle::new(index as u32))
   }
 
-  fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {
+  fn ioctl(&self, _handle: LocalHandle, _command: u32, _arg: u32) -> Result<u32, ()> {
     Err(())
   }
 
@@ -122,11 +122,11 @@ impl KernelFileSystem for InitFileSystem {
     }
   }
 
-  fn open_dir(&self, path: &str) -> Result<LocalHandle, ()> {
+  fn open_dir(&self, _path: &str) -> Result<LocalHandle, ()> {
     Err(())
   }
 
-  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<bool, ()> {
+  fn read_dir(&self, _handle: LocalHandle, _index: usize, _info: &mut DirEntryInfo) -> Result<bool, ()> {
     Err(())
   }
 
@@ -149,7 +149,7 @@ pub struct CpioHeader {
   pub magic: u16,
   _device: u16,
   _inode: u16,
-  file_mode: u16,
+  pub file_mode: u16,
   _owner_uid: u16,
   _owner_gid: u16,
   _link_count: u16,
@@ -204,6 +204,11 @@ impl CpioHeader {
 
   pub fn get_filename_str(&self) -> &str {
     core::str::from_utf8(self.get_filename()).unwrap()
+  }
+
+  pub fn get_modification_time(&self) -> crate::time::date::DateTime {
+    let seconds = self.modification_time;
+    crate::time::date::DateTime::from_unix_epoch(seconds)
   }
 
   pub fn is_trailer(&self) -> bool {

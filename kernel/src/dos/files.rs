@@ -3,7 +3,6 @@ use super::execution::{PSP, get_current_psp_segment};
 use super::memory::{SegmentedAddress, get_asciiz_string};
 use super::registers::{DosApiRegisters, VM86Frame};
 use crate::files::handle::{FileHandle, Handle};
-use crate::interrupts::stack::StackFrame;
 use crate::task::io;
 
 #[repr(C, packed)]

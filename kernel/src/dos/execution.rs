@@ -1,7 +1,6 @@
 use crate::task::get_current_process;
 use crate::task::vm::Subsystem;
 use super::memory::SegmentedAddress;
-use super::registers::{DosApiRegisters, VM86Frame};
 
 /// The Program Segment Prefix (PSP) is an in-memory header that stores program
 /// state. It is always paragraph-aligned. Many of the fields are unused legacy
