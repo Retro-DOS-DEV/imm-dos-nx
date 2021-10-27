@@ -5,7 +5,6 @@
 use alloc::sync::Arc;
 use crate::collections::SlotList;
 use crate::devices::driver::{DeviceDriver, IOHandle};
-use crate::files::cursor::SeekMethod;
 use crate::task::switching::{get_current_id, get_current_process, yield_coop};
 use spin::RwLock;
 use super::super::buffers::InputBuffer;
@@ -39,7 +38,7 @@ impl DeviceDriver for KeyboardDriver {
     Ok(written)
   }
 
-  fn write(&self, slot: IOHandle, dest: &[u8]) -> Result<usize, ()> {
+  fn write(&self, _slot: IOHandle, _dest: &[u8]) -> Result<usize, ()> {
     Err(())
   }
 

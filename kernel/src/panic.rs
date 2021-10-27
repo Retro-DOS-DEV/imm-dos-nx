@@ -1,5 +1,4 @@
 use core::panic::PanicInfo;
-use crate::hardware::qemu;
 use crate::kprintln;
 
 #[cfg(all(not(feature = "testing"), not(test)))]
@@ -13,6 +12,6 @@ fn panic(info: &PanicInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
   kprintln!("[FAILED] {}", info);
-  qemu::debug_exit(3);
+  crate::hardware::qemu::debug_exit(3);
   loop {}
 }

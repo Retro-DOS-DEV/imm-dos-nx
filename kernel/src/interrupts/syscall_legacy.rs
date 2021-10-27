@@ -76,7 +76,7 @@ pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame
     0x0e => { // Select disk
       // Set the drive letter for the "active" disk
       // %dl is zero-based, 0 == A:, 25 == Z:
-      let drive = regs.dx & 0xff;
+      let _drive = regs.dx & 0xff;
       // On return, set %al to the letter of available drives
     },
     0x0f => { // Open file using FCB

@@ -121,19 +121,19 @@ impl KernelFileSystem for DevFileSystem {
     )
   }
   
-  fn open_dir(&self, path: &str) -> Result<LocalHandle, ()> {
+  fn open_dir(&self, _path: &str) -> Result<LocalHandle, ()> {
     Err(())
   }
 
-  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<bool, ()> {
+  fn read_dir(&self, _handle: LocalHandle, _index: usize, _info: &mut DirEntryInfo) -> Result<bool, ()> {
     Err(())
   }
 
-  fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {
+  fn ioctl(&self, _handle: LocalHandle, _command: u32, _arg: u32) -> Result<u32, ()> {
     Err(())
   }
 
-  fn stat(&self, handle: LocalHandle, status: &mut FileStatus) -> Result<(), ()> {
+  fn stat(&self, _handle: LocalHandle, _status: &mut FileStatus) -> Result<(), ()> {
     Err(())
   }
 }

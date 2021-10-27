@@ -60,7 +60,7 @@ pub fn init_allocator(location: VirtualAddress, size: usize) {
 pub fn map_allocator(location: VirtualAddress, initial_frame_count: usize) {
   for i in 0..initial_frame_count {
     let heap_frame = physical::allocate_frame().unwrap();
-    let heap_vaddr = VirtualAddress::new(0xc0400000 + i * 0x1000);
+    let heap_vaddr = location + (i * 0x1000);
     let current_mapping = CurrentPageDirectory::get();
     current_mapping.map(heap_frame, heap_vaddr, PermissionFlags::empty());
   }

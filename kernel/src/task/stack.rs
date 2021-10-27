@@ -119,7 +119,7 @@ static SCRATCH_PAGES: AtomicU32 = AtomicU32::new(0);
 /// To use these pages, we allocate UnmappedPage structs which mark a scratch
 /// page as occupied, and release it when dropped.
 pub struct UnmappedPage {
-  address: PhysicalAddress,
+  pub address: PhysicalAddress,
   scratch_index: usize,
 }
 
@@ -177,7 +177,6 @@ mod tests {
     find_free_space,
     free_index,
     SCRATCH_PAGES,
-    STACK_SIZE_IN_PAGES,
     UnmappedPage,
   };
 

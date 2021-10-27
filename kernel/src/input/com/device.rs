@@ -11,7 +11,7 @@ use crate::collections::SlotList;
 use crate::devices::driver::{DeviceDriver, IOHandle};
 use crate::devices::queue::QueuedIO;
 use crate::task::id::ProcessID;
-use crate::task::switching::{get_current_id, get_current_process, get_process, yield_coop};
+use crate::task::switching::{get_current_id, get_current_process, yield_coop};
 use super::serial::SerialPort;
 use spin::RwLock;
 
@@ -86,7 +86,7 @@ impl ComDevice {
     })
   }
 
-  pub fn write(&self, handle: IOHandle, src: &[u8]) -> usize {
+  pub fn write(&self, _handle: IOHandle, src: &[u8]) -> usize {
     // TODO: make this not blocking
     let mut written = 0;
     for value in src.iter() {

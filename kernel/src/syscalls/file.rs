@@ -1,6 +1,6 @@
 use crate::files::cursor::SeekMethod;
 use crate::files::handle::{FileHandle, Handle};
-use syscall::files::{DirEntryInfo, DirEntryType};
+use syscall::files::{DirEntryInfo};
 use syscall::result::SystemError;
 
 pub fn open_path(path_str: &'static str) -> Result<u32, SystemError> {

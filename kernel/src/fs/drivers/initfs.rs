@@ -98,7 +98,7 @@ impl KernelFileSystem for InitFileSystem {
       .map_or(Err(()), |_| Ok(()))
   }
 
-  fn reopen(&self, handle: LocalHandle, id: ProcessID) -> Result<LocalHandle, ()> {
+  fn reopen(&self, handle: LocalHandle, _id: ProcessID) -> Result<LocalHandle, ()> {
     let reopened_file= match self.open_files.write().get_mut(handle.as_usize()) {
       Some(open_file) => Ok(open_file.clone()),
       None => Err(()),

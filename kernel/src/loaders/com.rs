@@ -70,7 +70,7 @@ pub fn build_single_section_environment_with_psp(
   let psp_start = psp_segment << 4;
   let psp_size = core::mem::size_of::<PSP>();
   let code_start = psp_start + psp_size;
-  let mut page_start = VirtualAddress::new(psp_start)
+  let page_start = VirtualAddress::new(psp_start)
     .prev_page_barrier();
   let psp_section = ExecutionSection {
     segment_offset: psp_start - page_start.as_usize(),

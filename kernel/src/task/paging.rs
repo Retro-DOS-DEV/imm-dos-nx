@@ -6,7 +6,7 @@ use crate::files::cursor::SeekMethod;
 use crate::fs::DRIVES;
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use crate::memory::physical::frame::Frame;
-use crate::memory::virt::page_directory::{self, AlternatePageDirectory, CurrentPageDirectory, PageDirectory, PermissionFlags};
+use crate::memory::virt::page_directory::{self, AlternatePageDirectory, PageDirectory, PermissionFlags};
 use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
 use super::memory::{USER_KERNEL_BARRIER, ExecutionSegment, MMapBacking, MMapRegion};

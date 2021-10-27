@@ -1,5 +1,5 @@
 use crate::kprintln;
-use crate::syscalls::{exec, file, fs};
+use crate::syscalls::{exec, file};
 use super::stack;
 use syscall::result::SystemError;
 
@@ -37,7 +37,7 @@ impl core::fmt::Debug for SavedRegisters {
 
 #[no_mangle]
 #[inline(never)]
-pub unsafe extern "C" fn _syscall_inner(frame: &stack::StackFrame, registers: &mut SavedRegisters) {
+pub unsafe extern "C" fn _syscall_inner(_frame: &stack::StackFrame, registers: &mut SavedRegisters) {
   let eax = registers.eax;
   match eax {
     // execution

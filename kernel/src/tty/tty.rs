@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 use crate::hardware::vga::text_mode::{Color, TextMode};
 use crate::memory::address::VirtualAddress;
@@ -23,9 +22,6 @@ pub enum ReadMode {
 
 /// Interface for a TTY. It parses ANSI-style terminal bytes and 
 pub struct TTY {
-  /// Whether this TTY is currently active, determines whether it outputs new
-  /// characters to video RAM
-  is_active: bool,
   /// Read mode determines how data is collected before passed to readers
   read_mode: ReadMode,
   /// Whether echoing is enabled, controled by ioctl commands
@@ -51,20 +47,15 @@ impl TTY {
       back_buffer.push(0);
     }
     TTY {
-      is_active: false,
       read_mode: ReadMode::Canonical,
       echo: true,
       show_cursor: true,
       parse_state: ParseState::Ready,
       csi_args: Vec::with_capacity(8),
-      text_buffer: TextMode::new(VirtualAddress::new(0xc00b8000)),
+      text_buffer: TextMode::new(VirtualAddress::new(VGA_TEXT_LOCATION)),
       canonical_length: 0,
       back_buffer,
     }
-  }
-
-  pub fn set_active(&mut self, active: bool) {
-    self.is_active = active;
   }
 
   pub fn reset_canonical_length(&mut self) {
@@ -320,7 +311,7 @@ impl TTY {
   /// Copy the back buffer to VRAM, and make the text buffer point to VRAM.
   pub unsafe fn swap_in(&mut self) {
     let count = BACK_BUFFER_SIZE as isize / 4;
-    let dest = 0xc00b8000;
+    let dest = VGA_TEXT_LOCATION;
     let dest_ptr = dest as *mut u32;
     self.text_buffer.set_buffer_pointer(dest);
     let src_ptr = self.back_buffer.as_ptr() as *mut u32;

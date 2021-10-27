@@ -95,7 +95,6 @@ impl TTYRouter {
   pub fn new() -> TTYRouter {
     let mut set = Vec::with_capacity(1);
     let mut tty0 = TTY::new();
-    tty0.set_active(true);
 
     set.push(TTYData::new(tty0));
     // Put all other TTYs into the background by default
@@ -184,13 +183,11 @@ impl TTYRouter {
     }
     if let Some(tty) = self.get_active_tty() {
       let mut prev = tty.write();
-      prev.set_active(false);
       unsafe { prev.swap_out(); }
     }
     self.active_tty = index;
     if let Some(tty) = self.get_active_tty() {
       let mut next = tty.write();
-      next.set_active(true);
       unsafe { next.swap_in(); }
     }
   }

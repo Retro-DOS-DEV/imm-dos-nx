@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
-use crate::files::{cursor::SeekMethod, handle::LocalHandle};
-use crate::fs::{DRIVES, drive::{DriveID}};
+use crate::files::handle::LocalHandle;
+use crate::fs::drive::DriveID;
 use crate::memory::address::VirtualAddress;
 use crate::task::memory::{ExecutionSection, ExecutionSegment};
 use super::LoaderError;

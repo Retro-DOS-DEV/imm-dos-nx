@@ -27,7 +27,7 @@ pub fn sleep(duration: usize) {
   yield_coop();
 }
 #[cfg(test)]
-pub fn sleep(duration: usize) {}
+pub fn sleep(_duration: usize) {}
 
 #[cfg(not(test))]
 pub fn fork() -> id::ProcessID {
@@ -54,4 +54,4 @@ pub fn get_current_process() -> alloc::sync::Arc<spin::RwLock<process::Process>>
 #[cfg(not(test))]
 pub use exec::terminate;
 #[cfg(test)]
-pub fn terminate(exit_code: u32) {}
+pub fn terminate(_exit_code: u32) {}

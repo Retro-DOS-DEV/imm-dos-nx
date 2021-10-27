@@ -5,7 +5,7 @@ use crate::memory::{
   address::{VirtualAddress},
   virt::page_directory::{CurrentPageDirectory, invalidate_page},
 };
-use super::stack::{FullStackFrame, StackFrame};
+use super::stack::StackFrame;
 use super::syscall_legacy::dos_api;
 
 #[no_mangle]
@@ -17,7 +17,7 @@ pub extern "x86-interrupt" fn divide_by_zero(stack_frame: StackFrame) {
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn breakpoint(stack_frame: StackFrame) {
+pub extern "x86-interrupt" fn breakpoint(_stack_frame: StackFrame) {
   // Send a Trap signal to the current process
   loop {}
 }
@@ -30,25 +30,25 @@ pub extern "x86-interrupt" fn invalid_opcode(stack_frame: StackFrame) {
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn double_fault(stack_frame: StackFrame, _error: u32) {
+pub extern "x86-interrupt" fn double_fault(_stack_frame: StackFrame, _error: u32) {
   //kprintln!("\nERR: Double Fault\n{:?}", stack_frame);
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn invalid_tss(stack_frame: StackFrame, error: u32) {
+pub extern "x86-interrupt" fn invalid_tss(_stack_frame: StackFrame, error: u32) {
   kprintln!("\nERR: Invalid TSS. Segment {:?}", error);
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn segment_not_present(stack_frame: StackFrame, error: u32) {
+pub extern "x86-interrupt" fn segment_not_present(_stack_frame: StackFrame, error: u32) {
   kprintln!("\nERR: Segment not present: {:?}", error);
   loop {}
 }
 
 #[no_mangle]
-pub extern "x86-interrupt" fn stack_segment_fault(stack_frame: StackFrame, error: u32) {
+pub extern "x86-interrupt" fn stack_segment_fault(_stack_frame: StackFrame, error: u32) {
   kprintln!("\nERR: Stack segment fault: {:?}", error);
   loop {}
 }
@@ -67,7 +67,6 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
     unsafe {
       let regs = &mut *reg_ptr;
       let vm_frame = &mut *vm_frame_ptr;
-      let mut_stack_frame = &mut *(stack_frame_ptr as *mut StackFrame);
       let op_ptr = ((stack_frame.cs << 4) + stack_frame.eip) as *const u8;
       if *op_ptr == 0xcd {
         // INT
@@ -137,9 +136,8 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
   } else { // User space
     if error & 1 == 0 {
       // Page was not present
-      // Query the current task to determine
+      // Query the current task to determine how to fill the page
       let vaddr = VirtualAddress::new(address);
-      let current_pagedir = CurrentPageDirectory::get();
       let current_process_lock = crate::task::switching::get_current_process();
       if crate::task::paging::page_on_demand(current_process_lock, vaddr) {
         // Return back to the failed instruction
