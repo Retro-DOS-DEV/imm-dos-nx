@@ -5,6 +5,7 @@ use crate::collections::SlotList;
 use crate::devices::driver::IOHandle;
 use crate::input::keyboard::{KeyAction, codes::KeyCode};
 use crate::task::id::ProcessID;
+use crate::task::signal::Signal;
 use spin::RwLock;
 
 use super::buffers::{TTYReadWriteBuffers, TTYReaderBuffer};
@@ -27,6 +28,8 @@ pub struct TTYData {
 
   descriptors: Arc<RwLock<SlotList<Descriptor>>>,
   reader_buffer: Arc<TTYReaderBuffer>,
+
+  foreground_process: RwLock<Option<ProcessID>>,
 }
 
 impl TTYData {
@@ -39,6 +42,8 @@ impl TTYData {
 
       descriptors: descriptors.clone(),
       reader_buffer: Arc::new(TTYReaderBuffer::new(descriptors)),
+
+      foreground_process: RwLock::new(None),
     }
   }
 
@@ -79,6 +84,14 @@ impl TTYData {
 
   pub fn get_reader_buffer(&self) -> Arc<TTYReaderBuffer> {
     Arc::clone(&self.reader_buffer)
+  }
+
+  pub fn get_foreground_process(&self) -> Option<ProcessID> {
+    self.foreground_process.read().clone()
+  }
+
+  pub fn set_foreground_process(&self, id: ProcessID) {
+    *(self.foreground_process.write()) = Some(id);
   }
 }
 
@@ -139,6 +152,15 @@ impl TTYRouter {
     }
   }
 
+  pub fn set_foreground_process(&self, index: usize, id: ProcessID) {
+    let set = self.tty_set.read();
+    let data = set.get(index);
+    match data {
+      Some(tty) => tty.set_foreground_process(id),
+      None => (),
+    }
+  }
+
   pub fn open_device(&self, index: usize) -> Option<IOHandle> {
     let set = self.tty_set.read();
     let data = set.get(index);
@@ -192,25 +214,48 @@ impl TTYRouter {
     }
   }
 
+  pub fn get_active_fg_process(&self) -> Option<ProcessID> {
+    let set = self.tty_set.read();
+    let active = set.get(self.active_tty);
+    match active {
+      Some(data) => data.get_foreground_process(),
+      None => None,
+    }
+  }
+
   pub fn send_key_action(&mut self, action: KeyAction) {
     let mut buffer: [u8; 4] = [0; 4];
 
     let output = self.key_state.process_key_action(action, &mut buffer);
     if let Some(len) = output {
-      match action {
-        KeyAction::Press(KeyCode::Num0) => {
-          if self.key_state.alt {
+      if self.key_state.alt {
+        match action {
+          KeyAction::Press(KeyCode::Num0) => {
             self.set_active_tty(0);
             return;
-          }
-        },
-        KeyAction::Press(KeyCode::Num1) => {
-          if self.key_state.alt {
+          },
+          KeyAction::Press(KeyCode::Num1) => {
             self.set_active_tty(1);
             return;
-          }
-        },
-        _ => (),
+          },
+          _ => (),
+        }
+      }
+
+      if self.key_state.ctrl {
+        match action {
+          KeyAction::Press(KeyCode::C) => {
+            match self.get_active_tty() {
+              Some(active) => {
+                if let Some(id) = self.get_active_fg_process() {
+                  crate::task::exec::send_signal(Some(id), Signal::UserInterrupt);
+                }
+              },
+              _ => (),
+            }
+          },
+          _ => (),
+        }
       }
 
       let tty_set = self.tty_set.read();

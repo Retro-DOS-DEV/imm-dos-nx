@@ -3,7 +3,9 @@ use crate::fs::DRIVES;
 use crate::loaders;
 use crate::memory::address::VirtualAddress;
 use crate::task::switching::{get_current_process, yield_coop};
+use super::id::ProcessID;
 use super::regs::EnvironmentRegisters;
+use super::signal::Signal;
 use super::vm::Subsystem;
 use syscall::result::SystemError;
 
@@ -112,19 +114,50 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
 }
 
 pub fn terminate(exit_code: u32) {
-  let current_process = get_current_process();
-  let (cur_id, parent_id) = {
-    let mut cur = current_process.write();
-    cur.terminate();
-    (*cur.get_id(), *cur.get_parent_id())
+  let cur_id = super::switching::get_current_id();
+  terminate_process(cur_id, exit_code);
+  yield_coop();
+}
+
+pub fn terminate_process(id: ProcessID, exit_code: u32) {
+  let parent_id = {
+    let mut process = super::switching::get_process(&id);
+    match process {
+      Some(proc_lock) => {
+        let mut proc = proc_lock.write();
+        proc.terminate();
+        *proc.get_parent_id()
+      },
+      None => return,
+    }
   };
   {
     let parent_lock = super::switching::get_process(&parent_id);
     if let Some(parent) = parent_lock {
-      parent.write().child_returned(cur_id, exit_code);
+      parent.write().child_returned(id, exit_code);
     }
   }
-  yield_coop();
+}
+
+pub fn send_signal(proc: Option<ProcessID>, signal: Signal) {
+  let receiver = match proc {
+    Some(id) => id,
+    None => super::switching::get_current_id(),
+  };
+
+  // todo: custom signal handlers
+
+  match signal {
+    Signal::Segfault => {
+      //terminate(0);
+    },
+    Signal::UserInterrupt => {
+      terminate_process(receiver, 0);
+    },
+    Signal::UserQuit => {
+      terminate_process(receiver, 0);
+    }
+  }
 }
 
 pub fn set_heap_top(addr: VirtualAddress) -> Result<VirtualAddress, ()> {

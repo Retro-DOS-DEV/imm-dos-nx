@@ -9,6 +9,7 @@ pub mod memory;
 pub mod paging;
 pub mod process;
 pub mod regs;
+pub mod signal;
 pub mod stack;
 pub mod state;
 #[cfg(not(test))]

@@ -7,7 +7,7 @@ use syscall::result::SystemError;
 use super::id::ProcessID;
 use super::files::{FileMap, OpenFile};
 
-pub fn open_path(path_str: &'static str) -> Result<FileHandle, SystemError> {
+pub fn open_path<'path>(path_str: &'path str) -> Result<FileHandle, SystemError> {
   let (drive, path) = filename::string_to_drive_and_path(path_str);
   let drive_id = DRIVES.get_drive_number(drive).ok_or(SystemError::NoSuchDrive)?;
   let (_, instance) = DRIVES.get_drive_instance(&drive_id).ok_or(SystemError::NoSuchFileSystem)?;

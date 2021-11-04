@@ -36,6 +36,18 @@ pub fn process_key_action(action: KeyAction) {
   }
 }
 
+pub fn begin_session(tty: usize, program: &str) -> Result<(), ()> {
+  let current_id = crate::task::switching::get_current_id();
+  let tty_device = alloc::format!("DEV:\\TTY{}", tty);
+  let stdin = crate::task::io::open_path(&tty_device).unwrap();
+  let stdout = crate::task::io::dup(stdin, None).unwrap();
+  let stderr = crate::task::io::dup(stdin, None).unwrap();
+
+  get_router().read().set_foreground_process(tty, current_id);
+
+  crate::task::exec::exec(program, crate::loaders::InterpretationMode::Native).map_err(|_| ())
+}
+
 /// Process runs within kernel mode and processes all data that has come into
 /// DEV:/TTY files, sending it back to each TTY struct
 #[inline(never)]
