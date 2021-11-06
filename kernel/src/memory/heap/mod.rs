@@ -5,7 +5,6 @@ extern crate alloc;
 use alloc::alloc::{GlobalAlloc, Layout};
 use spin::Mutex;
 
-use crate::process::memory::expand_kernel_heap;
 use super::address::VirtualAddress;
 use super::physical;
 use super::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
@@ -32,12 +31,15 @@ unsafe impl GlobalAlloc for Allocator {
     let mut allocator = self.locked_allocator.lock();
     let mut ptr = allocator.alloc(layout);
     if ptr.is_null() {
+      panic!("Heap expansion needs to be implemented");
+      /*
       // Attempt to extend the heap
       let space_needed = layout.size();
       let new_size = expand_kernel_heap(space_needed);
       allocator.expand_size(new_size);
       // Try again with new free space
       ptr = allocator.alloc(layout);
+      */
     }
     ptr
   }

@@ -38,8 +38,6 @@ pub mod init;
 #[cfg(not(test))]
 pub mod panic;
 #[cfg(not(test))]
-pub mod process;
-#[cfg(not(test))]
 pub mod syscalls;
 #[cfg(not(test))]
 pub mod tty;

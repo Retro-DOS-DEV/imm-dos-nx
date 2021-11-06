@@ -1,5 +1,4 @@
 use crate::memory::address::VirtualAddress;
-use crate::process;
 use crate::task;
 use syscall::result::SystemError;
 
@@ -28,15 +27,6 @@ pub fn exit(code: u32) {
 
 pub fn get_pid() -> u32 {
   task::switching::get_current_id().as_u32()
-}
-
-pub fn raise_signal(sig: u32) {
-  let id = process::get_current_pid();
-  process::send_signal(id, sig);
-}
-
-pub fn send_signal(id: u32, sig: u32) {
-  process::send_signal(process::id::ProcessID::new(id), sig);
 }
 
 pub fn wait_pid(id: u32) -> (u32, u32) {

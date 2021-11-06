@@ -132,6 +132,8 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
       // If it is in the heap region, map a new physical frame and extend the
       // region
 
+      kprintln!("Attempted to reach unpaged kernel memory. Does heap need to be expanded?");
+      loop {}
     }
   } else { // User space
     if error & 1 == 0 {

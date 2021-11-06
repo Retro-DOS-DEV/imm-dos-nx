@@ -84,11 +84,11 @@ pub unsafe extern "C" fn _syscall_inner(_frame: &stack::StackFrame, registers: &
     0x6 => { // yield
       exec::yield_coop();
     },
-    0x7 => { // raise
-      exec::raise_signal(registers.ebx);
+    0x7 => {
+      
     },
-    0x8 => { // send_signal
-      exec::send_signal(registers.ebx, registers.ecx);
+    0x8 => {
+      
     },
     0x09 => { // wait_pid
       let wait_id = registers.ebx;
