@@ -18,5 +18,5 @@ start:
   mov ebx, 0x03
   int 0x2b
 
-end:
-  jmp end
+  mov eax, 0
+  int 0x2b

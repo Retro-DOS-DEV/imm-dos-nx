@@ -2,11 +2,15 @@ use crate::memory::address::{SegmentedAddress, VirtualAddress};
 use crate::memory::physical::{self, frame::Frame};
 use crate::memory::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
 use crate::task::id::ProcessID;
-use crate::task::ipc::IPCMessage;
+use crate::task::ipc::{IPCMessage, IPCPacket};
 use crate::task::regs::EnvironmentRegisters;
 use spin::RwLock;
 
+/// Stores the ProcessID of the VGA Driver once it is initialized
 pub static VGA_DRIVER_PID: RwLock<Option<ProcessID>> = RwLock::new(None);
+/// Stores the ID of the process that most recently made a request to the
+/// driver. On return from VM86 mode, this process is resumed.
+static CURRENT_REQUEST_PID: RwLock<Option<ProcessID>>  = RwLock::new(None);
 
 pub const MSG_MODE_SWITCH: u32 = 1;
 
@@ -43,6 +47,8 @@ pub extern "C" fn vga_driver_process() {
   wait_for_message();
 }
 
+/// Public API to send a request to the driver via IPC. The current process will
+/// be blocked on hardware IO until the driver returns from the request.
 pub fn send_request(message: IPCMessage) {
   let driver_id = *VGA_DRIVER_PID.read();
   match driver_id {
@@ -56,17 +62,32 @@ pub fn send_request(message: IPCMessage) {
   crate::task::yield_coop();
 }
 
+/// Request a VGA graphics mode change
 pub fn request_mode_change(mode: u32) {
   let message = IPCMessage(MSG_MODE_SWITCH, mode, 0, 0);
   send_request(message);
 }
 
+/// Internal logic for the graphics driver. It blocks on IPC requests until one
+/// is received, and parses that message to determine how to modify the VGA
+/// hardware.
 extern "C" fn wait_for_message() {
   loop {
-    let (ipc_message, _) = crate::task::ipc_read(None);
-    match ipc_message {
-      Some(_) => change_mode(0x13),
-      None => (),
+    let (ipc_packet, _) = crate::task::ipc_read(None);
+    match ipc_packet {
+      Some(IPCPacket { from, message }) =>
+        match message {
+          IPCMessage(MSG_MODE_SWITCH, mode, _, _) => {
+            *CURRENT_REQUEST_PID.write() = Some(from);
+            change_mode(mode);
+          },
+          _ => {
+            // unknown packet, just wake the caller
+            crate::task::switching::get_process(&from)
+              .and_then(|lock| Some(lock.write().hardware_resume()));
+          },
+        },
+      _ => (),
     }
   }
 }
@@ -138,6 +159,11 @@ extern "C" fn change_mode(mode: u32) {
 
 extern "C" fn return_from_interrupt() {
   crate::kprintln!("Returned from VM86");
+  let request_id = CURRENT_REQUEST_PID.write().take();
+  request_id
+    .and_then(|id| crate::task::switching::get_process(&id))
+    .and_then(|proc| Some(proc.write().hardware_resume()));
+
   unsafe {
     let base = 0xa0000 as *mut u8;
     for row in 0..8 {
