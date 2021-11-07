@@ -19,6 +19,11 @@ impl StackFrame {
     core::ptr::write_volatile(self.as_ptr(), eip);
   }
 
+  pub unsafe fn add_eip(&self, delta: i32) {
+    let value = (self.eip as i32 + delta) as u32;
+    self.set_eip(value);
+  }
+
   pub unsafe fn set_cs(&self, cs: u32) {
     core::ptr::write_volatile(self.as_ptr().offset(1), cs);
   }

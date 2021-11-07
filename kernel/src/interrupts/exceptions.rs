@@ -73,9 +73,20 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
       } else if *op_ptr == 0x67 { // Addr32 Prefix
         panic!("Unsupported privileged instruction");
       } else if *op_ptr == 0x9c { // PUSHF
-        panic!("PUSHF not implemented");
+        // needs to handle 32-bit variant
+        vm_frame.sp = (vm_frame.sp - 2) & 0xffff;
+        let sp = (vm_frame.ss << 4) + vm_frame.sp;
+        *(sp as *mut u16) = stack_frame.eflags as u16;
+        stack_frame.add_eip(1);
+        return;
       } else if *op_ptr == 0x9d { // POPF
-        panic!("POPF not implemented");
+        // needs to handle 32-bit variant
+        let sp = (vm_frame.ss << 4) + vm_frame.sp;
+        let flags = *(sp as *const u16);
+        vm_frame.sp = (vm_frame.sp + 2) & 0xffff;
+        stack_frame.set_eflags((flags as u32) | 0x20200);
+        stack_frame.add_eip(1);
+        return;
       } else if *op_ptr == 0xcd {
         // INT
         let interrupt = *op_ptr.offset(1);
@@ -99,13 +110,11 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
         return;
       } else if *op_ptr == 0xcf { // IRET
         let sp = (vm_frame.ss << 4) + vm_frame.sp;
-        let (ip, cs, flags) = unsafe {
-          (
-            *(sp as *const u16),
-            *((sp + 2) as *const u16),
-            *((sp + 4) as *const u16),
-          )
-        };
+        let (ip, cs, flags) = (
+          *(sp as *const u16),
+          *((sp + 2) as *const u16),
+          *((sp + 4) as *const u16),
+        );
         if cs == 0 && ip == 0 {
           // can't jump to zero, it's the IVT!
           // use this case as the hook to request existing VM86 mode
@@ -116,13 +125,11 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
           };
           match fn_resume {
             Some(addr) => {
-              unsafe {
-                asm!(
-                  "jmp eax",
-                  in("eax") addr,
-                  options(noreturn),
-                );
-              }
+              asm!(
+                "jmp eax",
+                in("eax") addr,
+                options(noreturn),
+              );
             },
             None => (),
           }
@@ -136,9 +143,11 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
         return;
       } else if *op_ptr == 0xfa { // CLI
         // clear virtual interrupt flag
+        stack_frame.add_eip(1);
         return;
       } else if *op_ptr == 0xfb { // STI
         // set virtual interrupt flag
+        stack_frame.add_eip(1);
         return;
       }
     }
@@ -239,7 +248,7 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
     // All other cases (accessing an unmapped section, writing a read-only
     // segment, etc) should cause a segfault.
 
-    kprintln!("SEGFAULT AT IP: {:#010X}", stack_frame.eip);
+    kprintln!("SEGFAULT AT IP: {:#010X} (Access {:#010X})", stack_frame.eip, address);
 
     loop {}
   }

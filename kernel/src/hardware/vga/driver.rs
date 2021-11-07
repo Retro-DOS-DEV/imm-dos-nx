@@ -14,42 +14,35 @@ use crate::task::regs::EnvironmentRegisters;
 pub extern "C" fn vga_driver_process() {
   let pagedir = CurrentPageDirectory::get();
   // Allocate the lowest frame of physical memory to its same location
-  pagedir.map(Frame::new(0), VirtualAddress::new(0), PermissionFlags::new(PermissionFlags::USER_ACCESS));
+  pagedir.map(Frame::new(0), VirtualAddress::new(0), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
   // Allocate the BIOS code area (0xA0000 - 0xFFFFF)
   let mut frame = 0xA0000;
   while frame < 0x100000 {
-    pagedir.map(Frame::new(frame), VirtualAddress::new(frame), PermissionFlags::new(PermissionFlags::USER_ACCESS));
+    pagedir.map(Frame::new(frame), VirtualAddress::new(frame), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
     frame += 0x1000;
   }
 
   crate::kprintln!("Video Driver Ready");
 
   let stack_frame = physical::allocate_frame().unwrap();
-  pagedir.map(stack_frame, VirtualAddress::new(0x7f000), PermissionFlags::new(PermissionFlags::USER_ACCESS));
+  pagedir.map(stack_frame, VirtualAddress::new(0x7f000), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
 
   let on_return_addr = return_from_interrupt as *const extern "C" fn() -> () as usize;
   crate::task::get_current_process().write().on_exit_vm = Some(on_return_addr);
-
-  // Set up fake code for our demo
-  unsafe {
-    // `IRET`
-    *(0x500 as *mut u8) = 0xcf;
-  }
 
   wait_for_message();
 }
 
 extern "C" fn wait_for_message() {
   loop {
-    change_mode();
+    change_mode(0x13);
   }
 }
 
-extern "C" fn change_mode() {
+extern "C" fn change_mode(mode: u32) {
   let int_10_address: &SegmentedAddress = unsafe {
     &*(0x40 as *const SegmentedAddress)
   };
-  let mode = 0x13;
   // jump to INT 10h
   let mut regs = EnvironmentRegisters {
     eax: mode,
@@ -60,18 +53,16 @@ extern "C" fn change_mode() {
     esi: 0,
     edi: 0,
 
-    //eip: int_10_address.offset as u32,
-    //cs: int_10_address.segment as u32,
-    eip: 0x500,
-    cs: 0,
+    eip: int_10_address.offset as u32,
+    cs: int_10_address.segment as u32,
     flags: 0x20200,
-    esp: 0xffe,
-    ss: 0x7f00,
+    esp: 0xfffe,
+    ss: 0x7000,
 
-    es: 0x7f00,
-    ds: 0x7f00,
-    fs: 0x7f00,
-    gs: 0x7f00,
+    es: 0x7000,
+    ds: 0x7000,
+    fs: 0x7000,
+    gs: 0x7000,
   };
   // set up the stack
   unsafe {
@@ -115,6 +106,14 @@ extern "C" fn change_mode() {
 
 extern "C" fn return_from_interrupt() {
   crate::kprintln!("Returned from VM86");
+  unsafe {
+    let base = 0xa0000 as *mut u8;
+    for row in 0..8 {
+      for i in 0..256 {
+        core::ptr::write_volatile(base.offset(row * 320 + i), i as u8);
+      }
+    }
+  }
   loop {
     crate::task::yield_coop();
   }

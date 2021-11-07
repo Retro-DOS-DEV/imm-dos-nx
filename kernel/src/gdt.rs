@@ -190,49 +190,60 @@ impl TaskStateSegment {
   }
 }
 
-static mut TSS: TaskStateSegment = TaskStateSegment {
-  prev_tss: 0,
-  esp0: 0,
-  ss0: 0,
-  esp1: 0,
-  ss1: 0,
-  esp2: 0,
-  ss2: 0,
-  cr3: 0,
-  eip: 0,
-  eflags: 0,
-  eax: 0,
-  ecx: 0,
-  edx: 0,
-  ebx: 0,
-  esp: 0,
-  ebp: 0,
-  esi: 0,
-  edi: 0,
-  es: 0,
-  cs: 0,
-  ss: 0,
-  ds: 0,
-  fs: 0,
-  gs: 0,
-  ldt: 0,
-  trap: 0,
-  iomap_base: 0,
+#[repr(C, packed)]
+pub struct TssWithBitmap {
+  pub tss: TaskStateSegment,
+  pub bitmap: [u8; 128],
+}
+
+static mut TSS: TssWithBitmap = TssWithBitmap {
+  tss: TaskStateSegment {
+    prev_tss: 0,
+    esp0: 0,
+    ss0: 0,
+    esp1: 0,
+    ss1: 0,
+    esp2: 0,
+    ss2: 0,
+    cr3: 0,
+    eip: 0,
+    eflags: 0,
+    eax: 0,
+    ecx: 0,
+    edx: 0,
+    ebx: 0,
+    esp: 0,
+    ebp: 0,
+    esi: 0,
+    edi: 0,
+    es: 0,
+    cs: 0,
+    ss: 0,
+    ds: 0,
+    fs: 0,
+    gs: 0,
+    ldt: 0,
+    trap: 0,
+    iomap_base: 0,
+  },
+  bitmap: [0; 128],
 };
 
 pub unsafe fn init() {
   GDTR.size = (GDT.len() * mem::size_of::<GDTEntry>() - 1) as u16;
   GDTR.offset = GDT.as_ptr() as *const GDTEntry as u32;
 
-  TSS.zero();
-  TSS.set_stack_segment(0x10);
-  GDT[5].set_limit(mem::size_of::<TaskStateSegment>() as u32);
-  GDT[5].set_base(&TSS as *const TaskStateSegment as u32);
+  TSS.tss.zero();
+  TSS.tss.set_stack_segment(0x10);
+  TSS.bitmap[127] = 0xff;
+
+  GDT[5].set_limit(mem::size_of::<TssWithBitmap>() as u32 - 1);
+  GDT[5].set_base(&TSS as *const TssWithBitmap as u32);
 
   lgdt(&GDTR);
   ltr(0x28);
 }
 
 pub unsafe fn set_tss_stack_pointer(sp: u32) {
-  TSS.set_stack_pointer(sp);
+  TSS.tss.set_stack_pointer(sp);
 }

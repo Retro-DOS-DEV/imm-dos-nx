@@ -3,6 +3,7 @@ use crate::{devices, interrupts};
 
 #[cfg(not(feature = "testing"))]
 pub fn _kprint(args: fmt::Arguments) {
+  /*
   let int_reenable = interrupts::control::is_interrupt_enabled();
   interrupts::control::cli();
   unsafe {
@@ -10,6 +11,11 @@ pub fn _kprint(args: fmt::Arguments) {
   }
   if int_reenable {
     interrupts::control::sti();
+  }
+  */
+  unsafe {
+    let mut serial = crate::input::com::serial::SerialPort::new(0x3f8);
+    serial.write_fmt(args).unwrap();
   }
 }
 
