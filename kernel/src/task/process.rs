@@ -51,6 +51,8 @@ pub struct Process {
   exec_file: Option<(DriveID, LocalHandle)>,
   /// Stores extra data related to the subsystem used by the process
   pub subsystem: Subsystem,
+  /// An optional kernel-level method to run when exiting VM86 mode
+  pub on_exit_vm: Option<usize>,
 }
 
 impl Process {
@@ -73,6 +75,7 @@ impl Process {
       page_directory: PageTableReference::current(),
       exec_file: None,
       subsystem: Subsystem::Native,
+      on_exit_vm: None,
     }
   }
 
@@ -334,6 +337,7 @@ impl Process {
       page_directory: self.page_directory.clone(),
       exec_file: self.exec_file,
       subsystem: Subsystem::Native,
+      on_exit_vm: None,
     }
   }
 

@@ -130,7 +130,7 @@ pub fn fork(current_ticks: u32, include_userspace: bool) -> ProcessID {
   child.stack_pointer -= 5 * core::mem::size_of::<u32>();
   child.stack_push_u32(0); // replace eax with 0 in the child
   child.stack_pointer -= 9 * core::mem::size_of::<u32>();
-  crate::kprintln!("Child {:?} ({:?}) stack: {:?}", next_id, current_process.read().get_id(), child.get_stack_range());
+  //crate::kprintln!("Child {:?} ({:?}) stack: {:?}", next_id, current_process.read().get_id(), child.get_stack_range());
   {
     let mut map = TASK_MAP.write();
     map.insert(next_id, Arc::new(RwLock::new(child)));
@@ -144,9 +144,9 @@ pub fn kfork(dest: extern "C" fn() -> ()) -> ProcessID {
     let child_lock = get_process(&child_id).unwrap();
     let mut child = child_lock.write();
     child.stack_push_u32(dest as u32);
-    crate::kprintln!("Child %esp: {:#0x}", child.stack_pointer);
+    //crate::kprintln!("Child %esp: {:#0x}", child.stack_pointer);
   }
-  crate::kprintln!("Child will start at {:#0x}", dest as u32);
+  //crate::kprintln!("Child will start at {:#0x}", dest as u32);
   child_id
 }
 

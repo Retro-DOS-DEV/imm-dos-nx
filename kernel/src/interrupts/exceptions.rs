@@ -106,7 +106,33 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
             *((sp + 4) as *const u16),
           )
         };
-        panic!("IRET {:X} {:X} {:X} {:X}", sp, ip, cs, flags);
+        if cs == 0 && ip == 0 {
+          // can't jump to zero, it's the IVT!
+          // use this case as the hook to request existing VM86 mode
+          let fn_resume = {
+            let current_process = crate::task::get_current_process();
+            let on_exit_vm = current_process.read().on_exit_vm;
+            on_exit_vm
+          };
+          match fn_resume {
+            Some(addr) => {
+              unsafe {
+                asm!(
+                  "jmp eax",
+                  in("eax") addr,
+                  options(noreturn),
+                );
+              }
+            },
+            None => (),
+          }
+        }
+        // nothing special, perform the iret like normal
+        stack_frame.set_eip(ip as u32);
+        stack_frame.set_cs(cs as u32);
+        stack_frame.set_eflags((flags as u32) | 0x20200);
+        // mark virtual interrupt flag from `flags`
+        vm_frame.sp = (vm_frame.sp + 6) & 0xffff;
         return;
       } else if *op_ptr == 0xfa { // CLI
         // clear virtual interrupt flag

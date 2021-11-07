@@ -27,6 +27,9 @@ pub extern "C" fn vga_driver_process() {
   let stack_frame = physical::allocate_frame().unwrap();
   pagedir.map(stack_frame, VirtualAddress::new(0x7f000), PermissionFlags::new(PermissionFlags::USER_ACCESS));
 
+  let on_return_addr = return_from_interrupt as *const extern "C" fn() -> () as usize;
+  crate::task::get_current_process().write().on_exit_vm = Some(on_return_addr);
+
   // Set up fake code for our demo
   unsafe {
     // `IRET`
@@ -61,7 +64,7 @@ extern "C" fn change_mode() {
     //cs: int_10_address.segment as u32,
     eip: 0x500,
     cs: 0,
-    flags: 0x20000,
+    flags: 0x20200,
     esp: 0xffe,
     ss: 0x7f00,
 
@@ -73,13 +76,13 @@ extern "C" fn change_mode() {
   // set up the stack
   unsafe {
     // push flags
-    *(0x7fffe as *mut u16) = 0x200;
+    *(0x7fffe as *mut u16) = 0;
     regs.esp -= 2;
     // push cs
     *(0x7fffc as *mut u16) = 0x00;
     regs.esp -= 2;
     // push ip
-    *(0x7fffa as *mut u16) = 0x500;
+    *(0x7fffa as *mut u16) = 0;
     regs.esp -= 2;
   }
 
@@ -111,5 +114,8 @@ extern "C" fn change_mode() {
 }
 
 extern "C" fn return_from_interrupt() {
-
+  crate::kprintln!("Returned from VM86");
+  loop {
+    crate::task::yield_coop();
+  }
 }
