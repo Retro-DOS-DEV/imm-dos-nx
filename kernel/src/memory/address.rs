@@ -156,3 +156,9 @@ impl fmt::Debug for VirtualAddress {
     write!(f, "VirtualAddress({:#010x})", self.0)
   }
 }
+
+#[repr(C, packed)]
+pub struct SegmentedAddress {
+  pub offset: u16,
+  pub segment: u16,
+}

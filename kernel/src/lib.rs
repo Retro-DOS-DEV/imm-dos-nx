@@ -193,6 +193,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
     {
       let init_process = task::switching::kfork(run_init);
       let input_process = task::switching::kfork(input::run_input);
+      task::switching::kfork(hardware::vga::driver::vga_driver_process);
       task::switching::kfork(tty::ttys_process);
     }
 

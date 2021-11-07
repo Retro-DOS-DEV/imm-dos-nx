@@ -32,6 +32,9 @@ pub fn init_allocator(location: usize, memory_map_addr: usize) {
   let own_range = FrameRange::new(location, size_in_frames * 0x1000);
   bitmap.allocate_range(own_range).unwrap();
 
+  // Mark the first frame as allocated, we may need the BIOS memory area
+  bitmap.allocate_range(FrameRange::new(0, 0x1000)).unwrap();
+
   unsafe {
     ALLOCATOR = Some(Mutex::new(bitmap));
   }

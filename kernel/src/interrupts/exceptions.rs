@@ -68,9 +68,21 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
       let regs = &mut *reg_ptr;
       let vm_frame = &mut *vm_frame_ptr;
       let op_ptr = ((stack_frame.cs << 4) + stack_frame.eip) as *const u8;
-      if *op_ptr == 0xcd {
+      if *op_ptr == 0x66 { // Op32 Prefix
+        panic!("Unsupported privileged instruction");
+      } else if *op_ptr == 0x67 { // Addr32 Prefix
+        panic!("Unsupported privileged instruction");
+      } else if *op_ptr == 0x9c { // PUSHF
+        panic!("PUSHF not implemented");
+      } else if *op_ptr == 0x9d { // POPF
+        panic!("POPF not implemented");
+      } else if *op_ptr == 0xcd {
         // INT
-        match *op_ptr.offset(1) {
+        let interrupt = *op_ptr.offset(1);
+        match interrupt {
+          0x03 => { // Breakpoint
+            panic!("Break");
+          },
           0x20 => {
             // DOS terminate
             
@@ -80,10 +92,27 @@ pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
             klog!("DOS API {:X}\n", regs.ah());
             dos_api(regs, vm_frame, &stack_frame);
           },
-          _ => (),
+          _ => panic!("Unsupported interrupt from VM86 mode: {:X}", interrupt),
         }
         // Compiler will try to optimize out a write to the StackFrame
         stack_frame.set_eip(stack_frame.eip + 2);
+        return;
+      } else if *op_ptr == 0xcf { // IRET
+        let sp = (vm_frame.ss << 4) + vm_frame.sp;
+        let (ip, cs, flags) = unsafe {
+          (
+            *(sp as *const u16),
+            *((sp + 2) as *const u16),
+            *((sp + 4) as *const u16),
+          )
+        };
+        panic!("IRET {:X} {:X} {:X} {:X}", sp, ip, cs, flags);
+        return;
+      } else if *op_ptr == 0xfa { // CLI
+        // clear virtual interrupt flag
+        return;
+      } else if *op_ptr == 0xfb { // STI
+        // set virtual interrupt flag
         return;
       }
     }
