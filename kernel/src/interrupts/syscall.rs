@@ -1,5 +1,5 @@
 use crate::kprintln;
-use crate::syscalls::{exec, file};
+use crate::syscalls::{exec, file, hardware};
 use super::stack;
 use syscall::result::SystemError;
 
@@ -244,6 +244,11 @@ pub unsafe extern "C" fn _syscall_inner(_frame: &stack::StackFrame, registers: &
         Err(_) => 0xff,
       };
       registers.eax = result;
+    },
+
+    0x50 => { // change video mode
+      let mode = registers.ebx;
+      hardware::change_video_mode(mode);
     },
 
     // misc

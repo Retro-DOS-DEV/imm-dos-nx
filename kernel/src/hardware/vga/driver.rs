@@ -1,7 +1,14 @@
 use crate::memory::address::{SegmentedAddress, VirtualAddress};
 use crate::memory::physical::{self, frame::Frame};
 use crate::memory::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
+use crate::task::id::ProcessID;
+use crate::task::ipc::IPCMessage;
 use crate::task::regs::EnvironmentRegisters;
+use spin::RwLock;
+
+pub static VGA_DRIVER_PID: RwLock<Option<ProcessID>> = RwLock::new(None);
+
+pub const MSG_MODE_SWITCH: u32 = 1;
 
 /// The only reliable way to switch video modes is to use the code copied to
 /// BIOS for the installed video card. This is possible by spinning up a
@@ -12,6 +19,9 @@ use crate::task::regs::EnvironmentRegisters;
 /// video mode. When the request completes, it tells the kernel to unblock the
 /// caller so that it can resume execution in the new video mode.
 pub extern "C" fn vga_driver_process() {
+  let current_id = crate::task::switching::get_current_id();
+  *VGA_DRIVER_PID.write() = Some(current_id);
+
   let pagedir = CurrentPageDirectory::get();
   // Allocate the lowest frame of physical memory to its same location
   pagedir.map(Frame::new(0), VirtualAddress::new(0), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
@@ -33,9 +43,31 @@ pub extern "C" fn vga_driver_process() {
   wait_for_message();
 }
 
+pub fn send_request(message: IPCMessage) {
+  let driver_id = *VGA_DRIVER_PID.read();
+  match driver_id {
+    Some(id) => {
+      crate::task::ipc_send(id, message, 0xffffffff);
+    },
+    None => return,
+  }
+
+  crate::task::get_current_process().write().hardware_block(None);
+  crate::task::yield_coop();
+}
+
+pub fn request_mode_change(mode: u32) {
+  let message = IPCMessage(MSG_MODE_SWITCH, mode, 0, 0);
+  send_request(message);
+}
+
 extern "C" fn wait_for_message() {
   loop {
-    change_mode(0x13);
+    let (ipc_message, _) = crate::task::ipc_read(None);
+    match ipc_message {
+      Some(_) => change_mode(0x13),
+      None => (),
+    }
   }
 }
 
@@ -114,7 +146,5 @@ extern "C" fn return_from_interrupt() {
       }
     }
   }
-  loop {
-    crate::task::yield_coop();
-  }
+  wait_for_message();
 }

@@ -56,3 +56,28 @@ pub fn get_current_process() -> alloc::sync::Arc<spin::RwLock<process::Process>>
 pub use exec::terminate;
 #[cfg(test)]
 pub fn terminate(_exit_code: u32) {}
+
+#[cfg(not(test))]
+pub fn ipc_read(timeout: Option<usize>) -> (Option<ipc::IPCPacket>, bool) {
+  let current_ticks = crate::time::system::get_system_ticks();
+  let (first, has_more) = {
+    let current_process_lock = switching::get_current_process();
+    let mut current_process = current_process_lock.write();
+    current_process.ipc_read(current_ticks, timeout)
+  };
+  if first.is_some() {
+    return (first, has_more);
+  }
+  yield_coop();
+  switching::get_current_process().write().ipc_read_unblocking(current_ticks)
+}
+
+#[cfg(not(test))]
+pub fn ipc_send(to: id::ProcessID, message: ipc::IPCMessage, expiration: u32) {
+  let current_id = switching::get_current_id();
+  let current_ticks = crate::time::system::get_system_ticks();
+  let recipient = switching::get_process(&to);
+  if let Some(rec_lock) = recipient {
+    rec_lock.write().ipc_receive(current_ticks, current_id, message, expiration);
+  }
+}

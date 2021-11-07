@@ -255,6 +255,11 @@ impl Process {
     (None, false)
   }
 
+  /// Unblocking version of ipc_read
+  pub fn ipc_read_unblocking(&mut self, current_ticks: u32) -> (Option<IPCPacket>, bool) {
+    self.ipc_queue.read(current_ticks)
+  }
+
   /// Send an IPC message to this process. If the process is currently blocked
   /// on reading the IPC queue, it will wake up.
   /// Each message is accompanied by an expiration time (in system ticks), after
