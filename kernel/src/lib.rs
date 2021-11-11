@@ -24,6 +24,8 @@ pub mod memory;
 pub mod promise;
 pub mod task;
 pub mod time;
+pub mod vterm;
+pub mod x86;
 
 #[cfg(not(test))]
 pub mod debug;
@@ -41,8 +43,6 @@ pub mod panic;
 pub mod syscalls;
 #[cfg(not(test))]
 pub mod tty;
-#[cfg(not(test))]
-pub mod x86;
 
 extern crate alloc;
 
@@ -218,6 +218,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 pub extern fn run_init() {
   // Initialize hardware
   tty::init_ttys();
+  vterm::init_vterm();
   devices::init();
   time::system::initialize_from_rtc();
 

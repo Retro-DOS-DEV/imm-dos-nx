@@ -7,11 +7,11 @@
 use crate::buffers::RingBuffer;
 #[cfg(not(test))]
 use crate::tty;
+use crate::vterm;
 
 pub mod buffers;
 #[cfg(not(test))]
 pub mod com;
-#[cfg(not(test))]
 pub mod keyboard;
 
 /// The raw buffer used to enqueue input events
@@ -43,7 +43,8 @@ pub extern fn run_input() {
       match result {
         Some(action) => {
           keyboard::device::write_all(action.to_raw());
-          tty::process_key_action(action);
+          //tty::process_key_action(action);
+          vterm::process_key_action(action);
         },
         None => (),
       }

@@ -1,9 +1,10 @@
 use crate::x86::io::Port;
 
 pub mod codes;
+#[cfg(not(test))]
 pub mod device;
 
-use codes::KeyCode;
+pub use codes::KeyCode;
 
 /// A way of encoding a keyboard event into a combination of a button action
 /// and the unique key that changed
