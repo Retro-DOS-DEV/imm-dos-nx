@@ -12,18 +12,30 @@ pub struct VTermRouter {
 
 impl VTermRouter {
   pub fn new() -> Self {
+    let mut vterm_list = Vec::new();
+    vterm_list.push(VTerm::with_video_mode(0x03));
+    vterm_list.push(VTerm::with_video_mode(0x03));
+    vterm_list.push(VTerm::with_video_mode(0x13));
     Self {
-      vterm_list: Vec::new(),
+      vterm_list,
       active_vterm: 0,
       key_state: KeyState::new(),
     }
   }
 
   pub fn set_active_vterm(&mut self, active: usize) {
+    let next_vterm = match self.vterm_list.get(active) {
+      Some(v) => v,
+      None => return,
+    };
     self.active_vterm = active;
-    unsafe {
-      let buffer = 0xc00b8000 as *mut u8;
-      core::ptr::write_volatile(buffer, (active + 48) as u8);
+    let video_mode = next_vterm.video_mode;
+    crate::hardware::vga::driver::request_mode_change(video_mode);
+    if video_mode == 0x03 {
+      unsafe {
+        let buffer = 0xc00b8000 as *mut u8;
+        core::ptr::write_volatile(buffer, (active + 48) as u8);
+      }
     }
   }
 

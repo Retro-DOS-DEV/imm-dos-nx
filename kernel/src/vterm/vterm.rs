@@ -14,5 +14,9 @@ pub struct VTerm {
 }
 
 impl VTerm {
-
+  pub fn with_video_mode(mode: u8) -> Self {
+    Self {
+      video_mode: mode,
+    }
+  }
 }

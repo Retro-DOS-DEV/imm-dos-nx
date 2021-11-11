@@ -248,7 +248,7 @@ pub unsafe extern "C" fn _syscall_inner(_frame: &stack::StackFrame, registers: &
 
     0x50 => { // change video mode
       let mode = registers.ebx;
-      hardware::change_video_mode(mode);
+      hardware::change_video_mode(mode as u8);
     },
 
     // misc

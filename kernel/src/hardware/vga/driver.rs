@@ -63,8 +63,8 @@ pub fn send_request(message: IPCMessage) {
 }
 
 /// Request a VGA graphics mode change
-pub fn request_mode_change(mode: u32) {
-  let message = IPCMessage(MSG_MODE_SWITCH, mode, 0, 0);
+pub fn request_mode_change(mode: u8) {
+  let message = IPCMessage(MSG_MODE_SWITCH, mode as u32, 0, 0);
   send_request(message);
 }
 
