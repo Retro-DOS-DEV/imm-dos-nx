@@ -30,7 +30,18 @@ impl VTermRouter {
     };
     self.active_vterm = active;
     let video_mode = next_vterm.video_mode;
-    crate::hardware::vga::driver::request_mode_change(video_mode);
+    // This will pause the calling process (likely the input process) until the
+    // hardware request finishes.
+    // If it fails to complete, it should time out after a second, unlocking the
+    // input process.
+    {
+      crate::hardware::vga::driver::request_mode_change_with_timeout(video_mode, 1000);
+      let current_mode = crate::hardware::vga::driver::get_video_mode();
+      if video_mode != current_mode {
+        crate::kprintln!("Failed to set video mode");
+        return;
+      }
+    }
     if video_mode == 0x03 {
       unsafe {
         let buffer = 0xc00b8000 as *mut u8;

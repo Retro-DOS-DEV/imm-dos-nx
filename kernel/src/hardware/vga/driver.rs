@@ -1,3 +1,4 @@
+use core::sync::atomic::{AtomicU8, Ordering};
 use crate::memory::address::{SegmentedAddress, VirtualAddress};
 use crate::memory::physical::{self, frame::Frame};
 use crate::memory::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
@@ -11,6 +12,8 @@ pub static VGA_DRIVER_PID: RwLock<Option<ProcessID>> = RwLock::new(None);
 /// Stores the ID of the process that most recently made a request to the
 /// driver. On return from VM86 mode, this process is resumed.
 static CURRENT_REQUEST_PID: RwLock<Option<ProcessID>>  = RwLock::new(None);
+/// Stores the last confirmed setting of the video mode
+static CURRENT_VIDEO_MODE: AtomicU8 = AtomicU8::new(0x03);
 
 pub const MSG_MODE_SWITCH: u32 = 1;
 
@@ -49,7 +52,7 @@ pub extern "C" fn vga_driver_process() {
 
 /// Public API to send a request to the driver via IPC. The current process will
 /// be blocked on hardware IO until the driver returns from the request.
-pub fn send_request(message: IPCMessage) {
+pub fn send_request(message: IPCMessage, timeout: Option<usize>) {
   let driver_id = *VGA_DRIVER_PID.read();
   match driver_id {
     Some(id) => {
@@ -58,14 +61,25 @@ pub fn send_request(message: IPCMessage) {
     None => return,
   }
 
-  crate::task::get_current_process().write().hardware_block(None);
+  crate::task::get_current_process().write().hardware_block(timeout);
   crate::task::yield_coop();
 }
 
 /// Request a VGA graphics mode change
 pub fn request_mode_change(mode: u8) {
   let message = IPCMessage(MSG_MODE_SWITCH, mode as u32, 0, 0);
-  send_request(message);
+  send_request(message, None);
+}
+
+/// Request a VGA graphics mode change
+pub fn request_mode_change_with_timeout(mode: u8, timeout: usize) {
+  let message = IPCMessage(MSG_MODE_SWITCH, mode as u32, 0, 0);
+  send_request(message, Some(timeout));
+}
+
+/// Fetch the current known video mode
+pub fn get_video_mode() -> u8 {
+  CURRENT_VIDEO_MODE.load(Ordering::SeqCst)
 }
 
 /// Internal logic for the graphics driver. It blocks on IPC requests until one
@@ -158,19 +172,26 @@ extern "C" fn change_mode(mode: u32) {
 }
 
 extern "C" fn return_from_interrupt() {
-  crate::kprintln!("Returned from VM86");
+  let current_video_mode = unsafe {
+    *(0x449 as *const u8)
+  };
+  CURRENT_VIDEO_MODE.store(current_video_mode, Ordering::SeqCst);
+
   let request_id = CURRENT_REQUEST_PID.write().take();
   request_id
     .and_then(|id| crate::task::switching::get_process(&id))
     .and_then(|proc| Some(proc.write().hardware_resume()));
 
-  unsafe {
-    let base = 0xa0000 as *mut u8;
-    for row in 0..8 {
-      for i in 0..256 {
-        core::ptr::write_volatile(base.offset(row * 320 + i), i as u8);
+  if current_video_mode == 0x13 {
+    unsafe {
+      let base = 0xa0000 as *mut u8;
+      for row in 0..8 {
+        for i in 0..256 {
+          core::ptr::write_volatile(base.offset(row * 320 + i), i as u8);
+        }
       }
     }
   }
+
   wait_for_message();
 }
