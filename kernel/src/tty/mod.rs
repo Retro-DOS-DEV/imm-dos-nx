@@ -19,7 +19,7 @@ pub fn init_ttys() {
   unsafe {
     ROUTER = Some(RwLock::new(global_router));
   }
-  console_write(format_args!("TTY system \x1b[92mready\x1b[m\n"));
+  console_write(format_args!("\n\nTTY system \x1b[92mready\x1b[m\n"));
 }
 
 pub fn get_router() -> &'static RwLock<router::TTYRouter> {

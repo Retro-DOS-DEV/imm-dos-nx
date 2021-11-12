@@ -34,7 +34,7 @@
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::ops::Range;
-use crate::memory::address::{PAGE_SIZE_IN_BYTES, VirtualAddress};
+use crate::memory::address::{PAGE_SIZE_IN_BYTES, PhysicalAddress, VirtualAddress};
 use spin::RwLock;
 
 pub const USER_KERNEL_BARRIER: usize = 0xc0000000;
@@ -207,7 +207,7 @@ impl MMapRegion {
 pub enum MMapBacking {
   /// This mmap region should directly point to a same-sized region of physical
   /// memory. This is necessary for interfacing with devices on the memory bus.
-  Direct,
+  Direct(PhysicalAddress),
   /// This region is backed by an arbitrary section of physical memory.
   Anonymous,
   /// Similar to Anonymous, but guarantees that the physical memory will be
@@ -544,6 +544,11 @@ pub fn kernel_mmap(addr: Option<VirtualAddress>, size: usize, backing: MMapBacki
   let location = mem.mmap(addr, size, backing)?;
 
   Ok(location)
+}
+
+pub fn get_kernel_mapping(addr: VirtualAddress) -> Option<MMapRegion> {
+  let kernel_mem = KERNEL_MEMORY.read();
+  kernel_mem.get_mapping_containing_address(&addr).map(|m| m.clone())
 }
 
 #[cfg(test)]

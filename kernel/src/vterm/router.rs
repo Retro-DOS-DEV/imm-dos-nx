@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use crate::hardware::vga::text_mode::{Color, ColorCode};
 use crate::input::keyboard::{KeyAction, KeyCode};
 use super::keys::KeyState;
 use super::vterm::VTerm;
@@ -24,6 +25,12 @@ impl VTermRouter {
   }
 
   pub fn set_active_vterm(&mut self, active: usize) {
+    let current_term = match self.vterm_list.get(self.active_vterm) {
+      Some(v) => v,
+      None => return,
+    };
+    current_term.make_inactive();
+
     let next_vterm = match self.vterm_list.get(active) {
       Some(v) => v,
       None => return,
@@ -34,6 +41,7 @@ impl VTermRouter {
     // hardware request finishes.
     // If it fails to complete, it should time out after a second, unlocking the
     // input process.
+    #[cfg(not(test))]
     {
       crate::hardware::vga::driver::request_mode_change_with_timeout(video_mode, 1000);
       let current_mode = crate::hardware::vga::driver::get_video_mode();
@@ -42,10 +50,15 @@ impl VTermRouter {
         return;
       }
     }
+
+    next_vterm.make_active();
+
     if video_mode == 0x03 {
       unsafe {
-        let buffer = 0xc00b8000 as *mut u8;
-        core::ptr::write_volatile(buffer, (active + 48) as u8);
+        let buffer = 0xc00b8000 as *mut u16;
+        let low = ((active & 0xff) + 48) as u16;
+        let high = ColorCode::new(Color::White, Color::Black).as_u8() as u16;
+        core::ptr::write_volatile(buffer, low | (high << 8));
       }
     }
   }
