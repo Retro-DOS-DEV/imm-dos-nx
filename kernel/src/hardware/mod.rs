@@ -1,4 +1,5 @@
 pub mod dma;
+#[cfg(not(test))]
 pub mod floppy;
 pub mod pic;
 pub mod pit;

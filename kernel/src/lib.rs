@@ -16,6 +16,7 @@ pub mod collections;
 pub mod dos;
 pub mod files;
 pub mod fs;
+pub mod hardware;
 pub mod input;
 pub mod interrupts;
 pub mod loaders;
@@ -33,8 +34,6 @@ pub mod debug;
 pub mod devices;
 #[cfg(not(test))]
 pub mod gdt;
-#[cfg(not(test))]
-pub mod hardware;
 #[cfg(not(test))]
 pub mod init;
 #[cfg(not(test))]

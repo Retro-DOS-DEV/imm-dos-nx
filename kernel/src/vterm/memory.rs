@@ -4,6 +4,7 @@ use crate::memory::address::{PhysicalAddress, VirtualAddress};
 /// are backed by an in-memory copy. When a process using the device is
 /// "inactive," it can update the backup copy and wait until that backup is
 /// restored to the device.
+#[derive(Copy, Clone)]
 pub struct MemoryBackup {
   /// The location of the actual hardware on the memory bus
   physical_address: PhysicalAddress,
@@ -12,7 +13,7 @@ pub struct MemoryBackup {
   buffer_frame: PhysicalAddress,
   /// The virtual address (in kernel space) for the backup page. When the page
   /// is allocated, it must at least be accessible from the kernel.
-  mapped_to: VirtualAddress,
+  pub mapped_to: VirtualAddress,
 }
 
 impl MemoryBackup {

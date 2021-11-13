@@ -25,13 +25,13 @@ impl VTermRouter {
   }
 
   pub fn set_active_vterm(&mut self, active: usize) {
-    let current_term = match self.vterm_list.get(self.active_vterm) {
+    let current_term = match self.vterm_list.get_mut(self.active_vterm) {
       Some(v) => v,
       None => return,
     };
     current_term.make_inactive();
 
-    let next_vterm = match self.vterm_list.get(active) {
+    let next_vterm = match self.vterm_list.get_mut(active) {
       Some(v) => v,
       None => return,
     };
@@ -112,7 +112,11 @@ impl VTermRouter {
     let mut input_buffer: [u8; 4] = [0; 4];
     let output = self.key_state.process_key_action(action, &mut input_buffer);
     if let Some(len) = output {
-      
+      let current_term = match self.vterm_list.get_mut(self.active_vterm) {
+        Some(v) => v,
+        None => return,
+      };
+      current_term.send_characters(&input_buffer[0..len]);
     }
   }
 }
