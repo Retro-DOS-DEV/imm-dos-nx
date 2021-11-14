@@ -1,7 +1,13 @@
+#[cfg(not(test))]
 pub mod buffers;
+#[cfg(not(test))]
 pub mod device;
+#[cfg(not(test))]
 pub mod keyboard;
+pub mod parser;
+#[cfg(not(test))]
 pub mod router;
+#[cfg(not(test))]
 pub mod tty;
 
 use core::fmt::Write;
@@ -9,8 +15,10 @@ use crate::input::keyboard::KeyAction;
 use crate::task::yield_coop;
 use spin::RwLock;
 
+#[cfg(not(test))]
 pub static mut ROUTER: Option<RwLock<router::TTYRouter>> = None;
 
+#[cfg(not(test))]
 pub fn init_ttys() {
   let global_router = router::TTYRouter::new();
   for tty in 0..global_router.tty_count() {
@@ -22,6 +30,7 @@ pub fn init_ttys() {
   console_write(format_args!("\n\nTTY system \x1b[92mready\x1b[m\n"));
 }
 
+#[cfg(not(test))]
 pub fn get_router() -> &'static RwLock<router::TTYRouter> {
   match unsafe {&ROUTER} {
     Some(r) => &r,
@@ -29,6 +38,7 @@ pub fn get_router() -> &'static RwLock<router::TTYRouter> {
   }
 }
 
+#[cfg(not(test))]
 pub fn process_key_action(action: KeyAction) {
   match unsafe {&ROUTER} {
     Some(r) => r.write().send_key_action(action),
@@ -36,6 +46,7 @@ pub fn process_key_action(action: KeyAction) {
   }
 }
 
+#[cfg(not(test))]
 pub fn begin_session(tty: usize, program: &str) -> Result<(), ()> {
   let current_id = crate::task::switching::get_current_id();
   let tty_device = alloc::format!("DEV:\\TTY{}", tty);
@@ -50,6 +61,7 @@ pub fn begin_session(tty: usize, program: &str) -> Result<(), ()> {
 
 /// Process runs within kernel mode and processes all data that has come into
 /// DEV:/TTY files, sending it back to each TTY struct
+#[cfg(not(test))]
 #[inline(never)]
 pub extern "C" fn ttys_process() {
 
@@ -66,6 +78,7 @@ pub extern "C" fn ttys_process() {
 
 pub struct Console();
 
+#[cfg(not(test))]
 impl core::fmt::Write for Console {
   fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
     use crate::devices::driver::DeviceDriver;
@@ -79,6 +92,7 @@ impl core::fmt::Write for Console {
 }
 
 /// Write content to TTY0, aka the Console
+#[cfg(not(test))]
 pub fn console_write(args: core::fmt::Arguments) {
   let mut con = Console();
   con.write_fmt(args).unwrap();

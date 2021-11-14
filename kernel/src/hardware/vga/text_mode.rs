@@ -2,6 +2,7 @@ use core::fmt;
 use core::ptr::{read_volatile, write_volatile};
 use crate::memory::address::VirtualAddress;
 
+#[derive(Copy, Clone)]
 #[repr(u8)]
 pub enum Color {
   Black = 0,
@@ -75,59 +76,71 @@ impl TextMode {
     self.current_color = ColorCode::new(Color::LightGrey, Color::Black);
   }
 
-  pub unsafe fn clear_screen(&mut self) {
+  pub fn clear_screen(&mut self) {
     let mut offset = 0;
-    while offset < 2 * 80 * 25 {
-      write_volatile(self.base_pointer.offset(offset), 0x20);
-      offset += 2;
+    unsafe {
+      while offset < 2 * 80 * 25 {
+        write_volatile(self.base_pointer.offset(offset), 0x20);
+        offset += 2;
+      }
     }
   }
 
-  pub unsafe fn clear_screen_to_beginning(&mut self) {
+  pub fn clear_screen_to_beginning(&mut self) {
     let mut offset = 0;
     let limit = (self.cursor_col as isize) + (self.cursor_row as isize * 80);
-    while offset <= 2 * limit {
-      write_volatile(self.base_pointer.offset(offset), 0x20);
-      offset += 2;
+    unsafe {
+      while offset <= 2 * limit {
+        write_volatile(self.base_pointer.offset(offset), 0x20);
+        offset += 2;
+      }
     }
   }
 
-  pub unsafe fn clear_screen_to_end(&mut self) {
+  pub fn clear_screen_to_end(&mut self) {
     let mut offset = (self.cursor_col as isize) + (self.cursor_row as isize * 80) * 2;
-    while offset < 2 * 80 * 25 {
-      write_volatile(self.base_pointer.offset(offset), 0x20);
-      offset += 2;
+    unsafe {
+      while offset < 2 * 80 * 25 {
+        write_volatile(self.base_pointer.offset(offset), 0x20);
+        offset += 2;
+      }
     }
   }
 
-  pub unsafe fn clear_row(&mut self) {
+  pub fn clear_row(&mut self) {
     let mut offset = self.cursor_row as isize * 80 * 2;
     let limit = offset + 80 * 2;
-    while offset < limit {
-      write_volatile(self.base_pointer.offset(offset), 0x20);
-      offset += 2;
+    unsafe {
+      while offset < limit {
+        write_volatile(self.base_pointer.offset(offset), 0x20);
+        offset += 2;
+      }
     }
   }
 
-  pub unsafe fn clear_row_to_beginning(&mut self) {
+  pub fn clear_row_to_beginning(&mut self) {
     let mut offset = self.cursor_row as isize * 80 * 2;
     let limit = offset + (self.cursor_col as isize) * 2;
-    while offset <= limit {
-      write_volatile(self.base_pointer.offset(offset), 0x20);
-      offset += 2;
+    unsafe {
+      while offset <= limit {
+        write_volatile(self.base_pointer.offset(offset), 0x20);
+        offset += 2;
+      }
     }
   }
 
-  pub unsafe fn clear_row_to_end(&mut self) {
+  pub fn clear_row_to_end(&mut self) {
     let mut offset = (self.cursor_row as isize * 80 * 2) + (self.cursor_col as isize * 2);
     let limit = (self.cursor_row as isize + 1) * 80 * 2;
-    while offset < limit {
-      write_volatile(self.base_pointer.offset(offset), 0x20);
-      offset += 2;
+    unsafe {
+      while offset < limit {
+        write_volatile(self.base_pointer.offset(offset), 0x20);
+        offset += 2;
+      }
     }
   }
 
-  pub unsafe fn scroll(&mut self, rows: u8) {
+  pub fn scroll(&mut self, rows: u8) {
     if rows == 0 {
       return;
     }
@@ -138,25 +151,27 @@ impl TextMode {
     let mut dest = self.base_pointer;
     let scroll_rows = 25 - rows;
     let offset = (rows as isize) * 80 * 2;
-    for _i in 0..scroll_rows {
-      for _j in 0..80 {
-        let value = read_volatile(dest.offset(offset));
-        let color = read_volatile(dest.offset(offset + 1));
-        write_volatile(dest, value);
-        write_volatile(dest.offset(1), color);
-        dest = dest.offset(2);
+    unsafe {
+      for _i in 0..scroll_rows {
+        for _j in 0..80 {
+          let value = read_volatile(dest.offset(offset));
+          let color = read_volatile(dest.offset(offset + 1));
+          write_volatile(dest, value);
+          write_volatile(dest.offset(1), color);
+          dest = dest.offset(2);
+        }
       }
-    }
-    for _i in 0..rows {
-      for _j in 0..80 {
-        write_volatile(dest, 0x20);
-        write_volatile(dest.offset(1), self.current_color.as_u8());
-        dest = dest.offset(2);
+      for _i in 0..rows {
+        for _j in 0..80 {
+          write_volatile(dest, 0x20);
+          write_volatile(dest.offset(1), self.current_color.as_u8());
+          dest = dest.offset(2);
+        }
       }
     }
   }
 
-  unsafe fn newline(&mut self) {
+  fn newline(&mut self) {
     self.cursor_col = 0;
     if self.cursor_row < 24 {
       self.cursor_row += 1;
@@ -165,7 +180,7 @@ impl TextMode {
     self.scroll(1);
   }
 
-  pub unsafe fn advance_cursor(&mut self) {
+  pub fn advance_cursor(&mut self) {
     if self.cursor_col < 79 {
       self.cursor_col += 1;
       return;

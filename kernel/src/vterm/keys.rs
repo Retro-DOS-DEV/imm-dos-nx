@@ -56,7 +56,40 @@ impl KeyState {
   /// Convert a KeyCode into a series of ASCII characters, placing them in the
   /// buffer and returning the number of characters.
   pub fn key_code_to_ascii(&self, input: KeyCode, buffer: &mut [u8]) -> usize {
+    if self.ctrl {
+      match input {
+        KeyCode::C => {
+          buffer[0] = 0x03; // EOT / Break
+          return 1;
+        },
+        _ => (),
+      }
+    }
     match input {
+      KeyCode::ArrowUp => {
+        buffer[0] = 0x1b;
+        buffer[1] = b'[';
+        buffer[2] = b'A';
+        3
+      },
+      KeyCode::ArrowDown => {
+        buffer[0] = 0x1b;
+        buffer[1] = b'[';
+        buffer[2] = b'B';
+        3
+      },
+      KeyCode::ArrowRight => {
+        buffer[0] = 0x1b;
+        buffer[1] = b'[';
+        buffer[2] = b'C';
+        3
+      },
+      KeyCode::ArrowLeft => {
+        buffer[0] = 0x1b;
+        buffer[1] = b'[';
+        buffer[2] = b'D';
+        3
+      },
       _ => {
         let index = input as usize;
         let (normal, shifted) = if index < 0x60 {

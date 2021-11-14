@@ -25,6 +25,7 @@ pub mod memory;
 pub mod promise;
 pub mod task;
 pub mod time;
+pub mod tty;
 pub mod vterm;
 pub mod x86;
 
@@ -40,8 +41,6 @@ pub mod init;
 pub mod panic;
 #[cfg(not(test))]
 pub mod syscalls;
-#[cfg(not(test))]
-pub mod tty;
 
 extern crate alloc;
 

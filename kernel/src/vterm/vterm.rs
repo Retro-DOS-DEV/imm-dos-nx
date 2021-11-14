@@ -1,5 +1,6 @@
 use crate::hardware::vga::text_mode::TextMode;
 use crate::memory::address::PhysicalAddress;
+use crate::tty::parser::{Parser, TTYAction};
 use super::memory::MemoryBackup;
 
 /// A vterm virtualizes access to the keyboard input and video output.
@@ -16,6 +17,7 @@ pub struct VTerm {
   pub video_mode: u8,
   memory_backups: [Option<MemoryBackup>; 32],
   text_mode_state: TextMode,
+  ansi_parser: Parser,
 }
 
 impl VTerm {
@@ -28,7 +30,8 @@ impl VTerm {
     Self {
       video_mode: mode,
       memory_backups,
-      text_mode_state: TextMode::new(backup.mapped_to),
+      text_mode_state: TextMode::new(backup_location),
+      ansi_parser: Parser::new(),
     }
   }
 
@@ -76,9 +79,76 @@ impl VTerm {
     }
   }
 
+  pub fn write_character(&mut self, ch: u8) {
+    if ch < 0x20 {
+      self.text_mode_state.write_byte(b'^');
+      self.text_mode_state.write_byte(ch + 0x40);
+    } else {
+      self.text_mode_state.write_byte(ch);
+    }
+  }
+
   pub fn send_characters(&mut self, chars: &[u8]) {
     for ch in chars {
-      self.text_mode_state.write_byte(*ch);
+      let action = self.ansi_parser.process_character(*ch);
+      match action {
+        TTYAction::Print(print) => self.write_character(print),
+        _ => {
+          // if echoing control characters is enabled, print it
+          self.write_character(*ch);
+        },
+      }
+      match action {
+        TTYAction::MoveCursor(dx, dy) => {
+          self.text_mode_state.move_cursor_relative(dx, dy);
+        },
+        TTYAction::SetColumn(col) => {
+          
+        },
+        TTYAction::SetPosition(col, row) => {
+          self.text_mode_state.move_cursor(col as u8, row as u8);
+        },
+        TTYAction::ClearScreen => {
+          self.text_mode_state.clear_screen();
+        },
+        TTYAction::ClearToBeginning => {
+          self.text_mode_state.clear_screen_to_beginning();
+        },
+        TTYAction::ClearToEnd => {
+          self.text_mode_state.clear_screen_to_end();
+        },
+        TTYAction::ClearRow => {
+          self.text_mode_state.clear_row();
+        },
+        TTYAction::ClearRowToBeginning => {
+          self.text_mode_state.clear_row_to_beginning();
+        },
+        TTYAction::ClearRowToEnd => {
+          self.text_mode_state.clear_row_to_end();
+        },
+        TTYAction::NextLineStart(dist) => {
+
+        },
+        TTYAction::PrevLineStart(dist) => {
+
+        },
+        TTYAction::ScrollUp(lines) => {
+          self.text_mode_state.scroll(lines as u8);
+        },
+        TTYAction::ScrollDown(lines) => {
+
+        },
+        TTYAction::ResetColors => {
+          self.text_mode_state.reset_colors();
+        },
+        TTYAction::SetFgColor(fg) => {
+          self.text_mode_state.set_fg_color(fg);
+        },
+        TTYAction::SetBgColor(bg) => {
+          self.text_mode_state.set_bg_color(bg);
+        },
+        _ => (),
+      }
     }
   }
 }
