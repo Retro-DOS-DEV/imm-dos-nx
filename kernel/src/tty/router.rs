@@ -8,15 +8,9 @@ use crate::task::id::ProcessID;
 use crate::task::signal::Signal;
 use spin::RwLock;
 
-use super::buffers::{TTYReadWriteBuffers, TTYReaderBuffer};
+use super::buffers::{Descriptor, TTYReadWriteBuffers, TTYReaderBuffer};
 use super::keyboard::KeyState;
 use super::tty::TTY;
-
-/// Associates an open IOHandle with other relevant information
-pub struct Descriptor {
-  pub process: ProcessID,
-  pub handle: IOHandle,
-}
 
 /// Associates a TTY driver, containing internal screen state and the ability to
 /// write to the VGA buffer, with a device file that can be written and read by

@@ -18,6 +18,11 @@ pub struct VTerm {
   memory_backups: [Option<MemoryBackup>; 32],
   text_mode_state: TextMode,
   ansi_parser: Parser,
+
+  // ==== mode flags
+
+  /// determines whether to echo characters received as input
+  echo_input_flag: bool,
 }
 
 impl VTerm {
@@ -32,6 +37,7 @@ impl VTerm {
       memory_backups,
       text_mode_state: TextMode::new(backup_location),
       ansi_parser: Parser::new(),
+      echo_input_flag: true,
     }
   }
 
@@ -62,6 +68,10 @@ impl VTerm {
     self.text_mode_state.set_buffer_pointer(0xc00b8000);
   }
 
+  pub fn make_initial(&mut self) {
+    self.text_mode_state.set_buffer_pointer(0xc00b8000);
+  }
+
   /// When a VTerm becomes inactive, it needs to store its current state. This
   /// involves copying all active video memory areas to their back buffers.
   pub fn make_inactive(&mut self) {
@@ -79,6 +89,7 @@ impl VTerm {
     }
   }
 
+  /// Directly write a character to the text mode buffer
   pub fn write_character(&mut self, ch: u8) {
     if ch < 0x20 {
       self.text_mode_state.write_byte(b'^');
@@ -86,6 +97,18 @@ impl VTerm {
     } else {
       self.text_mode_state.write_byte(ch);
     }
+  }
+
+  /// Receive a buffer of characters directly from the keyboard, process them,
+  /// and add them to the "read" side of the associated TTY device if there are
+  /// any active readers.
+  pub fn handle_input(&mut self, chars: &[u8]) {
+    if self.echo_input_flag {
+      for ch in chars {
+        self.write_character(*ch);
+      }
+    }
+    // find the matching TTY device and add these chars to the reader buffer
   }
 
   pub fn send_characters(&mut self, chars: &[u8]) {
@@ -103,7 +126,7 @@ impl VTerm {
           self.text_mode_state.move_cursor_relative(dx, dy);
         },
         TTYAction::SetColumn(col) => {
-          
+
         },
         TTYAction::SetPosition(col, row) => {
           self.text_mode_state.move_cursor(col as u8, row as u8);
@@ -150,5 +173,10 @@ impl VTerm {
         _ => (),
       }
     }
+  }
+
+  /// Scroll the text mode up by a specified number of rows
+  pub fn scroll(&mut self, delta: usize) {
+    self.text_mode_state.scroll(delta as u8);
   }
 }

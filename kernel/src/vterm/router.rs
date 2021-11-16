@@ -12,11 +12,25 @@ pub struct VTermRouter {
 }
 
 impl VTermRouter {
-  pub fn new() -> Self {
+  pub fn new(count: usize) -> Self {
     let mut vterm_list = Vec::new();
-    vterm_list.push(VTerm::with_video_mode(0x03));
-    vterm_list.push(VTerm::with_video_mode(0x03));
-    vterm_list.push(VTerm::with_video_mode(0x13));
+    for i in 0..count {
+      let mode = if i == count - 1 {
+        0x13
+      } else {
+        0x03
+      };
+
+      let mut term = VTerm::with_video_mode(mode);
+      if i == 0 {
+        term.make_initial();
+        term.scroll(2);
+      }
+      vterm_list.push(term);
+
+      // make the associated tty device
+      crate::tty::device::create_tty();
+    }
     Self {
       vterm_list,
       active_vterm: 0,
@@ -117,6 +131,24 @@ impl VTermRouter {
         None => return,
       };
       current_term.send_characters(&input_buffer[0..len]);
+    }
+  }
+
+  pub fn process_buffers(&mut self) {
+    let mut data: [u8; 4] = [0; 4];
+    for (i, vterm) in self.vterm_list.iter_mut().enumerate() {
+      let write_buffer = crate::tty::device::get_write_buffer(i);
+
+      let mut to_read = write_buffer.available_bytes();
+      while to_read > 0 {
+        let bytes_read = write_buffer.read(&mut data);
+        to_read = if bytes_read == data.len() {
+          to_read - bytes_read
+        } else {
+          0
+        };
+        vterm.send_characters(&data[0..bytes_read]);
+      }
     }
   }
 }

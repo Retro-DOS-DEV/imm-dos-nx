@@ -7,7 +7,6 @@ use crate::devices::driver::IOHandle;
 use crate::devices::queue::QueuedIO;
 use crate::task::id::ProcessID;
 use spin::RwLock;
-use super::router::Descriptor;
 
 const BUFFER_SIZE: usize = 512;
 
@@ -59,6 +58,12 @@ impl Drop for TTYReadWriteBuffers {
   }
 }
 
+
+pub struct Descriptor {
+  pub process: ProcessID,
+  pub handle: IOHandle,
+}
+
 /// Stores input from the keyboard that is waiting to be read
 pub struct TTYReaderBuffer {
   /// Pointer to allocated buffer data. The buffer gets leaked to get around
@@ -92,7 +97,7 @@ impl TTYReaderBuffer {
       let mut byte_buffer: [u8; 1] = [0];
       while bytes_read < dest.len() && byte_buffer[0] != b'\n' {
         if self.buffer.available_bytes() < 1 {
-          crate::task::switching::get_current_process().write().io_block(None);
+          crate::task::get_current_process().write().io_block(None);
           crate::task::yield_coop();
         }
         let partial_read = self.buffer.read(&mut byte_buffer);
@@ -134,5 +139,43 @@ impl QueuedIO<(), usize> for TTYReaderBuffer {
 
   fn get_io_queue(&self) -> &RwLock<VecDeque<IOHandle>> {
     &self.io_queue
+  }
+}
+
+
+pub struct TTYWriterBuffer {
+  buffer_raw_ptr: *mut [u8; BUFFER_SIZE],
+  pub buffer: RingBuffer<'static>,
+}
+
+impl TTYWriterBuffer {
+  pub fn new() -> Self {
+    let buffer_box: Box<[u8; BUFFER_SIZE]> = Box::new([0; BUFFER_SIZE]);
+    let buffer_raw_ptr = Box::into_raw(buffer_box);
+    let buffer_slice = unsafe { &*buffer_raw_ptr };
+
+    Self {
+      buffer_raw_ptr,
+      buffer: RingBuffer::new(buffer_slice),
+    }
+  }
+
+  pub fn write(&self, _handle: IOHandle, buffer: &[u8]) -> usize {
+    // TODO: handle partial / blocked write
+    self.buffer.write(buffer)
+  }
+
+  pub fn read(&self, buffer: &mut [u8]) -> usize {
+    self.buffer.read(buffer)
+  }
+
+  pub fn available_bytes(&self) -> usize {
+    self.buffer.available_bytes()
+  }
+}
+
+impl Drop for TTYWriterBuffer {
+  fn drop(&mut self) {
+    Box::from(self.buffer_raw_ptr);
   }
 }

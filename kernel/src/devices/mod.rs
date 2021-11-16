@@ -1,10 +1,13 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
-use crate::hardware::{dma, floppy, pic, pit, rtc};
+use crate::hardware::{dma, pic, pit, rtc};
+#[cfg(not(test))]
+use crate::hardware::floppy;
 use crate::hardware::vga::text_mode;
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
 
+#[cfg(not(test))]
 pub mod block;
 pub mod driver;
 pub mod installed;
@@ -40,6 +43,7 @@ pub fn get_driver_for_device(number: usize) -> Option<Arc<Box<driver::DeviceDriv
   }
 }
 
+#[cfg(not(test))]
 pub fn init() {
   unsafe {
     PIC.init();

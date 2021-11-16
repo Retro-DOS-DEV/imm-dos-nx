@@ -92,6 +92,10 @@ impl<T: Sized> SlotList<T> {
       }
     }
   }
+
+  pub fn len(&self) -> usize {
+    self.slots.len()
+  }
 }
 
 impl<T: Clone> Clone for SlotList<T> {

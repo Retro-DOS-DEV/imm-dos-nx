@@ -1,6 +1,4 @@
-#[cfg(not(test))]
 pub mod buffers;
-#[cfg(not(test))]
 pub mod device;
 #[cfg(not(test))]
 pub mod keyboard;
@@ -95,5 +93,5 @@ impl core::fmt::Write for Console {
 #[cfg(not(test))]
 pub fn console_write(args: core::fmt::Arguments) {
   let mut con = Console();
-  con.write_fmt(args).unwrap();
+  //con.write_fmt(args).unwrap();
 }

@@ -13,6 +13,7 @@
 // Test-safe modules
 pub mod buffers;
 pub mod collections;
+pub mod devices;
 pub mod dos;
 pub mod files;
 pub mod fs;
@@ -31,8 +32,6 @@ pub mod x86;
 
 #[cfg(not(test))]
 pub mod debug;
-#[cfg(not(test))]
-pub mod devices;
 #[cfg(not(test))]
 pub mod gdt;
 #[cfg(not(test))]
@@ -192,7 +191,8 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       let init_process = task::switching::kfork(run_init);
       let input_process = task::switching::kfork(input::run_input);
       task::switching::kfork(hardware::vga::driver::vga_driver_process);
-      task::switching::kfork(tty::ttys_process);
+      //task::switching::kfork(tty::ttys_process);
+      task::switching::kfork(vterm::vterm_process);
     }
 
     fs::init_system_drives(VirtualAddress::new(initfs_start));
@@ -215,7 +215,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
 #[inline(never)]
 pub extern fn run_init() {
   // Initialize hardware
-  tty::init_ttys();
+  //tty::init_ttys();
   vterm::init_vterm();
   devices::init();
   time::system::initialize_from_rtc();
@@ -225,7 +225,12 @@ pub extern fn run_init() {
 
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
   //let stdin = task::io::open_path("DEV:\\TTY1").unwrap();
-  //let stdout = task::io::open_path("DEV:\\TTY1").unwrap();
+  let stdout = task::io::open_path("DEV:\\TTY0").unwrap();
+  task::io::write_file(stdout, "HELLO THERE".as_bytes());
+
+  loop {
+    task::yield_coop();
+  }
   //let stderr = task::io::dup(stdout, None).unwrap();
 
   /*

@@ -53,6 +53,20 @@ pub fn get_current_process() -> alloc::sync::Arc<spin::RwLock<process::Process>>
 }
 
 #[cfg(not(test))]
+pub use switching::get_process;
+#[cfg(test)]
+pub fn get_process(_id: &id::ProcessID) -> Option<alloc::sync::Arc<spin::RwLock<process::Process>>> {
+  panic!("Not available in test");
+}
+
+#[cfg(not(test))]
+pub use switching::get_current_id;
+#[cfg(test)]
+pub fn get_current_id() -> id::ProcessID {
+  id::ProcessID::new(0)
+}
+
+#[cfg(not(test))]
 pub use exec::terminate;
 #[cfg(test)]
 pub fn terminate(_exit_code: u32) {}
