@@ -43,3 +43,27 @@ pub extern "C" fn vterm_process() {
     crate::task::yield_coop();
   }
 }
+
+/// Empty singleton-style struct to implement easy formatted writing
+pub struct Console();
+
+impl core::fmt::Write for Console {
+  fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
+    let router = get_router();
+    // Alternatively, this could be a try_read and push the data to the buffer.
+    // That might be better...
+    match router.try_write() {
+      Some(mut r) => r.write_to_console(s),
+      None => (),
+    }
+    Ok(())
+  }
+}
+
+/// Write content to TTY0, aka the Console
+pub fn console_write(args: core::fmt::Arguments) {
+  use core::fmt::Write;
+
+  let mut con = Console();
+  con.write_fmt(args).unwrap();
+}

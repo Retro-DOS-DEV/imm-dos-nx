@@ -152,6 +152,7 @@ impl FloppyDiskController {
       let secondary_drive = DriveType::from_cmos(cmos_value & 0x0f);
       *(self.primary_drive_type.write()) = primary_drive;
       *(self.secondary_drive_type.write()) = secondary_drive;
+      crate::klog!("Drives Detected:\n");
       crate::klog!("  Primary Drive:   \x1b[97m{:}\x1b[m\n", primary_drive);
       crate::klog!("  Secondary Drive: \x1b[97m{:}\x1b[m\n", secondary_drive);
     }

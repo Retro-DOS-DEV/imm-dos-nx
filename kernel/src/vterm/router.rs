@@ -151,4 +151,13 @@ impl VTermRouter {
       }
     }
   }
+
+  pub fn write_to_console(&mut self, s: &str) {
+    let vterm_zero = self.vterm_list.get_mut(0);
+    let console = match vterm_zero {
+      Some(vterm) => vterm,
+      None => return,
+    };
+    console.send_characters(s.as_bytes());
+  }
 }

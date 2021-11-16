@@ -40,5 +40,5 @@ macro_rules! kprintln {
 
 #[macro_export]
 macro_rules! klog {
-  ($($arg:tt)*) => ($crate::tty::console_write(format_args!($($arg)*)));
+  ($($arg:tt)*) => ($crate::vterm::console_write(format_args!($($arg)*)));
 }

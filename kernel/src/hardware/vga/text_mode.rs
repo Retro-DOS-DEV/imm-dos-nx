@@ -171,7 +171,7 @@ impl TextMode {
     }
   }
 
-  fn newline(&mut self) {
+  pub fn newline(&mut self) {
     self.cursor_col = 0;
     if self.cursor_row < 24 {
       self.cursor_row += 1;

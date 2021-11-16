@@ -23,6 +23,9 @@ pub enum ParseState {
 pub enum TTYAction {
   None,
   Print(u8),
+  NewLine,
+  Backspace,
+  Delete,
   MoveCursor(isize, isize),
   SetColumn(usize),
   SetPosition(usize, usize),
@@ -63,9 +66,18 @@ impl Parser {
     match self.state {
       ParseState::Ready => {
         match ch {
+          0x08 => {
+            return TTYAction::Backspace;
+          }
+          0x0a => {
+            return TTYAction::NewLine;
+          }
           0x1b => {
             self.state = ParseState::EscapeStart;
             return TTYAction::None;
+          },
+          0x7f => {
+            return TTYAction::Delete;
           },
           _ => return TTYAction::Print(ch),
         }

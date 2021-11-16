@@ -116,12 +116,7 @@ impl VTerm {
       let action = self.ansi_parser.process_character(*ch);
       match action {
         TTYAction::Print(print) => self.write_character(print),
-        _ => {
-          // if echoing control characters is enabled, print it
-          self.write_character(*ch);
-        },
-      }
-      match action {
+        TTYAction::NewLine => self.text_mode_state.newline(),
         TTYAction::MoveCursor(dx, dy) => {
           self.text_mode_state.move_cursor_relative(dx, dy);
         },
