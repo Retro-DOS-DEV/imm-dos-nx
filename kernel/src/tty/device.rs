@@ -98,8 +98,8 @@ impl DeviceDriver for TTYDevice {
     */
   }
 
-  fn reopen(&self, handle: IOHandle, id: ProcessID) -> Result<IOHandle, ()> {
-    self.with_device_data(|d| d.reopen(handle, id))
+  fn reopen(&self, _handle: IOHandle, id: ProcessID) -> Result<IOHandle, ()> {
+    self.with_device_data(|d| d.reopen(id))
     /*
     let router = super::get_router().read();
     let new_handle = router.reopen_device(self.tty_id, id);
@@ -150,7 +150,7 @@ impl TTYDeviceData {
     Ok(handle)
   }
 
-  pub fn reopen(&self, handle: IOHandle, process: ProcessID) -> Result<IOHandle, ()> {
+  pub fn reopen(&self, process: ProcessID) -> Result<IOHandle, ()> {
     let new_handle = IOHandle::new(self.next_handle.fetch_add(1, Ordering::SeqCst));
     self.open_io.write().insert(Descriptor { process, handle: new_handle });
     Ok(new_handle)
@@ -196,7 +196,7 @@ pub fn get_write_buffer(index: usize) -> Arc<TTYWriterBuffer> {
   DEVICE_DATA.read().get(index).unwrap().get_write_buffer()
 }
 
-pub fn create_tty() {
+pub fn create_tty() -> usize {
   let device_data = TTYDeviceData::new();
   let index = {
     let mut collection = DEVICE_DATA.write();
@@ -205,4 +205,5 @@ pub fn create_tty() {
     len
   };
   crate::devices::create_tty(index);
+  index
 }

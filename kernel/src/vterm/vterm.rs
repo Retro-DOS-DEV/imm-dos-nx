@@ -18,11 +18,16 @@ pub struct VTerm {
   memory_backups: [Option<MemoryBackup>; 32],
   text_mode_state: TextMode,
   ansi_parser: Parser,
+  tty_index: usize,
 
   // ==== mode flags
 
   /// determines whether to echo characters received as input
   echo_input_flag: bool,
+  /// if true, sends every raw character to the TTY device buffer; if false,
+  /// runs in "canonical" mode where lines are only sent once a newline is
+  /// detected.
+  raw_mode_flag: bool,
 }
 
 impl VTerm {
@@ -37,8 +42,18 @@ impl VTerm {
       memory_backups,
       text_mode_state: TextMode::new(backup_location),
       ansi_parser: Parser::new(),
+      tty_index: 0,
       echo_input_flag: true,
+      raw_mode_flag: false,
     }
+  }
+
+  pub fn set_tty_index(&mut self, index: usize) {
+    self.tty_index = index;
+  }
+
+  pub fn get_tty_index(&self) -> usize {
+    self.tty_index
   }
 
   pub fn get_memory_backup(&self, address: PhysicalAddress) -> Option<&MemoryBackup> {
@@ -91,7 +106,9 @@ impl VTerm {
 
   /// Directly write a character to the text mode buffer
   pub fn write_character(&mut self, ch: u8) {
-    if ch < 0x20 {
+    if ch == 0x0a {
+      self.text_mode_state.write_byte(ch);
+    } else if ch < 0x20 {
       self.text_mode_state.write_byte(b'^');
       self.text_mode_state.write_byte(ch + 0x40);
     } else {
@@ -109,8 +126,12 @@ impl VTerm {
       }
     }
     // find the matching TTY device and add these chars to the reader buffer
+    let read_buffer = crate::tty::device::get_read_buffer(self.tty_index);
+    read_buffer.add_data(chars);
   }
 
+  /// Takes a stream of character bytes to be handled by the terminal parser. It
+  /// processes ANSI codes and modifies the terminal state accordingly.
   pub fn send_characters(&mut self, chars: &[u8]) {
     for ch in chars {
       let action = self.ansi_parser.process_character(*ch);

@@ -26,10 +26,11 @@ impl VTermRouter {
         term.make_initial();
         term.scroll(2);
       }
-      vterm_list.push(term);
-
       // make the associated tty device
-      crate::tty::device::create_tty();
+      let index = crate::tty::device::create_tty();
+      term.set_tty_index(index);
+
+      vterm_list.push(term);
     }
     Self {
       vterm_list,
@@ -130,14 +131,15 @@ impl VTermRouter {
         Some(v) => v,
         None => return,
       };
-      current_term.send_characters(&input_buffer[0..len]);
+      current_term.handle_input(&input_buffer[0..len]);
     }
   }
 
   pub fn process_buffers(&mut self) {
     let mut data: [u8; 4] = [0; 4];
-    for (i, vterm) in self.vterm_list.iter_mut().enumerate() {
-      let write_buffer = crate::tty::device::get_write_buffer(i);
+    for vterm in self.vterm_list.iter_mut() {
+      let tty_index = vterm.get_tty_index();
+      let write_buffer = crate::tty::device::get_write_buffer(tty_index);
 
       let mut to_read = write_buffer.available_bytes();
       while to_read > 0 {

@@ -225,8 +225,7 @@ pub extern fn run_init() {
 
   //let r = task::exec::exec("INIT:\\driver.bin", loaders::InterpretationMode::Native);
   //let stdin = task::io::open_path("DEV:\\TTY1").unwrap();
-  let stdout = task::io::open_path("DEV:\\TTY0").unwrap();
-  task::io::write_file(stdout, "HELLO THERE".as_bytes());
+  //let stdout = task::io::open_path("DEV:\\TTY0").unwrap();
 
   //let stderr = task::io::dup(stdout, None).unwrap();
 
