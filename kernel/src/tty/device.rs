@@ -98,7 +98,8 @@ impl DeviceDriver for TTYDevice {
     */
   }
 
-  fn reopen(&self, index: IOHandle, id: ProcessID) -> Result<IOHandle, ()> {
+  fn reopen(&self, handle: IOHandle, id: ProcessID) -> Result<IOHandle, ()> {
+    self.with_device_data(|d| d.reopen(handle, id))
     /*
     let router = super::get_router().read();
     let new_handle = router.reopen_device(self.tty_id, id);
@@ -107,7 +108,6 @@ impl DeviceDriver for TTYDevice {
       None => Err(()),
     }
     */
-    Err(())
   }
 }
 
@@ -148,6 +148,12 @@ impl TTYDeviceData {
     let process = crate::task::get_current_id();
     self.open_io.write().insert(Descriptor { process, handle });
     Ok(handle)
+  }
+
+  pub fn reopen(&self, handle: IOHandle, process: ProcessID) -> Result<IOHandle, ()> {
+    let new_handle = IOHandle::new(self.next_handle.fetch_add(1, Ordering::SeqCst));
+    self.open_io.write().insert(Descriptor { process, handle: new_handle });
+    Ok(new_handle)
   }
 
   pub fn close(&self, close_handle: IOHandle) -> Result<(), ()> {

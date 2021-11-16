@@ -228,9 +228,6 @@ pub extern fn run_init() {
   let stdout = task::io::open_path("DEV:\\TTY0").unwrap();
   task::io::write_file(stdout, "HELLO THERE".as_bytes());
 
-  loop {
-    task::yield_coop();
-  }
   //let stderr = task::io::dup(stdout, None).unwrap();
 
   /*
@@ -241,7 +238,7 @@ pub extern fn run_init() {
   }
   */
 
-  let session = tty::begin_session(1, "INIT:\\command.elf");
+  let session = vterm::begin_session(1, "INIT:\\command.elf");
   if let Err(_) = session {
     kprintln!("Failed to initialize shell");
     loop {

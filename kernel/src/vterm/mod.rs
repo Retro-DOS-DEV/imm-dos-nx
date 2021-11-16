@@ -31,6 +31,19 @@ pub fn get_router() -> &'static RwLock<router::VTermRouter> {
   }
 }
 
+#[cfg(not(test))]
+pub fn begin_session(tty: usize, program: &str) -> Result<(), ()> {
+  let current_id = crate::task::get_current_id();
+  let tty_device = alloc::format!("DEV:\\TTY{}", tty);
+  let stdin = crate::task::io::open_path(&tty_device).unwrap();
+  let stdout = crate::task::io::dup(stdin, None).unwrap();
+  let stderr = crate::task::io::dup(stdin, None).unwrap();
+
+  // set foreground process for vterm here
+
+  crate::task::exec::exec(program, crate::loaders::InterpretationMode::Native).map_err(|_| ())
+}
+
 #[inline(never)]
 pub extern "C" fn vterm_process() {
   loop {
