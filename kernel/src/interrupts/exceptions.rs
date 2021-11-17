@@ -1,12 +1,10 @@
 use core::mem;
-use crate::dos::registers::{DosApiRegisters, VM86Frame};
 use crate::{klog, kprintln};
 use crate::memory::{
   address::{VirtualAddress},
   virt::page_directory::{CurrentPageDirectory, invalidate_page},
 };
 use super::stack::StackFrame;
-use super::syscall_legacy::dos_api;
 
 #[no_mangle]
 pub extern "x86-interrupt" fn divide_by_zero(stack_frame: StackFrame) {
@@ -57,100 +55,10 @@ pub extern "x86-interrupt" fn stack_segment_fault(_stack_frame: StackFrame, erro
 pub extern "x86-interrupt" fn gpf(stack_frame: StackFrame, error: u32) {
   if stack_frame.eflags & 0x20000 != 0 {
     // VM86 Mode
-    let stack_frame_ptr = &stack_frame as *const StackFrame as usize;
-    let vm_frame_ptr = (stack_frame_ptr + mem::size_of::<StackFrame>()) as *mut VM86Frame;
-    // The registers get pushed by the x86-interrupt wrapper.
-    // They should be found beneath the last argument for this method.
-    let reg_ptr = (
-      stack_frame_ptr - core::mem::size_of::<u32>() - core::mem::size_of::<DosApiRegisters>()
-    ) as *mut DosApiRegisters;
-    unsafe {
-      let regs = &mut *reg_ptr;
-      let vm_frame = &mut *vm_frame_ptr;
-      let op_ptr = ((stack_frame.cs << 4) + stack_frame.eip) as *const u8;
-      if *op_ptr == 0x66 { // Op32 Prefix
-        panic!("Unsupported privileged instruction");
-      } else if *op_ptr == 0x67 { // Addr32 Prefix
-        panic!("Unsupported privileged instruction");
-      } else if *op_ptr == 0x9c { // PUSHF
-        // needs to handle 32-bit variant
-        vm_frame.sp = (vm_frame.sp - 2) & 0xffff;
-        let sp = (vm_frame.ss << 4) + vm_frame.sp;
-        *(sp as *mut u16) = stack_frame.eflags as u16;
-        stack_frame.add_eip(1);
-        return;
-      } else if *op_ptr == 0x9d { // POPF
-        // needs to handle 32-bit variant
-        let sp = (vm_frame.ss << 4) + vm_frame.sp;
-        let flags = *(sp as *const u16);
-        vm_frame.sp = (vm_frame.sp + 2) & 0xffff;
-        stack_frame.set_eflags((flags as u32) | 0x20200);
-        stack_frame.add_eip(1);
-        return;
-      } else if *op_ptr == 0xcd {
-        // INT
-        let interrupt = *op_ptr.offset(1);
-        match interrupt {
-          0x03 => { // Breakpoint
-            panic!("Break");
-          },
-          0x20 => {
-            // DOS terminate
-            
-          },
-          0x21 => {
-            // DOS API
-            klog!("DOS API {:X}\n", regs.ah());
-            dos_api(regs, vm_frame, &stack_frame);
-          },
-          _ => panic!("Unsupported interrupt from VM86 mode: {:X}", interrupt),
-        }
-        // Compiler will try to optimize out a write to the StackFrame
-        stack_frame.set_eip(stack_frame.eip + 2);
-        return;
-      } else if *op_ptr == 0xcf { // IRET
-        let sp = (vm_frame.ss << 4) + vm_frame.sp;
-        let (ip, cs, flags) = (
-          *(sp as *const u16),
-          *((sp + 2) as *const u16),
-          *((sp + 4) as *const u16),
-        );
-        if cs == 0 && ip == 0 {
-          // can't jump to zero, it's the IVT!
-          // use this case as the hook to request existing VM86 mode
-          let fn_resume = {
-            let current_process = crate::task::get_current_process();
-            let on_exit_vm = current_process.read().on_exit_vm;
-            on_exit_vm
-          };
-          match fn_resume {
-            Some(addr) => {
-              asm!(
-                "jmp eax",
-                in("eax") addr,
-                options(noreturn),
-              );
-            },
-            None => (),
-          }
-        }
-        // nothing special, perform the iret like normal
-        stack_frame.set_eip(ip as u32);
-        stack_frame.set_cs(cs as u32);
-        stack_frame.set_eflags((flags as u32) | 0x20200);
-        // mark virtual interrupt flag from `flags`
-        vm_frame.sp = (vm_frame.sp + 6) & 0xffff;
-        return;
-      } else if *op_ptr == 0xfa { // CLI
-        // clear virtual interrupt flag
-        stack_frame.add_eip(1);
-        return;
-      } else if *op_ptr == 0xfb { // STI
-        // set virtual interrupt flag
-        stack_frame.add_eip(1);
-        return;
-      }
+    if crate::dos::emulation::handle_gpf(&stack_frame) {
+      return;
     }
+    // else, fall through to the general GPF handler
   } else if stack_frame.eip >= 0xc0000000 {
     kprintln!("Kernel GPF: {}", error);
     loop {}

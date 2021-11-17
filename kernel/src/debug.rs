@@ -42,3 +42,7 @@ macro_rules! kprintln {
 macro_rules! klog {
   ($($arg:tt)*) => ($crate::vterm::console_write(format_args!($($arg)*)));
 }
+
+pub fn log_dos_syscall(method: u8) {
+  kprintln!("DOS API: {:X}", method);
+}
