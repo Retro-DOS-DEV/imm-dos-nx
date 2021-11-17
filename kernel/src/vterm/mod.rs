@@ -38,6 +38,11 @@ pub fn begin_session(tty: usize, program: &str) -> Result<(), ()> {
   let stdin = crate::task::io::open_path(&tty_device).unwrap();
   let stdout = crate::task::io::dup(stdin, None).unwrap();
   let stderr = crate::task::io::dup(stdin, None).unwrap();
+  {
+    let current_process_lock = crate::task::get_current_process();
+    let mut current_process = current_process_lock.write();
+    current_process.force_vterm(tty);
+  }
 
   // set foreground process for vterm here
 

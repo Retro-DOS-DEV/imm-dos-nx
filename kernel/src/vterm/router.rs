@@ -78,6 +78,26 @@ impl VTermRouter {
     }
   }
 
+  pub fn change_video_mode(&mut self, index: usize, mode: u8) {
+    let mut vterm = match self.vterm_list.get_mut(index) {
+      Some(v) => v,
+      None => return,
+    };
+    if vterm.video_mode == mode {
+      return;
+    }
+    vterm.video_mode = mode;
+    #[cfg(not(test))]
+    if self.active_vterm == index {
+      crate::hardware::vga::driver::request_mode_change_with_timeout(mode, 1000);
+      let current_mode = crate::hardware::vga::driver::get_video_mode();
+      if mode != current_mode {
+        crate::kprintln!("Failed to set video mode");
+        return;
+      }
+    }
+  }
+
   pub fn send_key_action(&mut self, action: KeyAction) {
     if self.key_state.alt {
       match action {

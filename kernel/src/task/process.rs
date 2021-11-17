@@ -53,6 +53,8 @@ pub struct Process {
   pub subsystem: Subsystem,
   /// An optional kernel-level method to run when exiting VM86 mode
   pub on_exit_vm: Option<usize>,
+  /// If set, points to the VTerm that initialized this process or its ancestor
+  vterm: Option<usize>,
 }
 
 impl Process {
@@ -76,6 +78,7 @@ impl Process {
       exec_file: None,
       subsystem: Subsystem::Native,
       on_exit_vm: None,
+      vterm: None,
     }
   }
 
@@ -182,6 +185,16 @@ impl Process {
     self.stack_push_u32(0x1b);
     // Instruction pointer
     self.stack_push_u32(func as u32 & 0x3fffffff);
+  }
+
+  /// Force a process to think it was started by the specified vterm. This is
+  /// used for the initial process in each vterm.
+  pub fn force_vterm(&mut self, index: usize) {
+    self.vterm = Some(index);
+  }
+
+  pub fn get_vterm(&self) -> Option<usize> {
+    self.vterm
   }
 
   /// End all execution of the process, and mark its resources for cleanup.
@@ -343,6 +356,7 @@ impl Process {
       exec_file: self.exec_file,
       subsystem: Subsystem::Native,
       on_exit_vm: None,
+      vterm: self.vterm,
     }
   }
 
