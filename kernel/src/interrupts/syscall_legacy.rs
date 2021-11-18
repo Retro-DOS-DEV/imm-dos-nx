@@ -49,6 +49,7 @@ pub fn dos_api(regs: &mut DosApiRegisters, segments: &mut VM86Frame, stack_frame
     },
     0x08 => { // Blocking STDIN input
       // Block until character is available from STDIN
+      devices::read_stdin_without_echo(regs);
     },
     0x09 => { // Print string
       // DS:DX points to a string terminated by '$'

@@ -1,4 +1,3 @@
-use core::mem;
 use crate::{klog, kprintln};
 use crate::memory::{
   address::{VirtualAddress},
@@ -108,6 +107,15 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
       loop {}
     }
   } else { // User space
+    if stack_frame.eflags & 0x20000 != 0 {
+      // VM86 mode, handle it separately
+      if crate::dos::emulation::handle_page_fault(&stack_frame, address) {
+        return;
+      }
+      kprintln!("Failed to handle page fault in DOS program");
+      loop {}
+    }
+
     if error & 1 == 0 {
       // Page was not present
       // Query the current task to determine how to fill the page

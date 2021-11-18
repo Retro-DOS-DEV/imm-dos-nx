@@ -1,6 +1,9 @@
 use core::mem::size_of;
 use crate::interrupts::stack::StackFrame;
 use crate::interrupts::syscall_legacy::dos_api;
+use crate::memory::address::VirtualAddress;
+use crate::memory::physical::frame::Frame;
+use crate::memory::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
 use super::registers::{DosApiRegisters, VM86Frame};
 
 /// When a DOS program running in VM86 mode tries to do something privileged, it
@@ -98,6 +101,7 @@ fn handle_interrupt(
   vm_frame: &mut VM86Frame,
   stack_frame: &StackFrame,
 ) {
+  crate::debug::log_dos_interrupt(interrupt);
   match interrupt {
     0x00 => { // Divide error
       panic!("Unsupported DOS interrupt 0x00");
@@ -234,7 +238,7 @@ fn video_interrupt(regs: &mut DosApiRegisters) {
   let method = regs.ah();
   match method {
     0x00 => { // set video mode
-
+      crate::syscalls::hardware::change_video_mode(regs.al());
     },
     0x01 => { // set cursor shape
     },
@@ -295,4 +299,45 @@ fn keyboard_service(regs: &mut DosApiRegisters) {
     },
     _ => panic!("Unsupported DOS keyboard interrupt method: {:X}", method),
   }
+}
+
+pub fn handle_page_fault(stack_frame: &StackFrame, address: usize) -> bool {
+  if address < 0xa0000 {
+    // plain memory, should probably just allocate a frame and map it
+    return false;
+  }
+  if address < 0xc0000 {
+    // video memory, needs to be mapped via the vterm
+    let page_start = VirtualAddress::new(address).prev_page_barrier();
+    let vterm_index = match crate::task::get_current_process().read().get_vterm() {
+      Some(index) => index,
+      None => {
+        crate::kprintln!("DOS program is running outside a VTerm");
+        return false;
+      },
+    };
+    // add a "memory backup" for the page to the current vterm
+    let new_frame = crate::vterm::get_router().write().add_memory_backup(vterm_index, page_start.as_usize());
+
+    // create the mapping to either physical memory or the backup page
+    let pagedir = CurrentPageDirectory::get();
+    if crate::vterm::get_router().read().get_active_vterm() == vterm_index {
+      // map to identical physical address
+      pagedir.map(
+        Frame::new(address),
+        VirtualAddress::new(address & 0xfffff000),
+        PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
+      );
+    } else {
+      // currently running in an inactive vterm, map to the backup page
+      pagedir.map(
+        Frame::new(new_frame.as_usize()),
+        VirtualAddress::new(address & 0xfffff000),
+        PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
+      );
+    }
+
+    return true;
+  }
+  false
 }

@@ -47,6 +47,13 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
     // Writing to this PSP will trigger a page fault and fill the first page of
     // the program.
     psp.reset();
+
+    let vterm_index = {
+      get_current_process().read().get_vterm()
+    };
+    if let Some(index) = vterm_index {
+      crate::vterm::get_router().write().enter_dos_mode(index);
+    }
   }
   // Merge the previous register state with the requested state
 

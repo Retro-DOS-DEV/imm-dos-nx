@@ -46,3 +46,7 @@ macro_rules! klog {
 pub fn log_dos_syscall(method: u8) {
   kprintln!("DOS API: {:X}", method);
 }
+
+pub fn log_dos_interrupt(interrupt: u8) {
+  kprintln!("DOS INT: {:X}", interrupt);
+}

@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 use crate::hardware::vga::text_mode::{Color, ColorCode};
 use crate::input::keyboard::{KeyAction, KeyCode};
+use crate::memory::address::PhysicalAddress;
 use super::keys::KeyState;
 use super::vterm::VTerm;
 
@@ -78,6 +79,10 @@ impl VTermRouter {
     }
   }
 
+  pub fn get_active_vterm(&self) -> usize {
+    self.active_vterm
+  }
+
   pub fn change_video_mode(&mut self, index: usize, mode: u8) {
     let mut vterm = match self.vterm_list.get_mut(index) {
       Some(v) => v,
@@ -96,6 +101,31 @@ impl VTermRouter {
         return;
       }
     }
+  }
+
+  pub fn enter_dos_mode(&mut self, index: usize) {
+    let vterm = match self.vterm_list.get_mut(index) {
+      Some(v) => v,
+      None => return,
+    };
+    vterm.enter_dos_mode();
+  }
+
+  pub fn exit_dos_mode(&mut self, index: usize) {
+    let vterm = match self.vterm_list.get_mut(index) {
+      Some(v) => v,
+      None => return,
+    };
+    vterm.exit_dos_mode();
+  }
+
+  pub fn add_memory_backup(&mut self, index: usize, address: usize) -> PhysicalAddress {
+    let vterm = match self.vterm_list.get_mut(index) {
+      Some(v) => v,
+      None => panic!("Adding memory backup to invalid vterm"),
+    };
+    let backup = vterm.add_memory_backup(address);
+    backup.get_buffer_physical_address()
   }
 
   pub fn send_key_action(&mut self, action: KeyAction) {

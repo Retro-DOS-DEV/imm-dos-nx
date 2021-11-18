@@ -28,6 +28,8 @@ pub struct VTerm {
   /// runs in "canonical" mode where lines are only sent once a newline is
   /// detected.
   raw_mode_flag: bool,
+  /// Whether the vterm is currently hosting a DOS program
+  dos_mode_flag: bool,
 }
 
 impl VTerm {
@@ -45,6 +47,7 @@ impl VTerm {
       tty_index: 0,
       echo_input_flag: true,
       raw_mode_flag: false,
+      dos_mode_flag: false,
     }
   }
 
@@ -66,6 +69,16 @@ impl VTerm {
     }
     let index = (addr - 0xa0000) / 0x1000;
     self.memory_backups[index].as_ref()
+  }
+
+  pub fn add_memory_backup(&mut self, address: usize) -> &MemoryBackup {
+    let index = (address - 0xa0000) / 0x1000;
+    if self.memory_backups[index].is_none() {
+      let backup = MemoryBackup::allocate(PhysicalAddress::new(address));
+      self.memory_backups[index] = Some(backup);
+    }
+
+    self.memory_backups[index].as_ref().unwrap()
   }
 
   /// When a VTerm becomes active, all stashed video state needs to be restored.
@@ -194,5 +207,13 @@ impl VTerm {
   /// Scroll the text mode up by a specified number of rows
   pub fn scroll(&mut self, delta: usize) {
     self.text_mode_state.scroll(delta as u8);
+  }
+
+  pub fn enter_dos_mode(&mut self) {
+    self.dos_mode_flag = true;
+  }
+
+  pub fn exit_dos_mode(&mut self) {
+    self.dos_mode_flag = false;
   }
 }

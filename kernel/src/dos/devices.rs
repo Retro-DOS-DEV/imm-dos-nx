@@ -23,8 +23,42 @@ pub fn read_stdin_with_echo(regs: &mut DosApiRegisters) {
   }
 }
 
-pub fn read_stdaux() {
+pub fn read_stdin_without_echo(regs: &mut DosApiRegisters) {
+  // Read from STDIN (local handle 0)
+  let mut buffer: [u8; 1] = [0];
+  let psp = match get_current_psp_segment() {
+    Some(p) => unsafe { PSP::at_segment(p) },
+    None => return,
+  };
+  let stdin_handle = FileHandle::new(psp.file_handles[0] as u32);
 
+  let len = match read_file(stdin_handle, &mut buffer) {
+    Ok(len) => len,
+    Err(_) => return,
+  };
+
+  if len > 0 {
+    regs.set_al(buffer[0]);
+  }
+}
+
+pub fn read_stdaux(regs: &mut DosApiRegisters) {
+  // Read from STDAUX (local handle 3)
+  let mut buffer: [u8; 1] = [0];
+  let psp = match get_current_psp_segment() {
+    Some(p) => unsafe { PSP::at_segment(p) },
+    None => return,
+  };
+  let stdaux_handle = FileHandle::new(psp.file_handles[3] as u32);
+
+  let len = match read_file(stdaux_handle, &mut buffer) {
+    Ok(len) => len,
+    Err(_) => return,
+  };
+
+  if len > 0 {
+    regs.set_al(buffer[0]);
+  }
 }
 
 pub fn output_char_to_stdout(regs: &mut DosApiRegisters) {
