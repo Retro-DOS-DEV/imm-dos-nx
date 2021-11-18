@@ -15,6 +15,7 @@ pub fn init_vterm() {
   unsafe {
     ROUTER = Some(RwLock::new(global_router));
   }
+  console_write(format_args!("\n\nVTerm system \x1b[92mready\x1b[m\n"));
 }
 
 pub fn process_key_action(action: KeyAction) {

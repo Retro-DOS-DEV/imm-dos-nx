@@ -51,6 +51,10 @@ put_char:
   cmp si, bx
   jl put_char_line
 
+  # wait for character before quitting
+  mov ax, 0x0800
+  int 0x21
+
   # exit without cleaning up
   xor ax, ax
   int 0x21

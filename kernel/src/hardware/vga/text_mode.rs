@@ -188,6 +188,24 @@ impl TextMode {
     self.newline();
   }
 
+  pub fn backspace(&mut self) {
+    if self.cursor_col > 0 {
+      self.cursor_col -= 1;
+      self.set_current_character(b' ');
+    } else if self.cursor_row > 0 {
+      self.cursor_col = 79;
+      self.cursor_row -= 1;
+      self.set_current_character(b' ');
+    }
+  }
+
+  pub fn set_current_character(&self, ch: u8) {
+    let offset = (self.cursor_row as isize) * 160 + (self.cursor_col as isize) * 2;
+    unsafe {
+      write_volatile(self.base_pointer.offset(offset), ch);
+    }
+  }
+
   pub fn move_cursor(&mut self, col: u8, row: u8) {
     self.cursor_col = col;
     if self.cursor_col > 79 {

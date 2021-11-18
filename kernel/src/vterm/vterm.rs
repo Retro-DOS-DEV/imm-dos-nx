@@ -134,12 +134,18 @@ impl VTerm {
     self.echo_input_flag && !self.dos_mode_flag
   }
 
+  fn should_backspace(&self) -> bool {
+    !self.dos_mode_flag && !self.raw_mode_flag
+  }
+
   /// Receive a buffer of characters directly from the keyboard, process them,
   /// and add them to the "read" side of the associated TTY device if there are
   /// any active readers.
   pub fn handle_input(&mut self, chars: &[u8]) {
-    if self.should_echo() {
-      for ch in chars {
+    for ch in chars {
+      if *ch == 0x08 && self.should_backspace() {
+        self.text_mode_state.backspace();
+      } else if self.should_echo() {
         self.write_character(*ch);
       }
     }

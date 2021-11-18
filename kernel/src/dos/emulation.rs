@@ -101,7 +101,9 @@ fn handle_interrupt(
   vm_frame: &mut VM86Frame,
   stack_frame: &StackFrame,
 ) {
-  crate::debug::log_dos_interrupt(interrupt);
+  if interrupt != 0x21 {
+    crate::debug::log_dos_interrupt(interrupt);
+  }
   match interrupt {
     0x00 => { // Divide error
       panic!("Unsupported DOS interrupt 0x00");
