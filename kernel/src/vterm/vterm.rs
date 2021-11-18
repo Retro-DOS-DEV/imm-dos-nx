@@ -129,11 +129,16 @@ impl VTerm {
     }
   }
 
+  /// Determines whether input characters should be printed
+  fn should_echo(&self) -> bool {
+    self.echo_input_flag && !self.dos_mode_flag
+  }
+
   /// Receive a buffer of characters directly from the keyboard, process them,
   /// and add them to the "read" side of the associated TTY device if there are
   /// any active readers.
   pub fn handle_input(&mut self, chars: &[u8]) {
-    if self.echo_input_flag {
+    if self.should_echo() {
       for ch in chars {
         self.write_character(*ch);
       }
