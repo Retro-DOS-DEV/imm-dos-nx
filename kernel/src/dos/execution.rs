@@ -140,6 +140,13 @@ pub fn terminate(cs: u16) -> SegmentedAddress {
     },
     None => {
       // Top-level DOS program, exit the process
+      let vterm_index = {
+        get_current_process().read().get_vterm()
+      };
+      if let Some(index) = vterm_index {
+        crate::vterm::exit_dos_mode(index);
+      }
+
       crate::task::terminate(0);
       SegmentedAddress {
         segment: 0,

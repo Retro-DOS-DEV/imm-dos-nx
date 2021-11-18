@@ -32,6 +32,38 @@ pub fn get_router() -> &'static RwLock<router::VTermRouter> {
 }
 
 #[cfg(not(test))]
+fn change_video_mode_inner(mode: u8) {
+  crate::hardware::vga::driver::request_mode_change_with_timeout(mode, 1000);
+  let current_mode = crate::hardware::vga::driver::get_video_mode();
+  if mode != current_mode {
+    crate::kprintln!("Failed to set video mode");
+    return;
+  }
+}
+#[cfg(test)]
+fn change_video_mode_inner(_mode: u8) {}
+
+pub fn change_video_mode(index: usize, mode: u8) {
+  let needs_change = {
+    get_router().write().change_video_mode(index, mode)
+  };
+  if needs_change {
+    change_video_mode_inner(mode);
+  }
+}
+
+pub fn exit_dos_mode(index: usize) {
+  let needs_change = {
+    let mut router = get_router().write();
+    router.exit_dos_mode(index);
+    router.change_video_mode(index, 0x03)
+  };
+  if needs_change {
+    change_video_mode_inner(0x03);
+  }
+}
+
+#[cfg(not(test))]
 pub fn begin_session(tty: usize, program: &str) -> Result<(), ()> {
   let current_id = crate::task::get_current_id();
   let tty_device = alloc::format!("DEV:\\TTY{}", tty);

@@ -83,24 +83,19 @@ impl VTermRouter {
     self.active_vterm
   }
 
-  pub fn change_video_mode(&mut self, index: usize, mode: u8) {
+  /// Change the internally-registered video mode for a specific vterm.
+  /// Returns true if that vterm is active and the VGA card needs to be
+  /// updated immediately.
+  pub fn change_video_mode(&mut self, index: usize, mode: u8) -> bool {
     let mut vterm = match self.vterm_list.get_mut(index) {
       Some(v) => v,
-      None => return,
+      None => return false,
     };
     if vterm.video_mode == mode {
-      return;
+      return false;
     }
     vterm.video_mode = mode;
-    #[cfg(not(test))]
-    if self.active_vterm == index {
-      crate::hardware::vga::driver::request_mode_change_with_timeout(mode, 1000);
-      let current_mode = crate::hardware::vga::driver::get_video_mode();
-      if mode != current_mode {
-        crate::kprintln!("Failed to set video mode");
-        return;
-      }
-    }
+    self.active_vterm == index
   }
 
   pub fn enter_dos_mode(&mut self, index: usize) {
