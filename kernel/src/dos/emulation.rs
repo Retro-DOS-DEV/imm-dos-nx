@@ -303,10 +303,28 @@ fn keyboard_service(regs: &mut DosApiRegisters) {
   }
 }
 
+/// DOS-mode specific handler for page faults. DOS memory needs to be emulated
+/// differently, so it makes sense to break this logic out of the kernel's page
+/// fault handler. Returns true if the fault was properly handled, or false if
+/// the program should segfault.
 pub fn handle_page_fault(stack_frame: &StackFrame, address: usize) -> bool {
   if address < 0xa0000 {
     // plain memory, should probably just allocate a frame and map it
-    return false;
+    let new_frame = match crate::memory::physical::allocate_frame() {
+      Ok(frame) => frame,
+      Err(_) => {
+        crate::kprintln!("Failed to allocate DOS frame!");
+        return false;
+      },
+    };
+    let vaddr = VirtualAddress::new(address);
+    let mut current_pagedir = CurrentPageDirectory::get();
+    current_pagedir.map(
+      new_frame,
+      vaddr.prev_page_barrier(),
+      PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
+    );
+    return true;
   }
   if address < 0xc0000 {
     // video memory, needs to be mapped via the vterm
