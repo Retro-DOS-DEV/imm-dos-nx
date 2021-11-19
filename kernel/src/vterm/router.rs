@@ -5,7 +5,10 @@ use crate::memory::address::PhysicalAddress;
 use super::keys::KeyState;
 use super::vterm::VTerm;
 
-/// The vterm router collects all 
+/// The vterm router collects all input and delivers it to the correct process
+/// based on which vterm is currently "active."
+/// It also hooks into input and changes the active terminal based on specific
+/// key commands.
 pub struct VTermRouter {
   vterm_list: Vec<VTerm>,
   active_vterm: usize,

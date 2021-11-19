@@ -19,6 +19,8 @@ impl KeyState {
     }
   }
 
+  /// Process a raw KeyAction from the keyboard, converting it to either a meta-
+  /// key effect or a stream of bytes to be handled by the TTY parser.
   pub fn process_key_action(&mut self, action: KeyAction, buffer: &mut [u8]) -> Option<usize> {
     match action {
       KeyAction::Press(code) => {
