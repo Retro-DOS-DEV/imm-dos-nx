@@ -7,7 +7,7 @@ use crate::memory::virt::page_table::PageTableReference;
 use super::files::{FileMap, OpenFile};
 use super::id::ProcessID;
 use super::ipc::{IPCMessage, IPCPacket, IPCQueue};
-use super::memory::{ExecutionSegment, MemoryRegions};
+use super::memory::{ExecutionSegment, MemoryRegions, Relocation};
 use super::regs::SavedState;
 use super::state::RunState;
 use super::vm::Subsystem;
@@ -49,6 +49,9 @@ pub struct Process {
   pub page_directory: PageTableReference,
   /// Reference to the open file being executed by this process
   exec_file: Option<(DriveID, LocalHandle)>,
+  /// Stores the relocation data necessary for setting up the executable file in
+  /// memory.
+  relocations: Vec<Relocation>,
   /// Stores extra data related to the subsystem used by the process
   pub subsystem: Subsystem,
   /// An optional kernel-level method to run when exiting VM86 mode
@@ -76,6 +79,7 @@ impl Process {
       saved_state: SavedState::empty(),
       page_directory: PageTableReference::current(),
       exec_file: None,
+      relocations: Vec::new(),
       subsystem: Subsystem::Native,
       on_exit_vm: None,
       vterm: None,
@@ -336,6 +340,14 @@ impl Process {
     self.exec_file.take()
   }
 
+  pub fn set_relocations(&mut self, relocations: Vec<Relocation>) {
+    self.relocations = relocations;
+  }
+
+  pub fn get_relocations(&self) -> &Vec<Relocation> {
+    &self.relocations
+  }
+
   /// Create a copy of this process and its memory space.
   pub fn create_fork(&self, new_id: ProcessID, current_ticks: u32) -> Process {
     let new_stack = super::stack::allocate_stack();
@@ -354,6 +366,7 @@ impl Process {
       saved_state: SavedState::empty(),
       page_directory: self.page_directory.clone(),
       exec_file: self.exec_file,
+      relocations: self.relocations.clone(),
       subsystem: Subsystem::Native,
       on_exit_vm: None,
       vterm: self.vterm,

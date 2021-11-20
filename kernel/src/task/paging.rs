@@ -42,6 +42,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
   }
 
   let mut subsections = Vec::new();
+  let mut relocations = Vec::new();
   let mut flags = PermissionFlags::new(PermissionFlags::USER_ACCESS);
   let exec_file_info = {
     let process = lock.read();
@@ -63,6 +64,16 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
       },
       None => (),
     }
+
+    let page_start = address.prev_page_barrier();
+    let page_end = page_start + 0x1000;
+    for rel in process.get_relocations() {
+      let addr = rel.get_address();
+      if addr >= page_start && addr < page_end {
+        relocations.push(rel.clone());
+      }
+    }
+
     match process.get_exec_file() {
       Some(pair) => pair,
       None => return false, // No open executable
@@ -99,6 +110,14 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
           // should really do something with these potential errors
           let _ = drive_instance.seek(exec_file_info.1, SeekMethod::Absolute(offset));
           let _ = drive_instance.read(exec_file_info.1, buffer);
+
+          // Apply relocations
+          for rel in relocations.iter() {
+            crate::kprintln!("Apply Relocation: {:?}", rel.get_address());
+            unsafe {
+              rel.apply();
+            }
+          }
         },
         None => {
           // Fill with zeroes

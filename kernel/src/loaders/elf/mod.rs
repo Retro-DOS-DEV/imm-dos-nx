@@ -66,6 +66,7 @@ pub fn build_environment(
 
   let env = ExecutionEnvironment {
     segments,
+    relocations: Vec::new(),
     registers: InitialRegisters {
       eax: None,
       eip: Some(header.entry_point),

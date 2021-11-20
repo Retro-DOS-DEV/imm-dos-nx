@@ -29,6 +29,8 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
       process.subsystem = Subsystem::DOS(VMState::new());
     }
 
+    process.set_relocations(env.relocations);
+
     process.set_exec_file(drive_id, local_handle)
   };
   // Close the old executable

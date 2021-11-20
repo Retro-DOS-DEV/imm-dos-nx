@@ -534,6 +534,32 @@ pub fn ranges_overlap(a: &Range<VirtualAddress>, b: &Range<VirtualAddress>) -> b
   (a_length + b_length) > (max - min)
 }
 
+/// Specifies a type of relocation to be performed when executable memory is
+/// paged in from the file.
+#[derive(Copy, Clone)]
+pub enum Relocation {
+  /// Only type of relocation supported in a DOS EXE: add a 16-bit offset to a
+  /// word at a specific address
+  DosExe(VirtualAddress, u16)
+}
+
+impl Relocation {
+  pub fn get_address(&self) -> VirtualAddress {
+    match self {
+      Self::DosExe(addr, _) => *addr,
+    }
+  }
+
+  pub unsafe fn apply(&self) {
+    match self {
+      Self::DosExe(addr, offset) => {
+        let ptr = addr.as_usize() as *mut u16;
+        *ptr += *offset;
+      },
+    }
+  }
+}
+
 /// Kernel-space memory is shared between all processes. Each process has its
 /// own stack, although they all exist in the same address space. Beyond this,
 /// all other memory (executable, heap, mmaps) are shared between all processes.

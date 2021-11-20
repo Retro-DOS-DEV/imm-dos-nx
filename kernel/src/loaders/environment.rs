@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use crate::task::memory::ExecutionSegment;
+use crate::task::memory::{ExecutionSegment, Relocation};
 
 pub struct InitialRegisters {
   pub eax: Option<u32>,
@@ -15,6 +15,7 @@ pub struct InitialRegisters {
 
 pub struct ExecutionEnvironment {
   pub segments: Vec<ExecutionSegment>,
+  pub relocations: Vec<Relocation>,
   pub registers: InitialRegisters,
   pub require_vm: bool,
 }

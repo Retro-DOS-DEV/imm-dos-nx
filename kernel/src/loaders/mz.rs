@@ -4,8 +4,8 @@ use alloc::vec::Vec;
 use crate::dos::execution::PSP;
 use crate::files::{cursor::SeekMethod, handle::LocalHandle};
 use crate::fs::{drive::DriveID, DRIVES};
-use crate::memory::address::VirtualAddress;
-use crate::task::memory::{ExecutionSection, ExecutionSegment};
+use crate::memory::address::{VirtualAddress, SegmentedAddress};
+use crate::task::memory::{ExecutionSection, ExecutionSegment, Relocation};
 use super::LoaderError;
 use super::environment::{ExecutionEnvironment, InitialRegisters};
 
@@ -55,6 +55,13 @@ impl MZHeader {
   }
 }
 
+fn read_exec_file(drive_id: DriveID, local_handle: LocalHandle, seek: usize, buffer: &mut [u8]) -> Result<(), LoaderError> {
+  let (_, instance) = DRIVES.get_drive_instance(&drive_id).ok_or(LoaderError::FileNotFound)?;
+  let _ = instance.seek(local_handle, SeekMethod::Absolute(seek)).map_err(|_| LoaderError::FileNotFound)?;
+  let _ = instance.read(local_handle, buffer).map_err(|_| LoaderError::FileNotFound)?;
+  Ok(())
+}
+
 pub fn build_environment(
   drive_id: DriveID,
   local_handle: LocalHandle,
@@ -66,9 +73,7 @@ pub fn build_environment(
       core::mem::size_of::<MZHeader>(),
     );
 
-    let (_, instance) = DRIVES.get_drive_instance(&drive_id).ok_or(LoaderError::FileNotFound)?;
-    let _ = instance.seek(local_handle, SeekMethod::Absolute(0)).map_err(|_| LoaderError::FileNotFound)?;
-    let _ = instance.read(local_handle, header_slice).map_err(|_| LoaderError::FileNotFound)?;
+    read_exec_file(drive_id, local_handle, 0, header_slice)?;
 
     header
   };
@@ -92,10 +97,10 @@ pub fn build_environment(
   let psp_size_paragraphs = psp_size / 16;
   // segment location of the "load module" aka the code copied from the EXE
   let load_module_segment = (psp_segment + psp_size_paragraphs) as u32;
+  let psp_address = VirtualAddress::new(psp_segment << 4);
+  let load_module_address = psp_address + psp_size;
 
   let segments = {
-    let psp_address = VirtualAddress::new(psp_segment << 4);
-    let load_module_address = psp_address + psp_size;
     let page_start = psp_address.prev_page_barrier();
     let psp_section = ExecutionSection {
       segment_offset: psp_address - page_start,
@@ -127,9 +132,33 @@ pub fn build_environment(
     segments
   };
 
+  let relocations = {
+    let relocation_table_size = header.relocation_entries as usize;
+    let mut relocation_table_copy: Vec<SegmentedAddress> = Vec::<SegmentedAddress>::with_capacity(relocation_table_size);
+    for _ in 0..relocation_table_size {
+      relocation_table_copy.push(SegmentedAddress::empty());
+    }
+    let relocation_table_raw = relocation_table_copy.as_mut_slice();
+    let relocation_table_bytes_raw = unsafe {
+      core::slice::from_raw_parts_mut(
+        relocation_table_raw.as_mut_ptr() as *mut u8,
+        relocation_table_raw.len() * core::mem::size_of::<SegmentedAddress>(),
+      )
+    };
+    read_exec_file(drive_id, local_handle, header.relocation_table_offset as usize, relocation_table_bytes_raw)?;
+
+    relocation_table_copy.iter()
+      .map(|seg| {
+        let addr = seg.to_virtual_address() + load_module_address.as_usize();
+        Relocation::DosExe(addr, load_module_segment as u16)
+      })
+      .collect()
+  };
+
   Ok(
     ExecutionEnvironment {
       segments,
+      relocations,
       registers: InitialRegisters {
         /// Similar to COM, %eax should represent the validity of the
         /// pre-constructed FCBs.

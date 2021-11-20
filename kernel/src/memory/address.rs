@@ -162,3 +162,19 @@ pub struct SegmentedAddress {
   pub offset: u16,
   pub segment: u16,
 }
+
+impl SegmentedAddress {
+  pub fn empty() -> Self {
+    Self {
+      offset: 0,
+      segment: 0,
+    }
+  }
+
+  pub fn to_virtual_address(&self) -> VirtualAddress {
+    VirtualAddress::new(
+      self.offset as usize +
+      ((self.segment as usize) * 16)
+    )
+  }
+}

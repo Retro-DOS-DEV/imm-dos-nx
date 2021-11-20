@@ -26,6 +26,7 @@ pub fn build_environment(
   Ok(
     ExecutionEnvironment {
       segments,
+      relocations: Vec::new(),
       registers: InitialRegisters {
         eax: Some(0),
 

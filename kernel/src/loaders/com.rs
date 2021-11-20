@@ -45,6 +45,7 @@ pub fn build_environment(
   Ok(
     ExecutionEnvironment {
       segments,
+      relocations: Vec::new(),
       registers: InitialRegisters {
         /// %eax should represent the validity of the pre-constructed FCBs
         /// Obviously this still needs to be implemented, or handled elsewhere
