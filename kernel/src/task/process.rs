@@ -58,6 +58,8 @@ pub struct Process {
   pub on_exit_vm: Option<usize>,
   /// If set, points to the VTerm that initialized this process or its ancestor
   vterm: Option<usize>,
+  /// Points to the drive of the current working dir
+  pub current_drive: DriveID,
 }
 
 impl Process {
@@ -83,6 +85,7 @@ impl Process {
       subsystem: Subsystem::Native,
       on_exit_vm: None,
       vterm: None,
+      current_drive: DriveID::initial(),
     }
   }
 
@@ -370,6 +373,7 @@ impl Process {
       subsystem: Subsystem::Native,
       on_exit_vm: None,
       vterm: self.vterm,
+      current_drive: self.current_drive,
     }
   }
 

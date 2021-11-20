@@ -1,17 +1,35 @@
 use crate::files::cursor::SeekMethod;
 use crate::files::filename;
 use crate::files::handle::{FileHandle, LocalHandle};
+use crate::files::path::Path;
 use crate::fs::{DRIVES, drive::DriveID};
 use crate::task::get_current_process;
 use syscall::result::SystemError;
 use super::id::ProcessID;
 use super::files::{FileMap, OpenFile};
 
-pub fn open_path<'path>(path_str: &'path str) -> Result<FileHandle, SystemError> {
+pub fn get_drive_id_and_path(path_str: &str) -> Result<(DriveID, Path), SystemError> {
   let (drive, path) = filename::string_to_drive_and_path(path_str);
-  let drive_id = DRIVES.get_drive_number(drive).ok_or(SystemError::NoSuchDrive)?;
+  let (drive_id, full_path) = if drive.is_empty() {
+    let proc_lock = get_current_process();
+    let proc = proc_lock.read();
+    let cwd = "";
+    let full_path = Path::resolve(cwd, path);
+    (proc.current_drive, full_path)
+  } else {
+    let drive_id = DRIVES.get_drive_number(drive).ok_or(SystemError::NoSuchDrive)?;
+    let full_path = Path::new(path);
+    (drive_id, full_path)
+  };
+
+  Ok((drive_id, full_path))
+}
+
+pub fn open_path<'path>(path_str: &'path str) -> Result<FileHandle, SystemError> {
+  let (drive_id, full_path) = get_drive_id_and_path(path_str)?;
+
   let (_, instance) = DRIVES.get_drive_instance(&drive_id).ok_or(SystemError::NoSuchFileSystem)?;
-  let local_handle = instance.open(path).map_err(|_| SystemError::NoSuchEntity)?;
+  let local_handle = instance.open(full_path.as_str()).map_err(|_| SystemError::NoSuchEntity)?;
   let process_handle = get_current_process().write().open_file(drive_id, local_handle);
   Ok(process_handle)
 }

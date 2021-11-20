@@ -117,10 +117,9 @@ pub fn load_executable(
   path_str: &str,
   interp_mode: InterpretationMode,
 ) -> Result<(DriveID, LocalHandle, environment::ExecutionEnvironment), LoaderError> {
-  let (drive, path) = filename::string_to_drive_and_path(path_str);
-  let drive_id = DRIVES.get_drive_number(drive).ok_or(LoaderError::FileNotFound)?;
+  let (drive_id, full_path) = crate::task::io::get_drive_id_and_path(path_str).map_err(|_| LoaderError::FileNotFound)?;
   let (_, instance) = DRIVES.get_drive_instance(&drive_id).ok_or(LoaderError::FileNotFound)?;
-  let local_handle = instance.open(path).map_err(|_| LoaderError::FileNotFound)?;
+  let local_handle = instance.open(full_path.as_str()).map_err(|_| LoaderError::FileNotFound)?;
 
   let ext = filename::get_extension(path_str);
 

@@ -43,7 +43,15 @@ pub fn get_extension<'a>(raw: &'a str) -> Option<&'a str> {
 
 #[cfg(test)]
 mod tests {
-  use super::get_extension;
+  use super::{get_extension, string_to_drive_and_path};
+
+  #[test]
+  fn drive_and_path() {
+    assert_eq!(
+      string_to_drive_and_path("C:\\dir\\subdir\\file.ext"),
+      ("C", "\\dir\\subdir\\file.ext"),
+    );
+  }
 
   #[test]
   fn extension() {

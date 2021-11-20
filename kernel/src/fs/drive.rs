@@ -19,12 +19,19 @@ use super::filesystem::{FileSystemCategory, FileSystemInstance, FileSystemType};
 
 /// A DriveID is a unique numeric reference to a drive. Drive names shouldn't be
 /// used as references within the kernel.
+/// Drives with multi-letter names will be mounted with numbers above 0x80
+/// Drives with legacy single-letter mounts will use the numbers 0-25, so that
+/// these drive numbers can be 
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct DriveID(usize);
 
 impl DriveID {
   pub fn new(id: usize) -> DriveID {
     DriveID(id)
+  }
+
+  pub fn initial() -> DriveID {
+    DriveID(0x80)
   }
 }
 
@@ -36,7 +43,7 @@ pub struct DriveMap {
 impl DriveMap {
   pub const fn new() -> DriveMap {
     DriveMap {
-      next_id: AtomicUsize::new(0),
+      next_id: AtomicUsize::new(0x80),
       drives: RwLock::new(BTreeMap::new()),
     }
   }
