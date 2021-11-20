@@ -14,6 +14,7 @@ pub mod bin;
 pub mod com;
 pub mod elf;
 pub mod environment;
+pub mod mz;
 
 pub enum ExecutableFormat {
   /// Native 32-bit binary using IMM-DOS syscalls and linear memory
@@ -51,6 +52,7 @@ impl InterpretationMode {
 pub enum LoaderError {
   FileNotFound,
   InternalError,
+  InvalidHeader,
 }
 
 impl LoaderError {
@@ -58,6 +60,7 @@ impl LoaderError {
     match self {
       LoaderError::FileNotFound => SystemError::NoSuchEntity,
       LoaderError::InternalError => SystemError::Unknown,
+      LoaderError::InvalidHeader => SystemError::Unknown,
     }
   }
 }
@@ -131,6 +134,9 @@ pub fn load_executable(
     },
     ExecutableFormat::ELF => {
       elf::build_environment(drive_id, local_handle)
+    },
+    ExecutableFormat::MZ => {
+      mz::build_environment(drive_id, local_handle)
     },
     _ => {
       // Not supported yet

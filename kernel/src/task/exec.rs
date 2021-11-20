@@ -42,7 +42,7 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
   // Set up the environment to run the new program
   if env.require_vm {
     // Initialize DOS memory
-    let segment = env.registers.cs.unwrap_or(0) as u16;
+    let segment = env.registers.ds.unwrap_or(0) as u16;
     let psp = unsafe { crate::dos::execution::PSP::at_segment(segment) };
     // Writing to this PSP will trigger a page fault and fill the first page of
     // the program.
