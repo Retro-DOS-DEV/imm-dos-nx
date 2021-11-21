@@ -64,11 +64,78 @@ int change_drive(strptr *drive_name) {
   return syscall(0x21, (int)drive_name, 0, 0);
 }
 
+static char current_drive_name[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+static int current_drive_name_length;
+
+void write_drive_name(int handle) {
+  syscall(0x13, stdout, (int)(current_drive_name), current_drive_name_length);
+}
+
+void command_cd() {
+  write_file(stdout, "\nUnimplemented.\n");
+}
+
+void command_dir() {
+  write_file(stdout, "  Directory of ");
+  write_drive_name(stdout);
+  write_file(stdout, ":\\\n\n");
+  // get each directory entry
+  // print entry details
+  
+  // print total files
+  // print total dirs
+}
+
+struct command {
+  char *name;
+  void *fn;
+};
+
+static struct command commands_2[] = {
+  {
+    .name = "cd",
+    .fn = (void*)command_cd,
+  },
+};
+static struct command commands_3[] = {
+  {
+    .name = "dir",
+    .fn = (void*)command_dir,
+  },
+};
+
 static char readbuffer[512];
 static int current_drive_number = 0x80;
 
 void run(int command_end) {
   // check for matching builtins
+  struct command *command_array = 0;
+  int command_array_count = 0;
+  switch (command_end) {
+    case 2:
+      command_array = commands_2;
+      command_array_count = sizeof(commands_2) / sizeof(struct command);
+      break;
+    case 3:
+      command_array = commands_3;
+      command_array_count = sizeof(commands_3) / sizeof(struct command);
+      break;
+  }
+  if (command_array_count > 0) {
+    for (int i = 0; i < command_array_count; i++) {
+      int match = 1;
+      for (int j = 0; j < command_end; j++) {
+        if (readbuffer[j] != command_array[i].name[j]) {
+          j = command_end;
+          match = 0;
+        }
+      }
+      if (match) {
+        ((void (*)())(command_array[i].fn))();
+        return;
+      }
+    }
+  }
 
   // check for drive switch command
   if (readbuffer[command_end - 1] == ':') {
@@ -98,13 +165,10 @@ void run(int command_end) {
 }
 
 void _start() {
-  char current_drive_name[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-  int current_drive_name_length;
-
   while (1) {
     current_drive_name_length = get_current_drive_name(current_drive_name);
     // print drive
-    syscall(0x13, stdout, (int)(current_drive_name), current_drive_name_length);
+    write_drive_name(stdout);
     write_file(stdout, ":\\");
     // write cwd
     

@@ -60,5 +60,5 @@ msg_prompt: .ascii "Enter 5 characters: $"
 msg_done: .ascii "DONE.\n$"
 msg_fail: .ascii "Failed to read file$"
 msg_got: .ascii "Got: $"
-read_file: .asciz "INIT:\\test.txt"
+read_file: .asciz "test.txt"
 read_buffer: .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x24
