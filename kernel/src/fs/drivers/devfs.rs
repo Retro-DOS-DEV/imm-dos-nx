@@ -125,7 +125,7 @@ impl KernelFileSystem for DevFileSystem {
     Err(())
   }
 
-  fn read_dir(&self, _handle: LocalHandle, _index: usize, _info: &mut DirEntryInfo) -> Result<bool, ()> {
+  fn read_dir(&self, _handle: LocalHandle, _info: &mut DirEntryInfo) -> Result<bool, ()> {
     Err(())
   }
 

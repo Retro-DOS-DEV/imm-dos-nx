@@ -5,6 +5,7 @@ pub enum DirEntryType {
   File = 2,
 }
 
+#[repr(C, packed)]
 pub struct DirEntryInfo {
   pub file_name: [u8; 8],
   pub file_ext: [u8; 3],

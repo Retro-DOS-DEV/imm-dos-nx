@@ -85,10 +85,10 @@ pub trait KernelFileSystem {
   /// resolves with `true`. If there are no more entries, the method resolves
   /// with `false`. Any errors while fetching the entry will return an Err
   /// value instead.
-  fn read_dir(&self, handle: LocalHandle, index: usize, info: &mut DirEntryInfo) -> Result<bool, ()>;
+  fn read_dir(&self, handle: LocalHandle, info: &mut DirEntryInfo) -> Result<bool, ()>;
 
   /// Perform a unique FS operation on a file. IOCTL command numbers depend on
-  /// the device and FS.label_ro_physical_start
+  /// the device and FS.
   fn ioctl(&self, handle: LocalHandle, command: u32, arg: u32) -> Result<u32, ()> {
     Err(())
   }

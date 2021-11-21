@@ -5,6 +5,13 @@ typedef struct strptr {
   int length;
 } strptr;
 
+typedef struct dir_entry {
+  char file_name[8];
+  char file_ext[3];
+  unsigned short file_type;
+  unsigned int byte_size;
+} dir_entry;
+
 const int stdin = 0;
 const int stdout = 1;
 
@@ -21,6 +28,15 @@ int syscall(int method, int arg0, int arg1, int arg2) {
   return eax;
 }
 
+int strlen(char *buffer) {
+  for (int i = 0; i < 0xffffffff; i++) {
+    if (buffer[i] == 0) {
+      return i;
+    }
+  }
+  return 0;
+}
+
 int write_file(int handle, char *buffer) {
   int length;
   for (length = 0; length < 255; length++) {
@@ -33,6 +49,18 @@ int write_file(int handle, char *buffer) {
 
 int read_file(int handle, char *buffer, int max) {
   return syscall(0x12, handle, (int)(buffer), max);
+}
+
+int open_dir(char *path) {
+  strptr path_ptr = {
+    .addr = (int) path,
+    .length = strlen(path),
+  };
+  return syscall(0x1a, (int)(&path_ptr), 0, 0);
+}
+
+int read_dir(int handle, dir_entry *entry) {
+  return syscall(0x1b, handle, (int)entry, 0);
 }
 
 void exec(strptr *path, int format) {
@@ -80,7 +108,27 @@ void command_dir() {
   write_drive_name(stdout);
   write_file(stdout, ":\\\n\n");
   // get each directory entry
-  // print entry details
+  int dir_handle = open_dir("");
+  dir_entry entry;
+  int has_more = 1;
+  int total_files = 0;
+  char dir_entry_line[15];
+  for (int i = 0; i < 14; i++) {
+    dir_entry_line[i] = 0x20;
+  }
+  dir_entry_line[14] = '\n';
+  while (has_more) {
+    has_more = read_dir(dir_handle, &entry);
+    // print entry details
+    for (int i = 0; i < 8; i++) {
+      dir_entry_line[2 + i] = entry.file_name[i];
+    }
+    for (int i = 0; i < 3; i++) {
+      dir_entry_line[11 + i] = entry.file_ext[i];
+    }
+    syscall(0x13, stdout, (int)(dir_entry_line), 15);
+    total_files += 1;
+  }
   
   // print total files
   // print total dirs

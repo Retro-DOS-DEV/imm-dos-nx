@@ -165,10 +165,9 @@ pub unsafe extern "C" fn _syscall_inner(_frame: &stack::StackFrame, registers: &
     },
     0x1b => { // readdir
       let handle = registers.ebx;
-      let index = registers.ecx as usize;
-      let info_ptr = registers.edx as *mut syscall::files::DirEntryInfo;
-      let result = match file::read_dir(handle, index, info_ptr) {
-        Ok(_) => 0,
+      let info_ptr = registers.ecx as *mut syscall::files::DirEntryInfo;
+      let result = match file::read_dir(handle, info_ptr) {
+        Ok(has_more) => has_more,
         Err(e) => e.to_code(),
       };
       registers.eax = result;

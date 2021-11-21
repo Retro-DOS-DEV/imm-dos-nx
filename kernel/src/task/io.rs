@@ -4,6 +4,7 @@ use crate::files::handle::{FileHandle, LocalHandle};
 use crate::files::path::Path;
 use crate::fs::{DRIVES, drive::DriveID};
 use crate::task::get_current_process;
+use syscall::files::DirEntryInfo;
 use syscall::result::SystemError;
 use super::id::ProcessID;
 use super::files::{FileMap, OpenFile};
@@ -120,4 +121,27 @@ pub fn reopen_executable(id: ProcessID, exec: Option<(DriveID, LocalHandle)>) ->
   let (drive_id, local_handle) = exec?;
   let (_, instance) = DRIVES.get_drive_instance(&drive_id)?;
   instance.reopen(local_handle, id).ok().map(|handle| (drive_id, handle))
+}
+
+pub fn open_directory<'path>(path_str: &'path str) -> Result<FileHandle, SystemError> {
+  let (drive_id, full_path) = get_drive_id_and_path(path_str)?;
+
+  let (_, instance) = DRIVES.get_drive_instance(&drive_id).ok_or(SystemError::NoSuchFileSystem)?;
+  let local_handle = instance.open_dir(full_path.as_str()).map_err(|_| SystemError::NoSuchEntity)?;
+  let process_handle = get_current_process().write().open_file(drive_id, local_handle);
+  Ok(process_handle)
+}
+
+pub fn read_directory(handle: FileHandle, entry_info: &mut DirEntryInfo) -> Result<bool, SystemError> {
+  let open_file_info = {
+    let process_lock = get_current_process();
+    let process = process_lock.read();
+    let info = process
+      .get_open_file_info(handle)
+      .ok_or(SystemError::BadFileDescriptor)?;
+    *info
+  };
+
+  let (_, instance) = DRIVES.get_drive_instance(&open_file_info.drive).ok_or(SystemError::NoSuchFileSystem)?;
+  instance.read_dir(open_file_info.local_handle, entry_info).map_err(|_| SystemError::IOError)
 }

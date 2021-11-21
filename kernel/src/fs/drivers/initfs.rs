@@ -4,12 +4,12 @@
 //! found.
 
 use crate::collections::SlotList;
-use crate::files::{cursor::SeekMethod, handle::{Handle, LocalHandle}};
+use crate::files::{cursor::SeekMethod, filename::copy_filename_to_dos_style, handle::{Handle, LocalHandle}};
 use crate::memory::address::VirtualAddress;
 use spin::RwLock;
 use crate::fs::KernelFileSystem;
 use crate::task::id::ProcessID;
-use syscall::files::{DirEntryInfo, FileStatus};
+use syscall::files::{DirEntryInfo, DirEntryType, FileStatus};
 
 #[derive(Clone)]
 struct OpenFile {
@@ -19,9 +19,20 @@ struct OpenFile {
   pub file_start: usize,
 }
 
+/// The InitFS archive is designed to be flat, without subdirs. Therefore the
+/// only valid directory is the root.
+struct OpenDirectory {
+  cursor: usize,
+}
+
+enum OpenHandle {
+  File(OpenFile),
+  Directory(OpenDirectory),
+}
+
 pub struct InitFileSystem {
   cpio_archive_address: VirtualAddress,
-  open_files: RwLock<SlotList<OpenFile>>,
+  open_handles: RwLock<SlotList<OpenHandle>>,
 }
 
 impl InitFileSystem {
@@ -31,7 +42,7 @@ impl InitFileSystem {
   pub fn new(addr: VirtualAddress) -> InitFileSystem {
     InitFileSystem {
       cpio_archive_address: addr,
-      open_files: RwLock::new(SlotList::new()),
+      open_handles: RwLock::new(SlotList::new()),
     }
   }
 }
@@ -53,7 +64,7 @@ impl KernelFileSystem for InitFileSystem {
           length: entry.get_file_size(),
           cursor: 0,
         };
-        let index = self.open_files.write().insert(open_file);
+        let index = self.open_handles.write().insert(OpenHandle::File(open_file));
         return Ok(LocalHandle::new(index as u32));
       }
     }
@@ -62,8 +73,8 @@ impl KernelFileSystem for InitFileSystem {
   }
 
   fn read(&self, handle: LocalHandle, buffer: &mut [u8]) -> Result<usize, ()> {
-    let (address, to_read) = match self.open_files.write().get_mut(handle.as_usize()) {
-      Some(open_file) => {
+    let (address, to_read) = match self.open_handles.write().get_mut(handle.as_usize()) {
+      Some(OpenHandle::File(open_file)) => {
         let mut to_read = buffer.len();
         let bytes_left_in_file = open_file.length - open_file.cursor;
         if bytes_left_in_file < to_read {
@@ -72,6 +83,9 @@ impl KernelFileSystem for InitFileSystem {
         let prev_cursor = open_file.cursor;
         open_file.cursor += to_read;
         Ok((open_file.file_start + prev_cursor, to_read))
+      },
+      Some(OpenHandle::Directory(_)) => {
+        Err(())
       },
       None => Err(()),
     }?;
@@ -92,18 +106,19 @@ impl KernelFileSystem for InitFileSystem {
 
   fn close(&self, handle: LocalHandle) -> Result<(), ()> {
     let index = handle.as_usize();
-    self.open_files
+    self.open_handles
       .write()
       .remove(index)
       .map_or(Err(()), |_| Ok(()))
   }
 
   fn reopen(&self, handle: LocalHandle, _id: ProcessID) -> Result<LocalHandle, ()> {
-    let reopened_file= match self.open_files.write().get_mut(handle.as_usize()) {
-      Some(open_file) => Ok(open_file.clone()),
+    let reopened_file= match self.open_handles.write().get_mut(handle.as_usize()) {
+      Some(OpenHandle::File(open_file)) => Ok(open_file.clone()),
+      Some(OpenHandle::Directory(_)) => Err(()),
       None => Err(()),
     }?;
-    let index = self.open_files.write().insert(reopened_file);
+    let index = self.open_handles.write().insert(OpenHandle::File(reopened_file));
     Ok(LocalHandle::new(index as u32))
   }
 
@@ -112,31 +127,68 @@ impl KernelFileSystem for InitFileSystem {
   }
 
   fn seek(&self, handle: LocalHandle, offset: SeekMethod) -> Result<usize, ()> {
-    match self.open_files.write().get_mut(handle.as_usize()) {
-      Some(open_file) => {
+    match self.open_handles.write().get_mut(handle.as_usize()) {
+      Some(OpenHandle::File(open_file)) => {
         let new_cursor = offset.from_current_position(open_file.cursor);
         open_file.cursor = new_cursor;
         Ok(new_cursor)
       },
+      Some(OpenHandle::Directory(_)) => Err(()),
       None => Err(())
     }
   }
 
-  fn open_dir(&self, _path: &str) -> Result<LocalHandle, ()> {
-    Err(())
+  fn open_dir(&self, path: &str) -> Result<LocalHandle, ()> {
+    if path != "" {
+      return Err(());
+    }
+    let open_dir = OpenDirectory {
+      cursor: 0,
+    };
+    let index = self.open_handles.write().insert(OpenHandle::Directory(open_dir));
+    return Ok(LocalHandle::new(index as u32));
   }
 
-  fn read_dir(&self, _handle: LocalHandle, _index: usize, _info: &mut DirEntryInfo) -> Result<bool, ()> {
-    Err(())
+  fn read_dir(&self, handle: LocalHandle, info: &mut DirEntryInfo) -> Result<bool, ()> {
+    match self.open_handles.write().get_mut(handle.as_usize()) {
+      Some(OpenHandle::Directory(open_dir)) => {
+        // InitFS interprets the directory cursor as a byte offset from the
+        // start of the archive. It points to the next CPIO entry header that
+        // should be read.
+        let address = self.cpio_archive_address + open_dir.cursor;
+        let header: &CpioHeader = unsafe { &*(address.as_usize() as *const CpioHeader) };
+        if !header.is_valid() {
+          return Err(());
+        }
+        if header.is_trailer() {
+          return Ok(false);
+        }
+        // copy the filename and extension
+        copy_filename_to_dos_style(header.get_filename(), &mut info.file_name, &mut info.file_ext);
+        info.entry_type = DirEntryType::File;
+        info.byte_size = header.get_file_size();
+
+        open_dir.cursor += header.length();
+        
+        Ok(true)
+      },
+      Some(OpenHandle::File(_)) => Err(()),
+      None => Err(()),
+    }
   }
 
   fn stat(&self, handle: LocalHandle, status: &mut FileStatus) -> Result<(), ()> {
-    let start = match self.open_files.read().get(handle.as_usize()) {
-      Some(open_file) => Ok(open_file.header_start),
-      None => Err(()),
-    }?;
-    let header: &CpioHeader = unsafe { &*(start as *const CpioHeader) };
-    status.byte_size = header.get_file_size();
+    match self.open_handles.read().get(handle.as_usize()) {
+      Some(OpenHandle::File(open_file)) => {
+        let start = open_file.header_start;
+        let header: &CpioHeader = unsafe { &*(start as *const CpioHeader) };
+        status.byte_size = header.get_file_size();
+      },
+      Some(OpenHandle::Directory(_dir)) => {
+
+      },
+      None => return Err(()),
+    }
     Ok(())
   }
 }

@@ -60,6 +60,7 @@ pub fn seek(handle: u32, method: u32, cursor: u32) -> Result<u32, SystemError> {
 }
 
 pub fn open_dir(path_str: &'static str) -> Result<u32, SystemError> {
+  crate::task::io::open_directory(path_str).map(|handle| handle.as_u32())
   /*
   let (drive, path) = filename::string_to_drive_and_path(path_str);
   let number = filesystems::get_fs_number(drive).ok_or(SystemError::NoSuchDrive)?;
@@ -67,10 +68,13 @@ pub fn open_dir(path_str: &'static str) -> Result<u32, SystemError> {
   let local_handle = fs.open_dir(path).map_err(|_| SystemError::NoSuchEntity)?;
   current_process().open_directory(number, local_handle).map(|handle| handle.as_u32())
   */
-  Err(SystemError::Unknown)
 }
 
-pub fn read_dir(handle: u32, index: usize, info: *mut DirEntryInfo) -> Result<(), SystemError> {
+pub fn read_dir(handle: u32, info: *mut DirEntryInfo) -> Result<u32, SystemError> {
+  crate::task::io::read_directory(
+    FileHandle::new(handle),
+    unsafe { &mut *info },
+  ).map(|has_more| if has_more { 1 } else { 0 })
   /*
   let drive_and_handle = current_process()
     .get_open_dir_info(FileHandle::new(handle))
@@ -79,5 +83,4 @@ pub fn read_dir(handle: u32, index: usize, info: *mut DirEntryInfo) -> Result<()
   let entry = unsafe { &mut *info };
   fs.read_dir(drive_and_handle.1, index, entry).map_err(|_| SystemError::NoSuchEntity)
   */
-  Err(SystemError::Unknown)
 }
