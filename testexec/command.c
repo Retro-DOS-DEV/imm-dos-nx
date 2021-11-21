@@ -53,6 +53,10 @@ void terminate(int code) {
   syscall(0, code, 0, 0);
 }
 
+int get_current_drive_name(char *buffer) {
+  return syscall(0x22, (int)buffer, 0, 0) & 7;
+}
+
 static char readbuffer[512];
 
 void _start() {
@@ -60,7 +64,16 @@ void _start() {
   int stdin = 0;
   int stdout = 1;
 
+  char current_drive_name[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  int current_drive_name_length;
+
   while (1) {
+    current_drive_name_length = get_current_drive_name(current_drive_name);
+    // print drive
+    syscall(0x13, stdout, (int)(current_drive_name), current_drive_name_length);
+    write_file(stdout, ":");
+    // write cwd
+
     // print prompt
     write_file(stdout, "> ");
     int bytes_read = read_file(stdin, readbuffer, 512);

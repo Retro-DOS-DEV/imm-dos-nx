@@ -1,5 +1,5 @@
 use crate::kprintln;
-use crate::syscalls::{exec, file, hardware};
+use crate::syscalls::{exec, file, fs, hardware};
 use super::stack;
 use syscall::result::SystemError;
 
@@ -218,9 +218,34 @@ pub unsafe extern "C" fn _syscall_inner(_frame: &stack::StackFrame, registers: &
       };
       registers.eax = result;
     },
-    0x21 => { // chdir
+    0x21 => { // set current drive
+      let name_str_ptr = &*(registers.ebx as *const syscall::StringPtr);
+      let name_str = name_str_ptr.as_str();
+      let result = match fs::set_current_drive(name_str) {
+        Ok(number) => number,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
     },
-    0x22 => { // getcwd
+    0x22 => { // get current drive name
+      let buffer_ptr = registers.ebx as *mut u8;
+      let buffer = core::slice::from_raw_parts_mut(buffer_ptr, 8);
+      let result = match fs::get_current_drive_name(buffer) {
+        Ok(len) => len,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
+    },
+    0x23 => { // get current drive number
+      let result = match fs::get_current_drive_number() {
+        Ok(number) => number,
+        Err(e) => e.to_code(),
+      };
+      registers.eax = result;
+    },
+    0x24 => { // chdir for drive number
+    },
+    0x25 => { // get cwd for drive number
     },
 
     // filesystem

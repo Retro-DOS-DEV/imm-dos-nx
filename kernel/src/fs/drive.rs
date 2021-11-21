@@ -11,6 +11,7 @@
 
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use alloc::string::String;
 use alloc::sync::Arc;
 use core::cmp::{Ord, PartialOrd};
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -32,6 +33,10 @@ impl DriveID {
 
   pub fn initial() -> DriveID {
     DriveID(0x80)
+  }
+
+  pub fn as_u32(&self) -> u32 {
+    self.0 as u32
   }
 }
 
@@ -73,6 +78,13 @@ impl DriveMap {
       }
     }
     None
+  }
+
+  pub fn get_drive_name(&self, id: &DriveID) -> Option<String> {
+    let drives = self.drives.read();
+    let entry = drives.get(id)?;
+    let name = entry.name.clone().into_string();
+    Some(name)
   }
 
   pub fn get_drive_instance(&self, id: &DriveID) -> Option<(FileSystemCategory, Arc<Box<FileSystemType>>)> {
