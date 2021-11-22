@@ -49,6 +49,10 @@ impl InstalledDevices {
     self.get_device(number)
   }
 
+  pub fn get_device_name(&self, driver_number: usize) -> Option<&Box<str>> {
+    self.device_names.get(driver_number).map(|by_name| &by_name.name)
+  }
+
   pub fn register_driver(&mut self, name: &str, driver: Arc<Box<DeviceDriverType>>) -> usize {
     self.drivers.push(driver);
     let number = self.drivers.len();

@@ -169,8 +169,13 @@ impl KernelFileSystem for InitFileSystem {
         info.byte_size = header.get_file_size();
 
         open_dir.cursor += header.length();
-        
-        Ok(true)
+
+        let next_header: &CpioHeader = unsafe { &*((address.as_usize() + header.length()) as *const CpioHeader) };
+        if !next_header.is_valid() || next_header.is_trailer() {
+          Ok(false)
+        } else {
+          Ok(true)
+        }
       },
       Some(OpenHandle::File(_)) => Err(()),
       None => Err(()),
