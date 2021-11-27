@@ -1,17 +1,19 @@
 use super::super::address::PhysicalAddress;
 use super::frame::Frame;
 
+/// Represents a contiguous range of physical memory. It should be page-aligned
+/// and the length should be a multiple of 0x1000 (page size)
 #[derive(Copy, Clone, Eq)]
 pub struct FrameRange {
-  start: usize, // First byte in the frame range
-  length: usize, // Size of the range, in bytes
+  /// First byte in the frame range
+  start: usize,
+  /// Size of the range, in bytes
+  length: usize,
 }
 
 impl FrameRange {
-  /**
-   * If start is not page-aligned (address & 0xfff == 0),
-   * bad things will happen...
-   */
+  /// If start is not page-aligned (address & 0xfff == 0),
+  /// bad things will happen...
   pub const fn new(start: usize, length: usize) -> FrameRange {
     FrameRange {
       start,

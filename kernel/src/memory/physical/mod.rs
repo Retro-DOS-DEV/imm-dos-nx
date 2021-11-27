@@ -1,3 +1,36 @@
+//! Physical memory represents the actual RAM installed on the system. When a
+//! process needs memory, a block of RAM will be allocated and made available
+//! for mapping into virtual address space.
+//! Each allocation is split into "Frames," each of which is the same size as a
+//! virtual memory page. Frames can be allocated individually, or as a
+//! single contiguous block.
+//! To facilitate allocation and tracking of memory, the kernel maintains two
+//! global objects: an Allocator, and a Reference Count. The allocator keeps
+//! track of all available memory, allowing it to provide new memory areas on
+//! demand. When blocks of memory are used more than once, such as when a forked
+//! process maps a range of memory as Copy-on-Write, the reference count is
+//! incremented for those frames. The Reference Count store only tracks frames
+//! with more than one reference; otherwise, it would be unnecessarily large.
+//! 
+//! To ensure that all memory is properly used or freed, it is provided using an
+//! AllocatedFrame object. Only an AllocatedFrame can be mapped to a virtual
+//! page, and each AllocatedFrame must be mapped or freed before it is dropped.
+//! An AllocatedFrame cannot be constructed for an arbitrary address. The only
+//! ways to get an AllocatedFrame are by requesting newly allocated memory,
+//! unmapping a previously-mapped frame, or duplicating an already-mapped frame.
+//! 
+//! When a frame is requested, the Allocator will mark it as used and construct
+//! an AllocatedFrame object that can be mapped to memory.
+//! When a page is unmapped, it will return an AllocatedFrame object for the
+//! now-unused memory area. That AllocatedFrame can then be freed or re-mapped
+//! to a new area.
+//! An existing mapping can be duplicated, which increases the reference count
+//! for that frame before constructing an AllocatedFrame.
+//! When an AllocatedFrame is freed, it first checks if it has a reference count
+//! greater than 1. If so, the ref count is decreased and the AllocatedFrame is
+//! forgotten. If not, the memory is no longer in use, and the Allocator frees
+//! the frame.
+
 pub mod bios;
 pub mod frame_bitmap;
 pub mod frame_range;
@@ -8,7 +41,7 @@ use frame_bitmap::{BitmapError, FrameBitmap};
 use frame_range::FrameRange;
 use frame_refcount::FrameRefcount;
 use spin::Mutex;
-use super::address::PhysicalAddress;
+use super::address::{PhysicalAddress, VirtualAddress};
 
 static mut ALLOCATOR: Option<Mutex<FrameBitmap>> = None;
 static mut REF_COUNT: Option<Mutex<FrameRefcount>> = None;
@@ -25,7 +58,10 @@ pub fn init_allocator(location: usize, memory_map_addr: usize) {
     }
   }
 
-  let mut bitmap = FrameBitmap::at_location(location, limit >> 12);
+  let mut bitmap = FrameBitmap::at_location(
+    VirtualAddress::new(location),
+    limit >> 12,
+  );
   bitmap.initialize_from_memory_map(&memory_map).unwrap();
 
   let size_in_frames = bitmap.size_in_frames();
