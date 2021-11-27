@@ -6,7 +6,7 @@ use crate::files::cursor::SeekMethod;
 use crate::fs::DRIVES;
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use crate::memory::physical::frame::Frame;
-use crate::memory::virt::page_directory::{self, AlternatePageDirectory, PageDirectory, PermissionFlags};
+use crate::memory::virt::page_directory::{self, PageDirectory, PermissionFlags};
 use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
 use super::memory::{USER_KERNEL_BARRIER, ExecutionSegment, MMapBacking, MMapRegion};
@@ -187,8 +187,11 @@ pub fn share_kernel_page_directory(vaddr: VirtualAddress) {
 
   super::switching::for_each_process(|p| {
     let dir_address = p.read().page_directory.get_address();
-    let alt = AlternatePageDirectory::new(dir_address);
-    alt.add_directory_frame(dir_index, frame_address);
+    let mapped_pagedir = UnmappedPage::map(dir_address);
+
+    let directory = PageTable::at_address(mapped_pagedir.virtual_address());
+    directory.get_mut(dir_index).set_address(frame_address);
+    directory.get_mut(dir_index).set_present();
   });
 }
 
