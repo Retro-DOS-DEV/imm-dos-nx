@@ -209,7 +209,7 @@ pub fn fork_page_directory(include_userspace: bool) -> PageTableReference {
   use crate::memory::virt::page_table;
 
   // Create a new page directory
-  let directory_frame = physical::allocate_frame().unwrap();
+  let directory_frame = physical::allocate_frame().unwrap().to_frame();
   let directory_scratch_space = UnmappedPage::map(directory_frame.get_address());
   let directory_table = page_table::PageTable::at_address(directory_scratch_space.virtual_address());
   directory_table.zero();

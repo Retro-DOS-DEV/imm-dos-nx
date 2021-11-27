@@ -5,7 +5,7 @@ use core::ops::Range;
 use crate::files::cursor::SeekMethod;
 use crate::fs::DRIVES;
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
-use crate::memory::physical::frame::Frame;
+use crate::memory::physical::allocated_frame::AllocatedFrame;
 use crate::memory::virt::page_directory::{self, PageDirectory, PermissionFlags};
 use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
@@ -29,7 +29,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
     };
     let current_pagedir = page_directory::CurrentPageDirectory::get();
     current_pagedir.map(
-      new_frame,
+      new_frame.to_frame(),
       address.prev_page_barrier(),
       PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
     );
@@ -87,7 +87,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
     };
     let current_pagedir = page_directory::CurrentPageDirectory::get();
     current_pagedir.map(
-      new_frame,
+      new_frame.to_frame(),
       address.prev_page_barrier(),
       flags,
     );
@@ -157,7 +157,7 @@ pub fn get_or_allocate_physical_address(addr: VirtualAddress) -> Result<Physical
     }?;
     let start = new_frame.get_address();
     current_pagedir.map(
-      new_frame,
+      new_frame.to_frame(),
       addr.prev_page_barrier(),
       PermissionFlags::empty(),
     );
@@ -165,7 +165,7 @@ pub fn get_or_allocate_physical_address(addr: VirtualAddress) -> Result<Physical
   }
 }
 
-pub fn get_frame_for_region(region: &MMapRegion) -> Option<Frame> {
+pub fn get_frame_for_region(region: &MMapRegion) -> Option<AllocatedFrame> {
   match region.backed_by {
     MMapBacking::Anonymous => {
       crate::memory::physical::allocate_frame().ok()
@@ -196,7 +196,7 @@ pub fn share_kernel_page_directory(vaddr: VirtualAddress) {
 }
 
 pub fn duplicate_frame(page_start: VirtualAddress) -> PhysicalAddress {
-  let new_frame = crate::memory::physical::allocate_frame().unwrap();
+  let new_frame = crate::memory::physical::allocate_frame().unwrap().to_frame();
   let temp_mapping = UnmappedPage::map(new_frame.get_address());
   let temp_addr = temp_mapping.virtual_address();
   unsafe {

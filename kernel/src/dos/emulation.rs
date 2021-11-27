@@ -320,7 +320,7 @@ pub fn handle_page_fault(stack_frame: &StackFrame, address: usize) -> bool {
     let vaddr = VirtualAddress::new(address);
     let mut current_pagedir = CurrentPageDirectory::get();
     current_pagedir.map(
-      new_frame,
+      new_frame.to_frame(),
       vaddr.prev_page_barrier(),
       PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
     );

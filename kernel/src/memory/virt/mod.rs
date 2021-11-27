@@ -13,7 +13,7 @@ use crate::x86;
 
 /// Create the initial Page Directory, before paging has been enabled
 pub fn create_initial_pagedir() -> PageTableReference {
-  let dir_frame = physical::allocate_frame().unwrap();
+  let dir_frame = physical::allocate_frame().unwrap().to_frame();
   unsafe { dir_frame.zero_memory(); }
   let dir_address = dir_frame.get_address();
   let dir = PageTable::at_address(VirtualAddress::new(dir_address.as_usize()));
@@ -21,7 +21,7 @@ pub fn create_initial_pagedir() -> PageTableReference {
   // The last few entries of that pagetable are used as temporary frame editing
   // space. Below that are the kernel stacks for processes, starting with the
   // stack for the bootstrapping process.
-  let last_table_frame = physical::allocate_frame().unwrap();
+  let last_table_frame = physical::allocate_frame().unwrap().to_frame();
   unsafe { last_table_frame.zero_memory(); }
   let last_table_address = last_table_frame.get_address();
   dir.get_mut(1022).set_address(last_table_address);
@@ -50,7 +50,7 @@ pub fn map_kernel(directory_ref: PageTableReference, bounds: &KernelDataBounds) 
   );
   physical::allocate_range(kernel_range).unwrap();
   // For now, just identity-map the first 4MiB
-  let table_zero_frame = physical::allocate_frame().unwrap();
+  let table_zero_frame = physical::allocate_frame().unwrap().to_frame();
   unsafe { table_zero_frame.zero_memory() };
   let dir = PageTable::at_address(VirtualAddress::new(directory_ref.get_address().as_usize()));
   dir.get_mut(0).set_address(table_zero_frame.get_address());
@@ -85,7 +85,7 @@ pub fn map_kernel(directory_ref: PageTableReference, bounds: &KernelDataBounds) 
   // if it represents a stack guard.
   let mut extra_stack_pages = (crate::task::stack::STACK_SIZE / 0x1000) - 2;
   while extra_stack_pages > 0 {
-    let stack_frame = physical::allocate_frame().unwrap();
+    let stack_frame = physical::allocate_frame().unwrap().to_frame();
     let index = stack_top_page_index - extra_stack_pages;
     last_page.get_mut(index).set_address(stack_frame.get_address());
     last_page.get_mut(index).set_present();
@@ -105,7 +105,7 @@ pub fn map_kernel_stack(stack_range: core::ops::Range<VirtualAddress>) {
   while stack_pages > 0 {
     let stack_frame = physical::allocate_frame().unwrap();
     let address = stack_range.end - (0x1000 * stack_pages);
-    CurrentPageDirectory::get().map(stack_frame, address, page_directory::PermissionFlags::empty());
+    CurrentPageDirectory::get().map(stack_frame.to_frame(), address, page_directory::PermissionFlags::empty());
     stack_pages -= 1;
   }
 }

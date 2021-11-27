@@ -42,7 +42,7 @@ pub extern "C" fn vga_driver_process() {
   crate::kprintln!("Video Driver Ready");
 
   let stack_frame = physical::allocate_frame().unwrap();
-  pagedir.map(stack_frame, VirtualAddress::new(0x7f000), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
+  pagedir.map(stack_frame.to_frame(), VirtualAddress::new(0x7f000), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
 
   let on_return_addr = return_from_interrupt as *const extern "C" fn() -> () as usize;
   crate::task::get_current_process().write().on_exit_vm = Some(on_return_addr);

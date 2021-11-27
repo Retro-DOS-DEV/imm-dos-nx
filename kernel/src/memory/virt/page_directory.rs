@@ -93,7 +93,7 @@ impl PageDirectory for CurrentPageDirectory {
     let entry = top_page.get_mut(dir_index);
     if !entry.is_present() {
       // Create a page table
-      let table_frame = allocate_frame().unwrap();
+      let table_frame = allocate_frame().unwrap().to_frame();
       entry.set_address(table_frame.get_address());
       entry.set_present();
       if dir_index < 768 {

@@ -31,12 +31,14 @@
 //! forgotten. If not, the memory is no longer in use, and the Allocator frees
 //! the frame.
 
+pub mod allocated_frame;
 pub mod bios;
 pub mod frame_bitmap;
 pub mod frame_range;
 pub mod frame_refcount;
 pub mod frame;
 
+use allocated_frame::AllocatedFrame;
 use frame_bitmap::{BitmapError, FrameBitmap};
 use frame_range::FrameRange;
 use frame_refcount::FrameRefcount;
@@ -115,16 +117,14 @@ pub fn with_refcount<F, T>(f: F) -> T where
   }
 }
 
-pub fn allocate_frames(count: usize) -> Result<FrameRange, BitmapError> {
-  with_allocator(|alloc| {
-    alloc.allocate_frames(count)
-  })
-}
-
-pub fn allocate_frame() -> Result<frame::Frame, BitmapError> {
-  let frame = allocate_frames(1);
+pub fn allocate_frame() -> Result<AllocatedFrame, BitmapError> {
+  let frame = with_allocator(|alloc| {
+    alloc
+      .allocate_frames(1)
+      .map(|range| range.get_first_frame())
+  });
   match frame {
-    Ok(f) => Ok(f.get_first_frame()),
+    Ok(f) => Ok(AllocatedFrame::new(f.get_address())),
     Err(e) => Err(e)
   }
 }
@@ -132,12 +132,6 @@ pub fn allocate_frame() -> Result<frame::Frame, BitmapError> {
 pub fn allocate_range(range: FrameRange) -> Result<(), BitmapError> {
   with_allocator(|alloc| {
     alloc.allocate_range(range)
-  })
-}
-
-pub fn free_range(range: FrameRange) -> Result<(), BitmapError> {
-  with_allocator(|alloc| {
-    alloc.free_range(range)
   })
 }
 
@@ -153,6 +147,7 @@ pub fn get_free_frame_count() -> usize {
   })
 }
 
+/*
 pub fn get_frame_for_copy_on_write(prev: PhysicalAddress) -> Result<frame::Frame, BitmapError> {
   with_refcount(|refcount| {
     let current_count = refcount.current_count_at_address(prev);
@@ -173,6 +168,7 @@ pub fn get_frame_for_copy_on_write(prev: PhysicalAddress) -> Result<frame::Frame
     }
   })
 }
+*/
 
 pub fn reference_frame_at_address(addr: PhysicalAddress) -> u8 {
   with_refcount(|refcount| {
