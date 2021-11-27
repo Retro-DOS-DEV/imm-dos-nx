@@ -1,7 +1,7 @@
 use core::sync::atomic::{AtomicU8, Ordering};
-use crate::memory::address::{SegmentedAddress, VirtualAddress};
+use crate::memory::address::{PhysicalAddress, SegmentedAddress, VirtualAddress};
 use crate::memory::physical::{self, frame::Frame};
-use crate::memory::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
+use crate::memory::virt::page_directory::{CurrentPageDirectory, PermissionFlags};
 use crate::task::id::ProcessID;
 use crate::task::ipc::{IPCMessage, IPCPacket};
 use crate::task::regs::EnvironmentRegisters;
@@ -31,18 +31,18 @@ pub extern "C" fn vga_driver_process() {
 
   let pagedir = CurrentPageDirectory::get();
   // Allocate the lowest frame of physical memory to its same location
-  pagedir.map(Frame::new(0), VirtualAddress::new(0), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
+  pagedir.map_explicit(PhysicalAddress::new(0), VirtualAddress::new(0), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
   // Allocate the BIOS code area (0xA0000 - 0xFFFFF)
   let mut frame = 0xA0000;
   while frame < 0x100000 {
-    pagedir.map(Frame::new(frame), VirtualAddress::new(frame), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
+    pagedir.map_explicit(PhysicalAddress::new(frame), VirtualAddress::new(frame), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
     frame += 0x1000;
   }
 
   crate::kprintln!("Video Driver Ready");
 
   let stack_frame = physical::allocate_frame().unwrap();
-  pagedir.map(stack_frame.to_frame(), VirtualAddress::new(0x7f000), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
+  pagedir.map(stack_frame, VirtualAddress::new(0x7f000), PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS));
 
   let on_return_addr = return_from_interrupt as *const extern "C" fn() -> () as usize;
   crate::task::get_current_process().write().on_exit_vm = Some(on_return_addr);

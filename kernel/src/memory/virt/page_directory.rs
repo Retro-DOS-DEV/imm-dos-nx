@@ -1,10 +1,11 @@
+use crate::memory::physical::allocated_frame::AllocatedFrame;
+
 use super::super::address::{PhysicalAddress, VirtualAddress};
 use super::super::physical::frame::Frame;
 use super::super::physical::allocate_frame;
-use super::super::physical::reference_frame_at_address;
 use super::page_entry::PageTableEntry;
 use super::page_table::PageTable;
-use super::region::{MemoryRegionType, Permissions, VirtualMemoryRegion};
+use super::region::VirtualMemoryRegion;
 
 pub struct PermissionFlags(u8);
 impl PermissionFlags {
@@ -24,19 +25,20 @@ impl PermissionFlags {
   }
 }
 
-pub trait PageDirectory {
-  fn map(&self, frame: Frame, vaddr: VirtualAddress, flags: PermissionFlags);
-  fn get_physical_address(&self, vaddr: VirtualAddress) -> Option<PhysicalAddress>;
-}
-
+/// CurrentPageDirectory modifies the page dir of the active process. Nearly all
+/// changes to page tables happen in the current process, so this is the only
+/// struct we need.
 pub struct CurrentPageDirectory {
 }
 
 impl CurrentPageDirectory {
+  /// Get a new instance of the Current Page Directory
   pub fn get() -> CurrentPageDirectory {
     CurrentPageDirectory {}
   }
 
+  /// Unmap the page containing a specific address. If a page table entry
+  /// existed for that address, it is returned.
   pub fn unmap(&self, vaddr: VirtualAddress) -> Option<PageTableEntry> {
     let dir_index = vaddr.get_page_directory_index();
     let table_index = vaddr.get_page_table_index();
@@ -79,11 +81,19 @@ impl CurrentPageDirectory {
     let table = PageTable::at_address(table_address);
     Some(table.get_mut(table_index))
   }
-}
 
-impl PageDirectory for CurrentPageDirectory {
-  fn map(&self, frame: Frame, vaddr: VirtualAddress, flags: PermissionFlags) {
-    let paddr = frame.get_address();
+  /// Map an allocated block of physical memory to a specific virtual address.
+  /// This is the method that should always be used to create
+  /// virtual-to-physical mappings in the page table.
+  pub fn map(&self, allocated_frame: AllocatedFrame, vaddr: VirtualAddress, flags: PermissionFlags) {
+    // Consume the AllocatedFrame without dropping it
+    let frame = allocated_frame.to_frame();
+    self.map_explicit(frame.get_address(), vaddr, flags)
+  }
+
+  /// Map an explicit address to a virtual location. This should only be used
+  /// for peripherals that are on the memory bus, NOT for allocated RAM.
+  pub fn map_explicit(&self, paddr: PhysicalAddress, vaddr: VirtualAddress, flags: PermissionFlags) {
     let dir_index = vaddr.get_page_directory_index();
     let table_index = vaddr.get_page_table_index();
     let top_page = PageTable::at_address(VirtualAddress::new(0xfffff000));
@@ -127,7 +137,7 @@ impl PageDirectory for CurrentPageDirectory {
     }
   }
 
-  fn get_physical_address(&self, vaddr: VirtualAddress) -> Option<PhysicalAddress> {
+  pub fn get_physical_address(&self, vaddr: VirtualAddress) -> Option<PhysicalAddress> {
     // this could be supported, we just don't need it
     if !vaddr.is_page_aligned() {
       return None;
@@ -169,23 +179,8 @@ pub fn invalidate_page(addr: VirtualAddress) {
   }
 }
 
-pub fn get_temporary_page_address() -> VirtualAddress {
-  VirtualAddress::new(0xffbff000)
-}
-
 pub fn get_current_page_address() -> VirtualAddress {
   VirtualAddress::new(0xfffff000)
-}
-
-pub fn map_frame_to_temporary_page(frame: Frame) {
-  // The temporary page is located in the last slot of the second-to-last page
-  // table. Assuming the current pagedir is mapped to its own last slot, this
-  // means the entry we want to edit is the one just prior to the last 4KiB of
-  // virtual memory.
-  let last_table = PageTable::at_address(VirtualAddress::new(0xffffe000));
-  last_table.get_mut(1023).set_address(frame.get_address());
-  last_table.get_mut(1023).set_present();
-  invalidate_page(get_temporary_page_address());
 }
 
 /// Get the second-to-last entry in the self-mapped page directory. This is the

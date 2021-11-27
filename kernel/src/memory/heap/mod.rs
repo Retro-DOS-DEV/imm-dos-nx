@@ -7,7 +7,7 @@ use spin::Mutex;
 
 use super::address::VirtualAddress;
 use super::physical;
-use super::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
+use super::virt::page_directory::{CurrentPageDirectory, PermissionFlags};
 
 struct Allocator {
   locked_allocator: Mutex<list_allocator::ListAllocator>,
@@ -64,7 +64,7 @@ pub fn map_allocator(location: VirtualAddress, initial_frame_count: usize) {
     let heap_frame = physical::allocate_frame().unwrap();
     let heap_vaddr = location + (i * 0x1000);
     let current_mapping = CurrentPageDirectory::get();
-    current_mapping.map(heap_frame.to_frame(), heap_vaddr, PermissionFlags::empty());
+    current_mapping.map(heap_frame, heap_vaddr, PermissionFlags::empty());
   }
 }
 

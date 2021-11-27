@@ -6,7 +6,7 @@ use crate::files::cursor::SeekMethod;
 use crate::fs::DRIVES;
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
 use crate::memory::physical::allocated_frame::AllocatedFrame;
-use crate::memory::virt::page_directory::{self, PageDirectory, PermissionFlags};
+use crate::memory::virt::page_directory::{self, PermissionFlags};
 use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
 use super::memory::{USER_KERNEL_BARRIER, ExecutionSegment, MMapBacking, MMapRegion};
@@ -29,7 +29,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
     };
     let current_pagedir = page_directory::CurrentPageDirectory::get();
     current_pagedir.map(
-      new_frame.to_frame(),
+      new_frame,
       address.prev_page_barrier(),
       PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
     );
@@ -87,7 +87,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
     };
     let current_pagedir = page_directory::CurrentPageDirectory::get();
     current_pagedir.map(
-      new_frame.to_frame(),
+      new_frame,
       address.prev_page_barrier(),
       flags,
     );
@@ -157,7 +157,7 @@ pub fn get_or_allocate_physical_address(addr: VirtualAddress) -> Result<Physical
     }?;
     let start = new_frame.get_address();
     current_pagedir.map(
-      new_frame.to_frame(),
+      new_frame,
       addr.prev_page_barrier(),
       PermissionFlags::empty(),
     );

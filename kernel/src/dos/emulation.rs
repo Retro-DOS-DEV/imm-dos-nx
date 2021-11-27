@@ -1,9 +1,8 @@
 use core::mem::size_of;
 use crate::interrupts::stack::StackFrame;
 use crate::interrupts::syscall_legacy::dos_api;
-use crate::memory::address::VirtualAddress;
-use crate::memory::physical::frame::Frame;
-use crate::memory::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
+use crate::memory::address::{PhysicalAddress, VirtualAddress};
+use crate::memory::virt::page_directory::{CurrentPageDirectory, PermissionFlags};
 use super::registers::{DosApiRegisters, VM86Frame};
 
 /// When a DOS program running in VM86 mode tries to do something privileged, it
@@ -320,7 +319,7 @@ pub fn handle_page_fault(stack_frame: &StackFrame, address: usize) -> bool {
     let vaddr = VirtualAddress::new(address);
     let mut current_pagedir = CurrentPageDirectory::get();
     current_pagedir.map(
-      new_frame.to_frame(),
+      new_frame,
       vaddr.prev_page_barrier(),
       PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
     );
@@ -343,15 +342,16 @@ pub fn handle_page_fault(stack_frame: &StackFrame, address: usize) -> bool {
     let pagedir = CurrentPageDirectory::get();
     if crate::vterm::get_router().read().get_active_vterm() == vterm_index {
       // map to identical physical address
-      pagedir.map(
-        Frame::new(address),
+      pagedir.map_explicit(
+        PhysicalAddress::new(address),
         VirtualAddress::new(address & 0xfffff000),
         PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
       );
     } else {
       // currently running in an inactive vterm, map to the backup page
-      pagedir.map(
-        Frame::new(new_frame.as_usize()),
+      // This is an abuse of map_explicit that should be fixed
+      pagedir.map_explicit(
+        PhysicalAddress::new(new_frame.as_usize()),
         VirtualAddress::new(address & 0xfffff000),
         PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
       );

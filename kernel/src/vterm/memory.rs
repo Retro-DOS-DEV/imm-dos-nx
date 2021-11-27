@@ -18,7 +18,7 @@ pub struct MemoryBackup {
 
 impl MemoryBackup {
   pub fn allocate(physical_address: PhysicalAddress) -> Self {
-    use crate::memory::virt::page_directory::{CurrentPageDirectory, PageDirectory, PermissionFlags};
+    use crate::memory::virt::page_directory::{CurrentPageDirectory, PermissionFlags};
     use crate::task::memory::MMapBacking;
 
     let frame = crate::memory::physical::allocate_frame().unwrap();
@@ -26,7 +26,7 @@ impl MemoryBackup {
 
     let mapped_to = crate::task::memory::kernel_mmap(None, 0x1000, MMapBacking::Direct(buffer_frame)).unwrap();
     let pagedir = CurrentPageDirectory::get();
-    pagedir.map(frame.to_frame(), mapped_to, PermissionFlags::empty());
+    pagedir.map(frame, mapped_to, PermissionFlags::empty());
 
     Self {
       physical_address,

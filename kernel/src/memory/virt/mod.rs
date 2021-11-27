@@ -3,7 +3,7 @@ pub mod page_entry;
 pub mod page_table;
 pub mod region;
 
-use page_directory::{CurrentPageDirectory, PageDirectory};
+use page_directory::CurrentPageDirectory;
 use page_table::{PageTable, PageTableReference};
 use super::address::{PhysicalAddress, VirtualAddress};
 use super::physical;
@@ -105,7 +105,7 @@ pub fn map_kernel_stack(stack_range: core::ops::Range<VirtualAddress>) {
   while stack_pages > 0 {
     let stack_frame = physical::allocate_frame().unwrap();
     let address = stack_range.end - (0x1000 * stack_pages);
-    CurrentPageDirectory::get().map(stack_frame.to_frame(), address, page_directory::PermissionFlags::empty());
+    CurrentPageDirectory::get().map(stack_frame, address, page_directory::PermissionFlags::empty());
     stack_pages -= 1;
   }
 }
