@@ -69,14 +69,14 @@ void _start() {
     // child process
     write_file(handle, "  Child running\n");
     sleep(5000);
+    write_file(handle, "  Child done\n");
     terminate(1);
   } else {
     // parent
     write_file(handle, "Wait for child\n");
     wait(id);
     write_file(handle, "Child returned.");
-  }
-  while (1) {
     yield();
   }
+  terminate(0);
 }

@@ -1,4 +1,3 @@
-use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::ops::Range;
@@ -224,6 +223,7 @@ pub fn unmap_page(address: VirtualAddress) {
 /// Unmap a task, removing its executable segments, stack, and heap
 pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<VirtualAddress>) {
   let current_pagedir = page_directory::CurrentPageDirectory::get();
+  crate::kprintln!("Unmap Segments");
   for segment in exec_segments.iter() {
     let mut cur: VirtualAddress = segment.address;
     let end: VirtualAddress = segment.address + segment.size;
@@ -237,6 +237,7 @@ pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<Virtua
   }
   // unmap stack
   {
+    crate::kprintln!("Unmap Stack");
     let mut cur = VirtualAddress::new(USER_KERNEL_BARRIER - STACK_SIZE);
     let stack_end = VirtualAddress::new(USER_KERNEL_BARRIER);
     while cur < stack_end {
@@ -249,6 +250,7 @@ pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<Virtua
 
   // unmap heap
   {
+    crate::kprintln!("Unmap Heap");
     let mut cur = heap_pages.start;
     let heap_end = heap_pages.end;
     while cur < heap_end {

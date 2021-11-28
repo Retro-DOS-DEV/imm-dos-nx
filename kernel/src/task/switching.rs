@@ -256,21 +256,27 @@ pub fn fork_page_directory(include_userspace: bool) -> PageTableReference {
       let table = page_table::PageTable::at_address(table_address);
       for table_index in 0..1024 {
         let table_entry = table.get_mut(table_index);
-        if table_entry.is_present() && table_entry.is_write_access_granted() {
-          table_entry.clear_write_access();
-          table_entry.set_cow();
-          {
-            let page_start =
-              (dir_entry * 4 * 1024 * 1024)
-              + table_index * 4 * 1024;
-            paging::invalidate_page(VirtualAddress::new(page_start));
+        if table_entry.is_present() {
+          // All entries, writable or not, now have an additional reference
+          let _ = reference_frame_at_address(table_entry.get_address())
+            // since the entire page table is being copied, there is no call to
+            // .map and we can safely dispose of this AllocatedFrame
+            .to_frame();
+
+          if table_entry.is_write_access_granted() {
+            table_entry.clear_write_access();
+            table_entry.set_cow();
+            {
+              let page_start =
+                (dir_entry * 4 * 1024 * 1024)
+                + table_index * 4 * 1024;
+              paging::invalidate_page(VirtualAddress::new(page_start));
+            }
+            crate::kprintln!("SET COW {} {}", dir_entry, table_index);
           }
-          crate::kprintln!("SET COW {} {}", dir_entry, table_index);
-          let duplicated_frame = reference_frame_at_address(table_entry.get_address());
-          // since we're doing the mapping directly, we need to manually dispose of the duplicated frame
-          let _ = duplicated_frame.to_frame();
+
           let ref_count = crate::memory::physical::get_current_refcount_for_address(table_entry.get_address());
-          crate::kprintln!("COW count is now {}", ref_count);
+          crate::kprintln!("{:?} count is now {}", table_entry.get_address(), ref_count);
         }
       }
       let table_frame = paging::duplicate_frame(table_address).to_frame();

@@ -22,7 +22,8 @@ pub extern "x86-interrupt" fn breakpoint(_stack_frame: StackFrame) {
 #[no_mangle]
 pub extern "x86-interrupt" fn invalid_opcode(stack_frame: StackFrame) {
   let eip = stack_frame.eip;
-  kprintln!("Invalid opcode at {:#010x}", eip);
+  let curid = crate::task::switching::get_current_id();
+  kprintln!("Invalid opcode at {:#010x} ({:?})", eip, curid);
   loop {}
 }
 
@@ -150,6 +151,9 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
           kprintln!("Decrement COW, {} refs remaining", new_count);
           let page_start = vaddr.prev_page_barrier();
           let new_frame = crate::task::paging::duplicate_frame(page_start);
+
+          kprintln!("COW: Replacing {:?} with {:?}", entry.get_address(), new_frame.get_address());
+
           entry.clear_cow();
           entry.set_address(new_frame.to_frame().get_address());
           entry.set_write_access();
