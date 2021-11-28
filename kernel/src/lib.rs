@@ -12,6 +12,7 @@
 
 // Test-safe modules
 pub mod buffers;
+pub mod cleanup;
 pub mod collections;
 pub mod devices;
 pub mod dos;
@@ -193,6 +194,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       task::switching::kfork(hardware::vga::driver::vga_driver_process);
       //task::switching::kfork(tty::ttys_process);
       task::switching::kfork(vterm::vterm_process);
+      task::switching::kfork(cleanup::cleanup_process);
     }
 
     fs::init_system_drives(VirtualAddress::new(initfs_start));

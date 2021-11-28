@@ -115,6 +115,13 @@ impl Process {
     }
   }
 
+  pub fn is_terminated(&self) -> bool {
+    match self.state {
+      RunState::Terminated => true,
+      _ => false,
+    }
+  }
+
   /// Get a reference to the kernel stack
   pub fn get_kernel_stack(&self) -> &Box<[u8]> {
     match &self.kernel_stack {

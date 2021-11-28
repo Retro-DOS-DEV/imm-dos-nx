@@ -93,6 +93,13 @@ pub fn for_each_process<F>(f: F)
   }
 }
 
+pub fn for_each_process_mut<F>(mut f: F)
+  where F: FnMut(Arc<RwLock<Process>>) -> () {
+  for (_, proc) in TASK_MAP.read().iter() {
+    f(proc.clone());
+  }
+}
+
 /// When a process gets forked, we create a duplicate process with an empty
 /// stack. Previously the kernel used a bunch of hacks to duplicate the stack
 /// and ensure that the child process returned through all the callers in the
@@ -149,6 +156,17 @@ pub fn kfork(dest: extern "C" fn() -> ()) -> ProcessID {
   }
   //crate::kprintln!("Child will start at {:#0x}", dest as u32);
   child_id
+}
+
+pub fn clean_up_process(id: ProcessID) {
+  let task = {
+    let mut task_map = TASK_MAP.write();
+    match task_map.remove(&id) {
+      Some(t) => t,
+      None => return,
+    }
+  };
+  crate::kprintln!("Clean up {:?}", task.read().get_id());
 }
 
 /// Execute a context switch to another process. If that process does not exist,
