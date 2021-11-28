@@ -2,7 +2,7 @@ use crate::memory::physical::allocated_frame::AllocatedFrame;
 
 use super::super::address::{PhysicalAddress, VirtualAddress};
 use super::super::physical::frame::Frame;
-use super::super::physical::allocate_frame;
+use super::super::physical::{allocate_frame, free_frame};
 use super::page_entry::PageTableEntry;
 use super::page_table::PageTable;
 use super::region::VirtualMemoryRegion;
@@ -39,7 +39,7 @@ impl CurrentPageDirectory {
 
   /// Unmap the page containing a specific address. If a page table entry
   /// existed for that address, it is returned.
-  pub fn unmap(&self, vaddr: VirtualAddress) -> Option<PageTableEntry> {
+  pub fn unmap(&self, vaddr: VirtualAddress) -> Option<(AllocatedFrame, PageTableEntry)> {
     let dir_index = vaddr.get_page_directory_index();
     let table_index = vaddr.get_page_table_index();
     let directory = PageTable::at_address(VirtualAddress::new(0xfffff000));
@@ -56,13 +56,19 @@ impl CurrentPageDirectory {
     table.get_mut(table_index).clear_present();
     invalidate_page(vaddr);
 
-    Some(entry)
+    let frame = AllocatedFrame::new(entry.get_address());
+    Some((frame, entry))
   }
 
   pub fn unmap_region(&self, region: VirtualMemoryRegion) {
     let mut page_start = VirtualAddress::new(region.get_starting_address_as_usize());
     while region.contains_address(page_start) {
-      self.unmap(page_start);
+      match self.unmap(page_start) {
+        Some((frame, _)) => {
+          free_frame(frame).unwrap();
+        },
+        None => (),
+      }
       page_start = page_start.offset(0x1000);
     }
   }

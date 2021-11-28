@@ -138,7 +138,7 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
       if let Some(entry) = page_table_entry {
         //kprintln!("ENTRY: {:b}", entry.0);
         if entry.is_cow() {
-          let new_count = crate::task::paging::decrement_cow(entry.get_address());
+          let new_count = crate::memory::physical::release_frame_at_address(entry.get_address());
           if new_count == 0 {
             // this was the only reference to the frame, simply mark it as readable
             //kprintln!("Entry is no longer marked COW");
@@ -149,9 +149,9 @@ pub extern "x86-interrupt" fn page_fault(stack_frame: StackFrame, error: u32) {
           }
           kprintln!("Decrement COW, {} refs remaining", new_count);
           let page_start = vaddr.prev_page_barrier();
-          let new_frame_addr = crate::task::paging::duplicate_frame(page_start);
+          let new_frame = crate::task::paging::duplicate_frame(page_start);
           entry.clear_cow();
-          entry.set_address(new_frame_addr);
+          entry.set_address(new_frame.to_frame().get_address());
           entry.set_write_access();
           invalidate_page(page_start);
 

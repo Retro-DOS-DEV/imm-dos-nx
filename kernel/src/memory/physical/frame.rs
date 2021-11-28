@@ -1,3 +1,4 @@
+use super::frame_range::FrameRange;
 use super::super::address::PhysicalAddress;
 
 #[derive(Copy, Clone)]
@@ -20,6 +21,10 @@ impl Frame {
   pub fn containing_address(addr: PhysicalAddress) -> Frame {
     let frame_start = addr.as_usize() & 0xfffff000;
     Frame::new(frame_start)
+  }
+
+  pub fn to_range(self) -> FrameRange {
+    FrameRange::new(self.0, 0x1000)
   }
 
   pub unsafe fn zero_memory(&self) {

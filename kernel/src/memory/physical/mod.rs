@@ -85,11 +85,8 @@ pub fn move_allocator_reference_to_highmem() {
 }
 
 pub fn init_refcount() {
-  let frame_count = with_allocator(|alloc| {
-    alloc.get_frame_count()
-  });
   unsafe {
-    REF_COUNT = Some(Mutex::new(FrameRefcount::new(frame_count)));
+    REF_COUNT = Some(Mutex::new(FrameRefcount::new()));
   }
 }
 
@@ -135,6 +132,48 @@ pub fn allocate_range(range: FrameRange) -> Result<(), BitmapError> {
   })
 }
 
+/// Free a frame that was previously allocated
+/// Returns true if the frame was actually freed up for allocation, returns
+/// false if other references to the frame prevented it from being freed.
+pub fn free_frame(alloc_frame: AllocatedFrame) -> Result<bool, BitmapError> {
+  let frame = alloc_frame.to_frame();
+  let paddr = frame.get_address();
+  let remaining_refs = with_refcount(|refcount| {
+    refcount.release_frame_at_address(paddr)
+  });
+  if remaining_refs < 1 {
+    let range = frame.to_range();
+    with_allocator(|alloc| {
+      #[cfg(not(test))]
+      crate::kprintln!("FREE FRAME {:?}", paddr);
+      alloc.free_range(range).map(|_| true)
+    })
+  } else {
+    Ok(false)
+  }
+}
+
+pub fn get_current_refcount_for_address(addr: PhysicalAddress) -> usize {
+  with_refcount(|refcount| {
+    refcount.get_count_for_address(addr)
+  })
+}
+
+pub fn reference_frame_at_address(addr: PhysicalAddress) -> AllocatedFrame {
+  with_refcount(|refcount| {
+    let count = refcount.reference_frame_at_address(addr);
+    #[cfg(not(test))]
+    crate::kprintln!("New RefCount: {}", count);
+  });
+  AllocatedFrame::new(addr)
+}
+
+pub fn release_frame_at_address(addr: PhysicalAddress) -> usize {
+  with_refcount(|refcount| {
+    refcount.release_frame_at_address(addr)
+  })
+}
+
 pub fn get_frame_count() -> usize {
   with_allocator(|alloc| {
     alloc.get_frame_count()
@@ -169,10 +208,4 @@ pub fn get_frame_for_copy_on_write(prev: PhysicalAddress) -> Result<frame::Frame
   })
 }
 */
-
-pub fn reference_frame_at_address(addr: PhysicalAddress) -> u8 {
-  with_refcount(|refcount| {
-    refcount.reference_frame_at_address(addr)
-  })
-}
 

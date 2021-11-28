@@ -1,6 +1,7 @@
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::ops::DerefMut;
+use crate::memory::physical::{reference_frame_at_address};
 use crate::memory::address::VirtualAddress;
 use crate::memory::virt::map_kernel_stack;
 use crate::memory::virt::page_table::PageTableReference;
@@ -247,12 +248,15 @@ pub fn fork_page_directory(include_userspace: bool) -> PageTableReference {
             paging::invalidate_page(VirtualAddress::new(page_start));
           }
           crate::kprintln!("SET COW {} {}", dir_entry, table_index);
-          let ref_count = paging::increment_cow(table_entry.get_address());
+          let duplicated_frame = reference_frame_at_address(table_entry.get_address());
+          // since we're doing the mapping directly, we need to manually dispose of the duplicated frame
+          let _ = duplicated_frame.to_frame();
+          let ref_count = crate::memory::physical::get_current_refcount_for_address(table_entry.get_address());
           crate::kprintln!("COW count is now {}", ref_count);
         }
       }
-      let table_frame = paging::duplicate_frame(table_address);
-      directory_table.get_mut(dir_entry).set_address(table_frame);
+      let table_frame = paging::duplicate_frame(table_address).to_frame();
+      directory_table.get_mut(dir_entry).set_address(table_frame.get_address());
       directory_table.get_mut(dir_entry).set_user_access();
       directory_table.get_mut(dir_entry).set_present();
       if current_directory.get(dir_entry).is_write_access_granted() {

@@ -5,7 +5,7 @@ use core::ops::Range;
 use crate::files::cursor::SeekMethod;
 use crate::fs::DRIVES;
 use crate::memory::address::{PhysicalAddress, VirtualAddress};
-use crate::memory::physical::allocated_frame::AllocatedFrame;
+use crate::memory::physical::{free_frame, allocated_frame::AllocatedFrame};
 use crate::memory::virt::page_directory::{self, PermissionFlags};
 use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
@@ -13,7 +13,6 @@ use super::memory::{USER_KERNEL_BARRIER, ExecutionSegment, MMapBacking, MMapRegi
 use super::process::Process;
 use super::stack::UnmappedPage;
 
-pub static COW_REFERENCE_COUNT: RwLock<BTreeMap<usize, usize>> = RwLock::new(BTreeMap::new());
 pub static STACK_SIZE: usize = 0x2000;
 
 pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bool {
@@ -195,8 +194,8 @@ pub fn share_kernel_page_directory(vaddr: VirtualAddress) {
   });
 }
 
-pub fn duplicate_frame(page_start: VirtualAddress) -> PhysicalAddress {
-  let new_frame = crate::memory::physical::allocate_frame().unwrap().to_frame();
+pub fn duplicate_frame(page_start: VirtualAddress) -> AllocatedFrame {
+  let new_frame = crate::memory::physical::allocate_frame().unwrap();
   let temp_mapping = UnmappedPage::map(new_frame.get_address());
   let temp_addr = temp_mapping.virtual_address();
   unsafe {
@@ -205,55 +204,7 @@ pub fn duplicate_frame(page_start: VirtualAddress) -> PhysicalAddress {
     dest.copy_from_slice(&src);
   }
   //crate::kprintln!("Copy from {:?} to {:?}", page_start, temp_addr);
-  new_frame.get_address()
-}
-
-pub fn increment_cow(frame_start: PhysicalAddress) -> usize {
-  let key = frame_start.as_usize();
-  let prev: usize = match COW_REFERENCE_COUNT.write().get_mut(&key) {
-    Some(entry) => {
-      let prev = *entry;
-      *entry = prev + 1;
-      prev
-    },
-    None => 0,
-  };
-  if prev == 0 {
-    // COW increment only happens when a page is forked, so the minimum
-    // reference count is 2
-    COW_REFERENCE_COUNT.write().insert(key, 2);
-    2
-  } else {
-    prev
-  }
-}
-
-/// Decerement the copy-on-write count for a specific page, and return the
-/// remaining reference count.
-pub fn decrement_cow(frame_start: PhysicalAddress) -> usize {
-  let key = frame_start.as_usize();
-  let remainder: Option<usize> = match COW_REFERENCE_COUNT.write().get_mut(&key) {
-    Some(entry) => {
-      if *entry == 0 {
-        Some(0)
-      } else {
-        *entry -= 1;
-        Some(*entry)
-      }
-    },
-    None => Some(0),
-  };
-  match remainder {
-    Some(x) if x < 2 => {
-      //crate::kprintln!("Frame is no longer COW: {:#010X}", key);
-      COW_REFERENCE_COUNT.write().remove(&key);
-      x
-    },
-    Some(x) => {
-      x
-    },
-    None => 0,
-  }
+  new_frame
 }
 
 pub fn invalidate_page(addr: VirtualAddress) {
@@ -265,10 +216,8 @@ pub fn invalidate_page(addr: VirtualAddress) {
 /// Unmap a single page, reducing COW counts as needed
 pub fn unmap_page(address: VirtualAddress) {
   let current_pagedir = page_directory::CurrentPageDirectory::get();
-  if let Some(mapping) = current_pagedir.unmap(address) {
-    if mapping.is_cow() {
-      decrement_cow(mapping.get_address());
-    }
+  if let Some((frame, mapping)) = current_pagedir.unmap(address) {
+    free_frame(frame).unwrap();
   }
 }
 
@@ -280,10 +229,8 @@ pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<Virtua
     let end: VirtualAddress = segment.address + segment.size;
 
     while cur < end {
-      if let Some(mapping) = current_pagedir.unmap(cur) {
-        if mapping.is_cow() {
-          decrement_cow(mapping.get_address());
-        }
+      if let Some((frame, mapping)) = current_pagedir.unmap(cur) {
+        free_frame(frame).unwrap();
       }
       cur = cur + 4096;
     }
@@ -293,10 +240,8 @@ pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<Virtua
     let mut cur = VirtualAddress::new(USER_KERNEL_BARRIER - STACK_SIZE);
     let stack_end = VirtualAddress::new(USER_KERNEL_BARRIER);
     while cur < stack_end {
-      if let Some(mapping) = current_pagedir.unmap(cur) {
-        if mapping.is_cow() {
-          decrement_cow(mapping.get_address());
-        }
+      if let Some((frame, mapping)) = current_pagedir.unmap(cur) {
+        free_frame(frame).unwrap();
       }
       cur = cur + 4096;
     }
@@ -307,10 +252,8 @@ pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<Virtua
     let mut cur = heap_pages.start;
     let heap_end = heap_pages.end;
     while cur < heap_end {
-      if let Some(mapping) = current_pagedir.unmap(cur) {
-        if mapping.is_cow() {
-          decrement_cow(mapping.get_address());
-        }
+      if let Some((frame, mapping)) = current_pagedir.unmap(cur) {
+        free_frame(frame).unwrap();
       }
       cur = cur + 4096;
     }

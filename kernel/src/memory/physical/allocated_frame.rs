@@ -2,6 +2,7 @@ use core::mem::ManuallyDrop;
 use super::frame::Frame;
 use super::super::address::PhysicalAddress;
 
+#[must_use]
 pub struct AllocatedFrame {
   frame_start: PhysicalAddress
 }
