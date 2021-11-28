@@ -152,10 +152,10 @@ unsafe fn init_memory() {
 #[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
-  let initfs_start = unsafe {
+  let (initfs_start, initfs_size) = unsafe {
     let boot_struct = &*boot_struct_ptr;
-    boot_struct.initfs_start
-  } | 0xc0000000;
+    (boot_struct.initfs_start, boot_struct.initfs_size)
+  };
 
   unsafe {
     zero_bss();
@@ -181,6 +181,18 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       memory::heap::init_allocator(heap_start, heap_size);
     }
     memory::physical::init_refcount();
+    // Mark the InitFS area as already allocated, so it doesn't get re-used as
+    // program memory
+    let mut initfs_frame_size = initfs_size & 0xfffff000;
+    if initfs_size & 0xfff > 0 {
+      initfs_frame_size += 0x1000;
+    }
+    memory::physical::allocate_range(
+      memory::physical::frame_range::FrameRange::new(
+        initfs_start,
+        initfs_frame_size,
+      ),
+    );
 
     // This context will become the idle task, and halt in a loop until other
     // processes are ready
@@ -197,7 +209,7 @@ pub extern "C" fn _start(boot_struct_ptr: *const BootStruct) -> ! {
       task::switching::kfork(cleanup::cleanup_process);
     }
 
-    fs::init_system_drives(VirtualAddress::new(initfs_start));
+    fs::init_system_drives(VirtualAddress::new(initfs_start | 0xc0000000), initfs_size);
   }
 
   loop {

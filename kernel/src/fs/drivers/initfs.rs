@@ -32,6 +32,7 @@ enum OpenHandle {
 
 pub struct InitFileSystem {
   cpio_archive_address: VirtualAddress,
+  archive_size: usize,
   open_handles: RwLock<SlotList<OpenHandle>>,
 }
 
@@ -39,9 +40,11 @@ impl InitFileSystem {
   /// Create an instance of an in-memory filesystem at a specific address. The
   /// filesystem will read entries until it reaches the "TRAILER" entry at the
   /// end of the archive.
-  pub fn new(addr: VirtualAddress) -> InitFileSystem {
+  pub fn new(addr: VirtualAddress, size: usize) -> InitFileSystem {
+    crate::kprintln!("InitFS at {:?}-{:?}", addr, addr + size);
     InitFileSystem {
       cpio_archive_address: addr,
+      archive_size: size,
       open_handles: RwLock::new(SlotList::new()),
     }
   }
