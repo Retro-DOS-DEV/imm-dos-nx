@@ -149,6 +149,7 @@ pub fn free_frame(alloc_frame: AllocatedFrame) -> Result<bool, BitmapError> {
       alloc.free_range(range).map(|_| true)
     })
   } else {
+    crate::kprintln!("Decrement refs: {:?}", paddr);
     Ok(false)
   }
 }

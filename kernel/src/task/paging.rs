@@ -10,7 +10,7 @@ use crate::memory::virt::page_table::PageTable;
 use spin::RwLock;
 use super::memory::{USER_KERNEL_BARRIER, ExecutionSegment, MMapBacking, MMapRegion};
 use super::process::Process;
-use super::stack::UnmappedPage;
+use super::stack::{STACK_SIZE_IN_PAGES, UnmappedPage};
 
 pub static STACK_SIZE: usize = 0x2000;
 
@@ -25,6 +25,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
       Ok(frame) => frame,
       Err(_) => return false,
     };
+    crate::kprintln!("  Page heap/stack @ {:?}", new_frame.get_address());
     let current_pagedir = page_directory::CurrentPageDirectory::get();
     current_pagedir.map(
       new_frame,
@@ -83,6 +84,7 @@ pub fn page_on_demand(lock: Arc<RwLock<Process>>, address: VirtualAddress) -> bo
       Ok(frame) => frame,
       Err(_) => return false,
     };
+    crate::kprintln!("  Page exec @ {:?}", new_frame.get_address());
     let current_pagedir = page_directory::CurrentPageDirectory::get();
     current_pagedir.map(
       new_frame,
@@ -195,6 +197,7 @@ pub fn share_kernel_page_directory(vaddr: VirtualAddress) {
 
 pub fn duplicate_frame(page_start: VirtualAddress) -> AllocatedFrame {
   let new_frame = crate::memory::physical::allocate_frame().unwrap();
+  crate::kprintln!("  New dup frame @ {:?}", new_frame.get_address());
   let temp_mapping = UnmappedPage::map(new_frame.get_address());
   let temp_addr = temp_mapping.virtual_address();
   unsafe {
@@ -202,7 +205,6 @@ pub fn duplicate_frame(page_start: VirtualAddress) -> AllocatedFrame {
     let dest = core::slice::from_raw_parts_mut(temp_addr.as_usize() as *mut u8, 4096);
     dest.copy_from_slice(&src);
   }
-  //crate::kprintln!("Copy from {:?} to {:?}", page_start, temp_addr);
   new_frame
 }
 
@@ -258,6 +260,49 @@ pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<Virtua
         free_frame(frame).unwrap();
       }
       cur = cur + 4096;
+    }
+  }
+}
+
+pub fn unmap_terminated_task(pagedir_address: PhysicalAddress, kernel_stack: VirtualAddress) {
+  let directory_scratch_space = UnmappedPage::map(pagedir_address);
+  let directory_table = PageTable::at_address(directory_scratch_space.virtual_address());
+  for dir_entry in 0..0x300 {
+    if !directory_table.get(dir_entry).is_present() {
+      continue;
+    }
+    let table_address = directory_table.get(dir_entry).get_address();
+    let table_scratch_space = UnmappedPage::map(table_address);
+    let table = PageTable::at_address(table_scratch_space.virtual_address());
+    for table_entry in 0..0x400 {
+      if !table.get(table_entry).is_present() {
+        continue;
+      }
+      let frame_addr = table.get(table_entry).get_address();
+      let frame = AllocatedFrame::new(frame_addr);
+      free_frame(frame).unwrap();
+    }
+    free_frame(AllocatedFrame::new(table_address)).unwrap();
+  }
+
+  {
+    crate::kprintln!("Free Kernel Stack at {:?}", kernel_stack);
+    let kstack_dir_index = kernel_stack.get_page_directory_index();
+    if !directory_table.get(kstack_dir_index).is_present() {
+      return;
+    }
+    let table_address = directory_table.get(kstack_dir_index).get_address();
+    let table_scratch_space = UnmappedPage::map(table_address);
+    let table = PageTable::at_address(table_scratch_space.virtual_address());
+    let kstack_table_index = kernel_stack.get_page_table_index();
+    for offset in 0..STACK_SIZE_IN_PAGES {
+      let entry = kstack_table_index + offset;
+      if !table.get(entry).is_present() {
+        continue;
+      }
+      let frame_addr = table.get(entry).get_address();
+      let frame = AllocatedFrame::new(frame_addr);
+      free_frame(frame).unwrap();
     }
   }
 }

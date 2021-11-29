@@ -1,7 +1,9 @@
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use core::ops::DerefMut;
-use crate::memory::physical::{reference_frame_at_address};
+use crate::memory::physical::{allocated_frame::AllocatedFrame, free_frame, reference_frame_at_address};
 use crate::memory::address::VirtualAddress;
 use crate::memory::virt::map_kernel_stack;
 use crate::memory::virt::page_table::PageTableReference;
@@ -159,14 +161,24 @@ pub fn kfork(dest: extern "C" fn() -> ()) -> ProcessID {
 }
 
 pub fn clean_up_process(id: ProcessID) {
-  let task = {
+  let task_lock = {
     let mut task_map = TASK_MAP.write();
     match task_map.remove(&id) {
       Some(t) => t,
       None => return,
     }
   };
-  crate::kprintln!("Clean up {:?}", task.read().get_id());
+  let mut task = task_lock.write();
+  crate::kprintln!("Clean up {:?}", task.get_id());
+  // Remove all references to memory held by the executable
+  // TODO: remove mmap
+  let pagedir_address = task.page_directory.get_address();
+  let kstack_address = task.get_kernel_stack().as_ptr() as usize;
+  super::paging::unmap_terminated_task(pagedir_address, VirtualAddress::new(kstack_address));
+  // Free the frames that were allocated to support the task itself, like the
+  // page directory
+  crate::kprintln!("Clean up pagedir: {:?}", pagedir_address);
+  free_frame(AllocatedFrame::new(pagedir_address)).unwrap();
 }
 
 /// Execute a context switch to another process. If that process does not exist,
@@ -229,6 +241,7 @@ pub fn fork_page_directory(include_userspace: bool) -> PageTableReference {
 
   // Create a new page directory
   let directory_frame = physical::allocate_frame().unwrap().to_frame();
+  crate::kprintln!("  New Dirframe @ {:?}", directory_frame.get_address());
   let directory_scratch_space = UnmappedPage::map(directory_frame.get_address());
   let directory_table = page_table::PageTable::at_address(directory_scratch_space.virtual_address());
   directory_table.zero();

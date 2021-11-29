@@ -17,9 +17,9 @@ pub fn exec(path_str: &str, interp_mode: loaders::InterpretationMode) -> Result<
   let to_close = {
     let process_lock = get_current_process();
     let mut process = process_lock.write();
+    let heap_range = process.memory.get_heap_page_range();
     let old_exec = process.prepare_exec_mapping(env.segments);
     // Remove the old exec and mmap mappings:
-    let heap_range = process.memory.get_heap_page_range();
     super::paging::unmap_task(old_exec, heap_range);
 
     // Map a new stack frame, and push arguments onto it

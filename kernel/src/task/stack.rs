@@ -89,7 +89,7 @@ fn find_free_space(stacks: &RwLock<Vec<u8>>) -> usize {
 
 pub fn free_stack(stack: Box<[u8]>) {
   let box_ptr = Box::into_raw(stack);
-  let location = box_ptr as *mut u8 as  usize;
+  let location = box_ptr as *mut u8 as usize;
   let offset = (STACKS_TOP - location) / STACK_SIZE;
   free_index(&ALLOCATED_KERNEL_STACKS, offset);
 }
