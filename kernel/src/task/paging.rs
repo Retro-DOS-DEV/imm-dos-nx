@@ -187,11 +187,10 @@ pub fn share_kernel_page_directory(vaddr: VirtualAddress) {
 
   super::switching::for_each_process(|p| {
     let dir_address = p.read().page_directory.get_address();
-    let mapped_pagedir = UnmappedPage::map(dir_address);
-
-    let directory = PageTable::at_address(mapped_pagedir.virtual_address());
-    directory.get_mut(dir_index).set_address(frame_address);
-    directory.get_mut(dir_index).set_present();
+    with_inactive_page_table(dir_address, |directory| {
+      directory.get_mut(dir_index).set_address(frame_address);
+      directory.get_mut(dir_index).set_present();
+    });
   });
 }
 
@@ -265,44 +264,54 @@ pub fn unmap_task(exec_segments: Vec<ExecutionSegment>, heap_pages: Range<Virtua
 }
 
 pub fn unmap_terminated_task(pagedir_address: PhysicalAddress, kernel_stack: VirtualAddress) {
-  let directory_scratch_space = UnmappedPage::map(pagedir_address);
-  let directory_table = PageTable::at_address(directory_scratch_space.virtual_address());
-  for dir_entry in 0..0x300 {
-    if !directory_table.get(dir_entry).is_present() {
-      continue;
-    }
-    let table_address = directory_table.get(dir_entry).get_address();
-    let table_scratch_space = UnmappedPage::map(table_address);
-    let table = PageTable::at_address(table_scratch_space.virtual_address());
-    for table_entry in 0..0x400 {
-      if !table.get(table_entry).is_present() || !table.get(table_entry).should_reclaim() {
+  with_inactive_page_table(pagedir_address, |directory| {
+    // Iterate over all userspace entries and free the frames, if they should be
+    // reclaimed. This will cover all executable code, heap, stack, and mmap.
+    for dir_entry in 0..0x300 {
+      if !directory.get(dir_entry).is_present() {
         continue;
       }
-      let frame_addr = table.get(table_entry).get_address();
-      let frame = AllocatedFrame::new(frame_addr);
-      free_frame(frame).unwrap();
+      let table_address = directory.get(dir_entry).get_address();
+      with_inactive_page_table(table_address, |table| {
+        for table_entry in 0..0x400 {
+          if !table.get(table_entry).is_present() || !table.get(table_entry).should_reclaim() {
+            continue;
+          }
+          let frame_addr = table.get(table_entry).get_address();
+          let frame = AllocatedFrame::new(frame_addr);
+          free_frame(frame).unwrap();
+        }
+      });
+      // Clean up the page table itself
+      free_frame(AllocatedFrame::new(table_address)).unwrap();
     }
-    free_frame(AllocatedFrame::new(table_address)).unwrap();
-  }
 
-  {
     crate::kprintln!("Free Kernel Stack at {:?}", kernel_stack);
     let kstack_dir_index = kernel_stack.get_page_directory_index();
-    if !directory_table.get(kstack_dir_index).is_present() {
+    if !directory.get(kstack_dir_index).is_present() {
       return;
     }
-    let table_address = directory_table.get(kstack_dir_index).get_address();
-    let table_scratch_space = UnmappedPage::map(table_address);
-    let table = PageTable::at_address(table_scratch_space.virtual_address());
-    let kstack_table_index = kernel_stack.get_page_table_index();
-    for offset in 0..STACK_SIZE_IN_PAGES {
-      let entry = kstack_table_index + offset;
-      if !table.get(entry).is_present() {
-        continue;
+    let table_address = directory.get(kstack_dir_index).get_address();
+    with_inactive_page_table(table_address, |table| {
+      let kstack_table_index = kernel_stack.get_page_table_index();
+      for offset in 0..STACK_SIZE_IN_PAGES {
+        let entry = kstack_table_index + offset;
+        if !table.get(entry).is_present() {
+          continue;
+        }
+        let frame_addr = table.get(entry).get_address();
+        let frame = AllocatedFrame::new(frame_addr);
+        free_frame(frame).unwrap();
       }
-      let frame_addr = table.get(entry).get_address();
-      let frame = AllocatedFrame::new(frame_addr);
-      free_frame(frame).unwrap();
-    }
-  }
+    });
+  });
+}
+
+pub fn with_inactive_page_table<F, R>(table_address: PhysicalAddress, f: F) -> R
+  where F: Fn(&mut PageTable) -> R {
+  let table_scratch_space = UnmappedPage::map(table_address);
+  let mut table = PageTable::at_address(
+    table_scratch_space.virtual_address(),
+  );
+  f(&mut table)
 }
