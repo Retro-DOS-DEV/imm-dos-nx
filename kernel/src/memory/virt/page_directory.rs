@@ -11,6 +11,7 @@ pub struct PermissionFlags(u8);
 impl PermissionFlags {
   pub const USER_ACCESS: u8 = 1;
   pub const WRITE_ACCESS: u8 = 2;
+  pub const NO_RECLAIM: u8 = 4;
 
   pub fn new(flags: u8) -> PermissionFlags {
     PermissionFlags(flags)
@@ -53,7 +54,7 @@ impl CurrentPageDirectory {
     if !entry.is_present() {
       return None;
     }
-    table.get_mut(table_index).clear_present();
+    table.get_mut(table_index).zero();
     invalidate_page(vaddr);
 
     let frame = AllocatedFrame::new(entry.get_address());
@@ -64,8 +65,10 @@ impl CurrentPageDirectory {
     let mut page_start = VirtualAddress::new(region.get_starting_address_as_usize());
     while region.contains_address(page_start) {
       match self.unmap(page_start) {
-        Some((frame, _)) => {
-          free_frame(frame).unwrap();
+        Some((frame, entry)) => {
+          if entry.should_reclaim() {
+            free_frame(frame).unwrap();
+          }
         },
         None => (),
       }
@@ -126,6 +129,9 @@ impl CurrentPageDirectory {
       if flags.as_u8() & PermissionFlags::USER_ACCESS != 0 {
         table.get_mut(table_index).set_user_access();
       }
+      if flags.as_u8() & PermissionFlags::NO_RECLAIM != 0 {
+        table.get_mut(table_index).set_no_reclaim();
+      }
     } else {
       let table = PageTable::at_address(table_address);
       let needs_invalidation = table.get(table_index).is_present();
@@ -136,6 +142,9 @@ impl CurrentPageDirectory {
       }
       if flags.as_u8() & PermissionFlags::USER_ACCESS != 0 {
         table.get_mut(table_index).set_user_access();
+      }
+      if flags.as_u8() & PermissionFlags::NO_RECLAIM != 0 {
+        table.get_mut(table_index).set_no_reclaim();
       }
       if needs_invalidation {
         invalidate_page(vaddr);

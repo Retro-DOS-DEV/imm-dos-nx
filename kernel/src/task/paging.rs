@@ -275,7 +275,7 @@ pub fn unmap_terminated_task(pagedir_address: PhysicalAddress, kernel_stack: Vir
     let table_scratch_space = UnmappedPage::map(table_address);
     let table = PageTable::at_address(table_scratch_space.virtual_address());
     for table_entry in 0..0x400 {
-      if !table.get(table_entry).is_present() {
+      if !table.get(table_entry).is_present() || !table.get(table_entry).should_reclaim() {
         continue;
       }
       let frame_addr = table.get(table_entry).get_address();

@@ -171,7 +171,6 @@ pub fn clean_up_process(id: ProcessID) {
   let mut task = task_lock.write();
   crate::kprintln!("Clean up {:?}", task.get_id());
   // Remove all references to memory held by the executable
-  // TODO: remove mmap
   let pagedir_address = task.page_directory.get_address();
   let kstack_address = task.get_kernel_stack().as_ptr() as usize;
   super::paging::unmap_terminated_task(pagedir_address, VirtualAddress::new(kstack_address));

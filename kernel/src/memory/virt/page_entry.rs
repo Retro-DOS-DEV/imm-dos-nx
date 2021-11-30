@@ -11,7 +11,12 @@ pub const ENTRY_WRITE_ACCESS: u32 = 1 << 1;
 pub const ENTRY_PRESENT: u32 = 1;
 
 // Custom flags:
+/// Indicates Copy-on-Write behavior. When writing to the page triggers a fault,
+/// another duplicate frame should be allocated, with the entry remapped.
 pub const ENTRY_COW: u32 = 1 << 9;
+/// Indicates that when the entry is unmapped, it should NOT be freed. This is
+/// useful for memory-mapped hardware that should not be re-allocated as RAM
+pub const ENTRY_NO_RECLAIM: u32 = 1 << 10;
 
 /**
  * We can use the same struct for the Page Directory and each Page Table.
@@ -100,5 +105,17 @@ impl PageTableEntry {
 
   pub fn clear_cow(&mut self) {
     self.0 &= !ENTRY_COW
+  }
+
+  pub fn should_reclaim(&self) -> bool {
+    self.0 & ENTRY_NO_RECLAIM == 0
+  }
+
+  pub fn set_no_reclaim(&mut self) {
+    self.0 |= ENTRY_NO_RECLAIM;
+  }
+
+  pub fn clear_no_reclaim(&mut self) {
+    self.0 &= !ENTRY_NO_RECLAIM;
   }
 }

@@ -345,7 +345,7 @@ pub fn handle_page_fault(stack_frame: &StackFrame, address: usize) -> bool {
       pagedir.map_explicit(
         PhysicalAddress::new(address),
         VirtualAddress::new(address & 0xfffff000),
-        PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS),
+        PermissionFlags::new(PermissionFlags::USER_ACCESS | PermissionFlags::WRITE_ACCESS | PermissionFlags::NO_RECLAIM),
       );
     } else {
       // currently running in an inactive vterm, map to the backup page

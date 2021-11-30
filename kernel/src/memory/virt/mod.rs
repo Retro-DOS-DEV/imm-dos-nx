@@ -104,6 +104,7 @@ pub fn map_kernel_stack(stack_range: core::ops::Range<VirtualAddress>) {
   let mut stack_pages = (crate::task::stack::STACK_SIZE / 0x1000) - 1;
   while stack_pages > 0 {
     let stack_frame = physical::allocate_frame().unwrap();
+    #[cfg(not(test))]
     crate::kprintln!("  New kernel stack @ {:?}", stack_frame.get_address());
     let address = stack_range.end - (0x1000 * stack_pages);
     CurrentPageDirectory::get().map(stack_frame, address, page_directory::PermissionFlags::empty());
